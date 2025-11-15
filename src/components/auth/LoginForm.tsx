@@ -32,11 +32,8 @@ const LoginForm = () => {
           title: "Login Successful",
           description: "Welcome back!",
         });
-        if (user.role === 'admin' || user.role === 'consultant') {
-          navigate("/admin");
-        } else {
-          navigate("/");
-        }
+        // All users have same permissions - redirect to home (which redirects to /sites)
+        navigate("/");
       } else {
         toast({
           title: "Login Failed",

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/hooks/useAuth';
 import LoginPage from '@/pages/LoginPage';
-import Index from '@/pages/Index';
+import SitesPage from '@/pages/Sites';
 import { authApi, usersApi } from '@/services/apiService';
 
 // Mock the API service
@@ -71,15 +71,15 @@ describe('ProtectedRoute', () => {
     const queryClient = createTestQueryClient();
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/']}>
+        <MemoryRouter initialEntries={['/sites']}>
           <AuthProvider>
-            <Index />
+            <SitesPage />
           </AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>
     );
 
-    // Should authenticate and render index page
+    // Should authenticate and render sites page
     await waitFor(() => {
       expect(authApi.getProfile).toHaveBeenCalled();
     });

@@ -3,7 +3,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
-import AdminPage from '@/pages/AdminPage';
 import { authApi, usersApi } from '@/services/apiService';
 
 // Mock the API service
@@ -28,24 +27,24 @@ const createTestQueryClient = () =>
     },
   });
 
-// Test component that checks access
-const AdminRouteTest = () => {
+// Test component that verifies all users can access protected routes
+const ProtectedRouteTest = () => {
   const { user } = useAuth();
 
-  if (!user || (user.role !== 'admin' && user.role !== 'consultant')) {
-    return <div data-testid="redirect">Redirected</div>;
+  if (!user) {
+    return <div data-testid="not-authenticated">Not Authenticated</div>;
   }
 
-  return <AdminPage />;
+  return <div data-testid="authenticated">Authenticated: {user.email}</div>;
 };
 
-describe('AdminRoute', () => {
+describe('ProtectedRoute - All Users Have Equal Access', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
   });
 
-  it('should allow admin access to admin route', async () => {
+  it('should allow admin access to protected routes', async () => {
     const mockAdmin = {
       email: 'admin@example.com',
       role: 'admin' as const,
@@ -59,21 +58,22 @@ describe('AdminRoute', () => {
     const queryClient = createTestQueryClient();
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin']}>
+        <MemoryRouter initialEntries={['/sites']}>
           <AuthProvider>
-            <AdminRouteTest />
+            <ProtectedRouteTest />
           </AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>
     );
 
-    // Should render admin page (not redirect)
+    // Should render authenticated page
     await waitFor(() => {
-      expect(screen.queryByTestId('redirect')).not.toBeInTheDocument();
+      expect(screen.getByTestId('authenticated')).toBeInTheDocument();
+      expect(screen.getByText(/admin@example.com/)).toBeInTheDocument();
     });
   });
 
-  it('should allow consultant access to admin route', async () => {
+  it('should allow consultant access to protected routes', async () => {
     const mockConsultant = {
       email: 'consultant@example.com',
       role: 'consultant' as const,
@@ -87,20 +87,21 @@ describe('AdminRoute', () => {
     const queryClient = createTestQueryClient();
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin']}>
+        <MemoryRouter initialEntries={['/sites']}>
           <AuthProvider>
-            <AdminRouteTest />
+            <ProtectedRouteTest />
           </AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>
     );
 
     await waitFor(() => {
-      expect(screen.queryByTestId('redirect')).not.toBeInTheDocument();
+      expect(screen.getByTestId('authenticated')).toBeInTheDocument();
+      expect(screen.getByText(/consultant@example.com/)).toBeInTheDocument();
     });
   });
 
-  it('should deny site_manager access to admin route', async () => {
+  it('should allow site_manager access to protected routes', async () => {
     const mockSiteManager = {
       email: 'manager@example.com',
       role: 'site_manager' as const,
@@ -114,17 +115,35 @@ describe('AdminRoute', () => {
     const queryClient = createTestQueryClient();
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/admin']}>
+        <MemoryRouter initialEntries={['/sites']}>
           <AuthProvider>
-            <AdminRouteTest />
+            <ProtectedRouteTest />
           </AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>
     );
 
     await waitFor(() => {
-      // Should redirect (show redirect message)
-      expect(screen.getByTestId('redirect')).toBeInTheDocument();
+      // All users now have equal access
+      expect(screen.getByTestId('authenticated')).toBeInTheDocument();
+      expect(screen.getByText(/manager@example.com/)).toBeInTheDocument();
+    });
+  });
+
+  it('should deny unauthenticated users access to protected routes', async () => {
+    const queryClient = createTestQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/sites']}>
+          <AuthProvider>
+            <ProtectedRouteTest />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('not-authenticated')).toBeInTheDocument();
     });
   });
 });

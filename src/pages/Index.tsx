@@ -23,6 +23,19 @@ import { useProfile } from "@/hooks/useProfile";
 // Chart skeleton placeholder for loading state
 const ChartSkeleton = () => <Skeleton className="h-96 rounded-lg" />;
 
+// Stub components for removed Asset functionality
+const AssetTable = () => (
+  <div className="p-4 text-center text-muted-foreground">
+    Assets have been removed from this application
+  </div>
+);
+
+const AssetDetailPanel = () => (
+  <div className="p-4 text-center text-muted-foreground">
+    Asset details have been removed from this application
+  </div>
+);
+
 // Custom hook for lazy loading components with intersection observer
 const useLazyLoad = () => {
   const ref = useRef<HTMLDivElement | null>(null);
