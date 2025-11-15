@@ -7,6 +7,7 @@ import { ProjectFilesSection } from "@/components/sites/ProjectFilesSection";
 import { useMasterData } from "@/hooks/useMasterData";
 import { useProjects } from "@/hooks/useData";
 import { useSiteManagement } from "@/hooks/useSiteManagement";
+import { useProjectManagement } from "@/hooks/useProjectManagement";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth.tsx";
@@ -29,7 +30,7 @@ const SitesPage = () => {
   const { sites: sitesData, addSite, updateSite } = useSiteManagement();
   const sitesLoading = false; // useSiteManagement doesn't expose loading yet
   const sitesError = null; // useSiteManagement doesn't expose error yet
-  const { data: projectsData, loading: projectsLoading } = useProjects();
+  const { projects: projectsData, updateProjectCode, updateProjectDescription, updateProjectStatus, loading: projectsLoading } = useProjectManagement();
   const { user } = useAuth();
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -474,10 +475,12 @@ const SitesPage = () => {
                 {selectedSite.projects && selectedSite.projects.length > 0 ? (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {selectedSite.projects.map((project) => (
-                      <ProjectCard 
-                        key={project.projectCode} 
-                        project={project} 
-                        onClick={() => handleProjectClick(project)} 
+                      <ProjectCard
+                        key={project.projectCode}
+                        project={project}
+                        onClick={() => handleProjectClick(project)}
+                        onEditCode={(newCode) => updateProjectCode(project.projectCode, newCode)}
+                        onEditDescription={(newDesc) => updateProjectDescription(project.projectCode, newDesc)}
                       />
                     ))}
                   </div>
