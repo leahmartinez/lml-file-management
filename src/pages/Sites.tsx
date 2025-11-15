@@ -4,6 +4,7 @@ import { Navigation } from "@/components/Navigation";
 import SiteCard from "@/components/site-files/SiteCard";
 import ProjectCard from "@/components/site-files/ProjectCard";
 import { ProjectFilesSection } from "@/components/sites/ProjectFilesSection";
+import { ProjectDetailModal } from "@/components/sites/ProjectDetailModal";
 import { useMasterData } from "@/hooks/useMasterData";
 import { useProjects } from "@/hooks/useData";
 import { useSiteManagement } from "@/hooks/useSiteManagement";
@@ -34,6 +35,7 @@ const SitesPage = () => {
   const { user } = useAuth();
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectDetailModalOpen, setProjectDetailModalOpen] = useState(false);
   const [filterState, setFilterState] = useState("all");
   const [projectCodeSearch, setProjectCodeSearch] = useState("");
   const [siteNameSearch, setSiteNameSearch] = useState("");
@@ -478,10 +480,10 @@ const SitesPage = () => {
                       <ProjectCard
                         key={project.projectCode}
                         project={project}
-                        onClick={() => handleProjectClick(project)}
-                        onEditCode={(newCode) => updateProjectCode(project.projectCode, newCode)}
-                        onEditDescription={(newDesc) => updateProjectDescription(project.projectCode, newDesc)}
-                        onEditStatus={(newStatus) => updateProjectStatus(project.projectCode, newStatus)}
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setProjectDetailModalOpen(true);
+                        }}
                       />
                     ))}
                   </div>
@@ -527,6 +529,15 @@ const SitesPage = () => {
       </div>
 
       {/* Modals */}
+      <ProjectDetailModal
+        project={selectedProject}
+        isOpen={projectDetailModalOpen}
+        onClose={() => setProjectDetailModalOpen(false)}
+        onEditCode={(newCode) => selectedProject && updateProjectCode(selectedProject.projectCode, newCode)}
+        onEditDescription={(newDesc) => selectedProject && updateProjectDescription(selectedProject.projectCode, newDesc)}
+        onEditStatus={(newStatus) => selectedProject && updateProjectStatus(selectedProject.projectCode, newStatus)}
+      />
+
       <AddSiteModal
         open={isAddSiteModalOpen}
         onClose={() => setIsAddSiteModalOpen(false)}
