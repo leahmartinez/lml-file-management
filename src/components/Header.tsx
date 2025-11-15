@@ -41,8 +41,8 @@ export const Header = () => {
               <Building2 className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">VerticalCorp</h1>
-              <p className="text-xs text-muted-foreground">Transport Portfolio</p>
+              <h1 className="text-lg font-semibold text-foreground">LML Lift Consultants</h1>
+              <p className="text-xs text-muted-foreground">Work Management</p>
             </div>
           </div>
 

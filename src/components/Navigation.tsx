@@ -1,28 +1,21 @@
 import { Link, useLocation } from "react-router-dom";
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
 
 interface NavigationProps {
   className?: string;
 }
 
 const navItems = [
-  { label: "Dashboard", path: "/" },
-  { label: "Portfolio", path: "/portfolio" },
-  { label: "Sites", path: "/sites" },
+  { label: "Projects", path: "/sites" },
   { label: "Contacts", path: "/contact" },
 ];
 
 const NavigationComponent = ({ className }: NavigationProps) => {
   const location = useLocation();
-  const { user } = useAuth();
 
-  // Memoize navigation items to prevent array recreation on every render
-  const allNavItems = useMemo(() => [
-    ...navItems,
-    ...(user?.role === 'admin' || user?.role === 'consultant' ? [{ label: "Admin", path: "/admin" }] : []),
-  ], [user?.role]);
+  // Simplified navigation - all users have same permissions
+  const allNavItems = navItems;
 
   return (
     <nav className={cn("border-b border-border bg-card", className)}>
