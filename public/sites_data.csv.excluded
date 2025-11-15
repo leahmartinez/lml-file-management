@@ -1,0 +1,39 @@
+building,projectCode,address,name,state
+Tower A,PW016,"123 High Street, Sydney NSW 2000",Tower A Lift Upgrade,New South Wales
+Tower A,PW115,"123 High Street, Sydney NSW 2000",Tower A Moving Walk Replacement,New South Wales
+Tower B,PW080,"456 George Street, Sydney NSW 2000",Tower B Escalator Modernisation,New South Wales
+Tower C,PW101,"789 Pitt Street, Sydney NSW 2000",Tower C New Elevator Installation,Victoria
+Harbour Plaza,PW201,"321 Harbour Drive, Sydney NSW 2000",Harbour Plaza Modernisation,New South Wales
+Harbour Plaza,PW202,"321 Harbour Drive, Sydney NSW 2000",Harbour Plaza Service Lift Upgrade,New South Wales
+Central Tower,PW301,"555 Collins Street, Melbourne VIC 3000",Central Tower Elevator Replacement,Victoria
+Central Tower,PW302,"555 Collins Street, Melbourne VIC 3000",Central Tower Escalator Upgrade,Victoria
+Riverside Complex,PW401,"88 Flinders Street, Melbourne VIC 3000",Riverside Complex Lift Modernisation,Victoria
+Marina Heights,PW501,"777 Queen Street, Brisbane QLD 4000",Marina Heights Elevator Upgrade,Queensland
+Marina Heights,PW502,"777 Queen Street, Brisbane QLD 4000",Marina Heights Escalator Replacement,Queensland
+City Centre,PW601,"999 Adelaide Street, Brisbane QLD 4000",City Centre Lift Installation,Queensland
+Parliament Square,PW701,"111 North Terrace, Adelaide SA 5000",Parliament Square Elevator Modernisation,South Australia
+Parliament Square,PW702,"111 North Terrace, Adelaide SA 5000",Parliament Square Escalator Upgrade,South Australia
+Westgate Tower,PW801,"222 St Georges Terrace, Perth WA 6000",Westgate Tower Lift Replacement,Western Australia
+Westgate Tower,PW802,"222 St Georges Terrace, Perth WA 6000",Westgate Tower Moving Walk Installation,Western Australia
+Canberra Centre,PW901,"333 London Circuit, Canberra ACT 2601",Canberra Centre Elevator Upgrade,ACT
+Parliament House,PW1001,"1 Parliament Drive, Canberra ACT 2600",Parliament House Lift Modernisation,ACT
+Parliament House,PW1002,"1 Parliament Drive, Canberra ACT 2600",Parliament House Escalator Replacement,ACT
+Darwin Plaza,PW1101,"444 Smith Street, Darwin NT 0800",Darwin Plaza Elevator Installation,Northern Territory
+Hobart Tower,PW1201,"555 Elizabeth Street, Hobart TAS 7000",Hobart Tower Lift Modernisation,Tasmania
+Hobart Tower,PW1202,"555 Elizabeth Street, Hobart TAS 7000",Hobart Tower Escalator Upgrade,Tasmania
+Auckland Central,PW1301,"666 Queen Street, Auckland 1010",Auckland Central Elevator Replacement,New Zealand
+Auckland Central,PW1302,"666 Queen Street, Auckland 1010",Auckland Central Escalator Modernisation,New Zealand
+Wellington Plaza,PW1401,"777 Lambton Quay, Wellington 6011",Wellington Plaza Lift Installation,New Zealand
+Sydney Harbour,PW1501,"888 Circular Quay, Sydney NSW 2000",Sydney Harbour Elevator Upgrade,New South Wales
+Sydney Harbour,PW1502,"888 Circular Quay, Sydney NSW 2000",Sydney Harbour Escalator Modernisation,New South Wales
+Melbourne Central,PW1601,"999 Swanston Street, Melbourne VIC 3000",Melbourne Central Lift Replacement,Victoria
+Brisbane Square,PW1701,"111 Creek Street, Brisbane QLD 4000",Brisbane Square Elevator Modernisation,Queensland
+Brisbane Square,PW1702,"111 Creek Street, Brisbane QLD 4000",Brisbane Square Escalator Upgrade,Queensland
+Perth Central,PW1801,"333 Murray Street, Perth WA 6000",Perth Central Lift Installation,Western Australia
+Adelaide Tower,PW1901,"444 King William Street, Adelaide SA 5000",Adelaide Tower Elevator Upgrade,South Australia
+Adelaide Tower,PW1902,"444 King William Street, Adelaide SA 5000",Adelaide Tower Escalator Replacement,South Australia
+Canberra Tower,PW2001,"555 Constitution Avenue, Canberra ACT 2601",Canberra Tower Lift Modernisation,ACT
+Darwin Centre,PW2101,"666 Mitchell Street, Darwin NT 0800",Darwin Centre Elevator Installation,Northern Territory
+Hobart Central,PW2201,"777 Macquarie Street, Hobart TAS 7000",Hobart Central Lift Upgrade,Tasmania
+Christchurch Plaza,PW2301,"888 Colombo Street, Christchurch 8011",Christchurch Plaza Elevator Modernisation,New Zealand
+Christchurch Plaza,PW2302,"888 Colombo Street, Christchurch 8011",Christchurch Plaza Escalator Replacement,New Zealand

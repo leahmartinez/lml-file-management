@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LiftWatch Asset View</title>
+    <meta name="description" content="Vertical Transport Asset Management System for building managers, consultants, and contractors" />
+    <meta name="author" content="LML" />
+
+    <meta property="og:title" content="LiftWatch Asset View" />
+    <meta property="og:description" content="Vertical Transport Asset Management System" />
+    <meta property="og:type" content="website" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Load runtime configuration from Static Web Apps environment variables
+      // These are injected as window properties by Azure Static Web Apps
+      window.__apiConfig = {
+        apiBaseUrl: window.__STATIC_WEB_APPS_APP_CONFIG__?.apiBaseUrl ||
+                   localStorage.getItem('apiBaseUrl') ||
+                   'https://liftwatch-api-flex.azurewebsites.net/api'
+      };
+      // Store in localStorage as fallback for future page loads
+      localStorage.setItem('apiBaseUrl', window.__apiConfig.apiBaseUrl);
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "name": "liftwatch-api",
+  "version": "1.0.0",
+  "description": "Azure Functions API for LiftWatch Asset View",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "clean": "node -e \"const fs=require('fs'); const path=require('path'); if (fs.existsSync('dist')) { fs.rmSync('dist', { recursive: true, force: true }); console.log('Cleaned dist folder'); }\"",
+    "build": "npm run clean && tsc && npm run copy-configs && npm run generate-functions",
+    "copy-configs": "node -e \"const fs=require('fs'); const path=require('path'); fs.copyFileSync('host.json','dist/host.json'); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); pkg.main='index.js'; fs.writeFileSync('dist/package.json',JSON.stringify(pkg,null,2)); console.log('Copied host.json and package.json to dist/');\"",
+    "generate-functions": "node generate-function-jsons.js",
+    "watch": "tsc -w",
+    "prestart": "npm run build",
+    "start": "func start",
+    "dev": "ts-node server.ts",
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "@azure/communication-email": "^1.1.0",
+    "@azure/data-tables": "^13.1.0",
+    "@azure/functions": "^4.9.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.x",
+    "azure-functions-core-tools": "^4",
+    "typescript": "^5.3.0"
+  }
+}

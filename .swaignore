@@ -1,0 +1,38 @@
+# Azure Static Web Apps ignore file
+# Exclude unnecessary files from deployment
+
+# Source maps (if any are generated)
+*.map
+
+# Development files
+*.local
+.env
+.env.local
+.env.*.local
+
+# Test files
+**/__tests__/**
+**/*.test.*
+**/*.spec.*
+
+# Documentation
+*.md
+!README.md
+
+# Git files
+.git/**
+.gitignore
+
+# CI/CD files (not needed in deployment)
+.github/**
+
+# Development configs
+.vscode/**
+.idea/**
+
+# Node modules (shouldn't be in dist, but just in case)
+node_modules/**
+
+# Build artifacts that shouldn't be deployed
+dist-ssr/**
+

@@ -1,0 +1,8 @@
+party,level,state,site,contractor,name,role,email,phone
+Us,State,NSW,,LML,John Smith,Senior Consultant,john.smith@lml.com,0412345678
+Us,State,VIC,,LML,Jane Doe,Senior Consultant,jane.doe@lml.com,0412345679
+Us,Head Office,,,LML,Peter Pan,Managing Director,peter.pan@lml.com,0412345680
+Client,Executive,,,Tower A,Sarah Jones,Building Manager,sarah.jones@towera.com,0412345681
+Client,Site,,Tower A,,David Lee,Facilities Manager,david.lee@towera.com,0412345682
+Contractor,State,NSW,TKE,,Michael Brown,State Manager,michael.brown@tke.com,0412345683
+Contractor,State,NSW,KONE,,Chris Wilson,State Manager,chris.wilson@kone.com,0412345684

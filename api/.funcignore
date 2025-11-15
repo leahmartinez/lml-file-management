@@ -1,0 +1,13 @@
+*.ts
+!*.d.ts
+*.map
+node_modules
+.vscode
+.git
+.gitignore
+*.md
+*.json.example
+local.settings.json
+test-*.ts
+server.ts
+test-backend.ts

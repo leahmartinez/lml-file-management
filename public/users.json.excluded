@@ -1,0 +1,32 @@
+[
+  {
+    "username": "national_manager",
+    "password": "password",
+    "role": "national_manager",
+    "sites": []
+  },
+  {
+    "username": "site_manager_a",
+    "password": "password",
+    "role": "site_manager",
+    "sites": ["Tower A"]
+  },
+  {
+    "username": "site_manager_b",
+    "password": "password",
+    "role": "site_manager",
+    "sites": ["Tower B"]
+  },
+  {
+    "username": "admin",
+    "password": "password",
+    "role": "admin",
+    "sites": []
+  },
+  {
+    "username": "consultant",
+    "password": "password",
+    "role": "consultant",
+    "sites": []
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "master_data.csv": "https://liftwatchdata.blob.core.windows.net/liftwatch-data/data/master_data.csv",
+  "sites_data.csv": "https://liftwatchdata.blob.core.windows.net/liftwatch-data/data/sites_data.csv",
+  "contacts_data.csv": "https://liftwatchdata.blob.core.windows.net/liftwatch-data/data/contacts_data.csv",
+  "users.json": "https://liftwatchdata.blob.core.windows.net/liftwatch-data/data/users.json",
+  "PW154 Progress Report 1.pdf": "https://liftwatchdata.blob.core.windows.net/liftwatch-data/data/PW154%20Progress%20Report%201.pdf"
+}

@@ -1,0 +1,23 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(npm run test:run:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm test:*)",
+      "Bash(test:*)",
+      "Bash(gh run:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(npm view:*)",
+      "Bash(del:*)",
+      "Bash(az functionapp config appsettings list:*)",
+      "Bash(func azure functionapp publish:*)",
+      "Bash(npm run build:dev:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
