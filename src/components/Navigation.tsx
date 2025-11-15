@@ -10,9 +10,8 @@ interface NavigationProps {
 const navItems = [
   { label: "Dashboard", path: "/" },
   { label: "Portfolio", path: "/portfolio" },
-  { label: "Reports", path: "/reports" },
-  { label: "Contacts", path: "/contact" },
   { label: "Sites", path: "/sites" },
+  { label: "Contacts", path: "/contact" },
 ];
 
 const NavigationComponent = ({ className }: NavigationProps) => {

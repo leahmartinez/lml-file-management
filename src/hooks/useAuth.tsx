@@ -2,6 +2,42 @@ import { useState, useEffect, createContext, useContext, useMemo, useCallback } 
 import { authLog, errorLog } from '@/lib/logger';
 import { authApi, usersApi, ApiUser } from '@/services/apiService';
 
+// Mock users for local development
+const MOCK_USERS: Record<string, { password: string; role: User['role']; sites: string[] }> = {
+  'admin@lml.com': {
+    password: 'password',
+    role: 'admin',
+    sites: [],
+  },
+  'consultant@lml.com': {
+    password: 'password',
+    role: 'consultant',
+    sites: [],
+  },
+  'manager@lml.com': {
+    password: 'password',
+    role: 'national_manager',
+    sites: [],
+  },
+  'site_manager_a@lml.com': {
+    password: 'password',
+    role: 'site_manager',
+    sites: ['Melbourne Central'],
+  },
+  'site_manager_b@lml.com': {
+    password: 'password',
+    role: 'site_manager',
+    sites: ['Sydney Tower'],
+  },
+};
+
+/**
+ * Check if we're using mock authentication (local development mode)
+ */
+function useMockAuth(): boolean {
+  return import.meta.env.VITE_USE_MOCK_DATA === 'true';
+}
+
 // Updated User interface to match API (uses email instead of username)
 export interface User {
   email: string;
@@ -32,6 +68,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const loadUser = async () => {
       authLog("useAuth: Loading user from token...");
+
+      // In mock mode, skip API calls
+      if (useMockAuth()) {
+        authLog("useAuth: Using mock authentication mode");
+        setIsLoading(false);
+        return;
+      }
 
       // Check if token exists before making API call
       // This prevents unnecessary API calls for unauthenticated users
@@ -75,9 +118,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loadUser();
   }, []);
 
-  // Load all users from API
+  // Load all users from API or mock data
   const refreshUsers = useCallback(async () => {
     try {
+      // Use mock users in local development mode
+      if (useMockAuth()) {
+        authLog("useAuth: Loading mock users...");
+        const mockUsers: User[] = Object.entries(MOCK_USERS).map(([email, userData]) => ({
+          email,
+          role: userData.role,
+          sites: userData.sites,
+        }));
+        setAllUsers(mockUsers);
+        authLog("useAuth: Mock users loaded:", mockUsers.length);
+        return;
+      }
+
+      // Use API for real users
       authLog("useAuth: Fetching all users from API...");
       const users = await usersApi.getAllUsers();
       authLog("useAuth: Users loaded from API:", users.length);
@@ -95,6 +152,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     authLog("useAuth: Login attempt for email:", email);
 
     try {
+      // Use mock authentication if enabled
+      if (useMockAuth()) {
+        const mockUser = MOCK_USERS[email];
+        if (!mockUser || mockUser.password !== password) {
+          authLog("useAuth: Mock auth failed - invalid credentials");
+          return null;
+        }
+
+        authLog("useAuth: Mock login successful");
+        const loggedInUser: User = {
+          email,
+          role: mockUser.role,
+          sites: mockUser.sites,
+          lastLogin: new Date().toISOString(),
+        };
+
+        setUser(loggedInUser);
+        // Store mock auth in localStorage
+        localStorage.setItem('jwt_token', `mock_token_${email}`);
+        return loggedInUser;
+      }
+
+      // Use API for real authentication
       const response = await authApi.login(email, password);
       authLog("useAuth: Login successful");
 

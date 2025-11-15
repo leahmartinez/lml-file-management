@@ -1,13 +1,14 @@
 /**
  * Data Service Layer
- * 
- * Abstracts data fetching from CSV or API.
- * This allows easy switching between data sources without changing component code.
+ *
+ * Abstracts data fetching from CSV, API, or Mock data.
+ * Supports local development without backend/API.
  */
 
 import Papa from 'papaparse';
 import { DataSourceConfig, Asset, Site, Project, Contact, DataHierarchy } from '@/types/data';
 import { dataSourceConfig } from '@/config/dataSource';
+import { mockSites, mockProjects } from '@/test/mockData';
 
 /**
  * Parse CSV file and return data
@@ -92,15 +93,27 @@ async function fetchAPI<T>(endpoint: string): Promise<T[]> {
 }
 
 /**
- * Generic data fetcher that switches between CSV and API
+ * Check if we're using mock data (local development mode)
+ */
+function useMockData(): boolean {
+  return import.meta.env.VITE_USE_MOCK_DATA === 'true';
+}
+
+/**
+ * Generic data fetcher that switches between CSV, API, and Mock data
  */
 async function fetchData<T>(config: { csvPath?: string; apiEndpoint?: string }): Promise<T[]> {
+  // In local development mode, skip API/CSV and return empty (will be overridden by specific functions)
+  if (useMockData()) {
+    return [];
+  }
+
   if (dataSourceConfig.type === 'api' && config.apiEndpoint) {
     return fetchAPI<T>(config.apiEndpoint);
   } else if (dataSourceConfig.type === 'csv' && config.csvPath) {
     return fetchCSV<T>(config.csvPath);
   }
-  
+
   throw new Error('No valid data source configured');
 }
 
@@ -238,6 +251,11 @@ export const dataService = {
    * Fetch all sites
    */
   async fetchSites(): Promise<Site[]> {
+    // Use mock data in local development mode
+    if (useMockData()) {
+      return mockSites;
+    }
+
     const rawData = await fetchData<any>({
       csvPath: dataSourceConfig.csvPaths?.sites,
       apiEndpoint: dataSourceConfig.endpoints?.sites,
@@ -247,9 +265,14 @@ export const dataService = {
 
   /**
    * Fetch all projects
-   * Projects are extracted from the same sites_data.csv file
+   * Projects are extracted from the same sites_data.csv file or use mock data
    */
   async fetchProjects(): Promise<Project[]> {
+    // Use mock data in local development mode
+    if (useMockData()) {
+      return mockProjects;
+    }
+
     const rawData = await fetchData<any>({
       csvPath: dataSourceConfig.csvPaths?.sites, // Use sites CSV as projects are in the same file
       apiEndpoint: dataSourceConfig.endpoints?.projects,
@@ -259,8 +282,15 @@ export const dataService = {
 
   /**
    * Fetch all assets
+   * NOTE: Assets have been removed from LML File Management
+   * Keeping this for backward compatibility - returns empty array
    */
   async fetchAssets(): Promise<Asset[]> {
+    // Assets are no longer used in LML File Management
+    if (useMockData()) {
+      return [];
+    }
+
     const rawData = await fetchData<any>({
       csvPath: dataSourceConfig.csvPaths?.assets,
       apiEndpoint: dataSourceConfig.endpoints?.assets,
