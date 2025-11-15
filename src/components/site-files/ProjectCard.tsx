@@ -1,19 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FolderKanban, Calendar, FileText, Edit2, Check, X } from "lucide-react";
-import { Project } from "@/types/data";
+import { Project, ProjectStatus } from "@/types/data";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 interface ProjectCardProps {
   project: Project;
   onClick: () => void;
   onEditCode?: (newCode: string) => void;
   onEditDescription?: (newDescription: string) => void;
+  onEditStatus?: (newStatus: ProjectStatus) => void;
 }
 
-const ProjectCard = ({ project, onClick, onEditCode, onEditDescription }: ProjectCardProps) => {
+const PROJECT_STATUSES: ProjectStatus[] = ['Active', 'On Hold', 'Completed', 'Archived'];
+
+const ProjectCard = ({ project, onClick, onEditCode, onEditDescription, onEditStatus }: ProjectCardProps) => {
   const fileCount = project.files?.length || 0;
   const assetCount = project.assets?.length || 0;
   const [isEditingCode, setIsEditingCode] = useState(false);
@@ -170,10 +174,25 @@ const ProjectCard = ({ project, onClick, onEditCode, onEditDescription }: Projec
             </div>
           </div>
 
-          {/* Status Badge */}
-          {project.status && (
+          {/* Status Selector */}
+          {project.status && onEditStatus ? (
+            <Select value={project.status} onValueChange={(value) => {
+              onEditStatus(value as ProjectStatus);
+            }}>
+              <SelectTrigger className="w-32" onClick={(e) => e.stopPropagation()}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent onClick={(e) => e.stopPropagation()}>
+                {PROJECT_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : project.status ? (
             <Badge variant="outline" className="text-xs">{project.status}</Badge>
-          )}
+          ) : null}
         </div>
       </CardHeader>
 

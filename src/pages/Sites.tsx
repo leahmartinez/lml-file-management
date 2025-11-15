@@ -481,6 +481,7 @@ const SitesPage = () => {
                         onClick={() => handleProjectClick(project)}
                         onEditCode={(newCode) => updateProjectCode(project.projectCode, newCode)}
                         onEditDescription={(newDesc) => updateProjectDescription(project.projectCode, newDesc)}
+                        onEditStatus={(newStatus) => updateProjectStatus(project.projectCode, newStatus)}
                       />
                     ))}
                   </div>
