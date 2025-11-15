@@ -18,6 +18,16 @@ export type ProjectState = 'Victoria' | 'NSW' | 'South Australia' | 'Queensland'
 export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'Archived';
 
 /**
+ * Site Status - Status of a site/location
+ */
+export type SiteStatus = 'Active' | 'Completed';
+
+/**
+ * Project Stage Status - Status of a project stage
+ */
+export type ProjectStageStatus = 'Not Started' | 'In Progress' | 'Ready for Invoice' | 'Complete';
+
+/**
  * Project Stage Names - Fixed 5 stages for all projects
  */
 export type ProjectStageName =
@@ -26,6 +36,21 @@ export type ProjectStageName =
   | 'Tender'
   | 'Contract Draft'
   | 'Project Management';
+
+/**
+ * Unit/Property - A unit or property within a site
+ * Tracks individual floors, units, or locations within a building
+ */
+export interface Unit {
+  id: string;
+  name: string; // Unit identifier (e.g., "Unit 1A", "Floor 3", "Level 5")
+  description?: string; // Unit description
+  location?: string; // Location within building (e.g., "North Wing")
+  count?: number; // Count if multiple units (e.g., 5 units)
+  siteName: string; // Links to Site via building name
+  createdAt: string; // ISO date string
+  updatedAt?: string; // ISO date string
+}
 
 /**
  * Project File - File attached to a project stage
@@ -60,6 +85,7 @@ export interface ProjectStage {
   files: ProjectFile[]; // Files specific to this stage
   order: number; // Display order (1-5)
   description?: string; // Stage description
+  status: ProjectStageStatus; // Status of this stage
   createdAt: string; // ISO date string
   updatedAt?: string; // ISO date string
 }
@@ -109,6 +135,8 @@ export interface Site {
   city?: string;
   country?: string;
   description?: string; // Rich text site information
+  status?: SiteStatus; // Site status (Active/Completed)
+  units?: Unit[]; // Units/properties within this site
   projects: Project[]; // Projects at this site
   contacts?: string[]; // Assigned contact emails (users or external)
   createdAt?: string; // ISO date string

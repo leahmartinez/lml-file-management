@@ -35,7 +35,9 @@ const SitesPage = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [filterState, setFilterState] = useState("all");
   const [projectCodeSearch, setProjectCodeSearch] = useState("");
+  const [siteNameSearch, setSiteNameSearch] = useState("");
   const [debouncedProjectCodeSearch, setDebouncedProjectCodeSearch] = useState("");
+  const [debouncedSiteNameSearch, setDebouncedSiteNameSearch] = useState("");
   const [isAddSiteModalOpen, setIsAddSiteModalOpen] = useState(false);
   const [isEditSiteModalOpen, setIsEditSiteModalOpen] = useState(false);
   const [editingSite, setEditingSite] = useState<Site | null>(null);
@@ -45,6 +47,12 @@ const SitesPage = () => {
     const timer = setTimeout(() => setDebouncedProjectCodeSearch(projectCodeSearch), 300);
     return () => clearTimeout(timer);
   }, [projectCodeSearch]);
+
+  // Debounce site name search to avoid excessive filtering calculations
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSiteNameSearch(siteNameSearch), 300);
+    return () => clearTimeout(timer);
+  }, [siteNameSearch]);
 
   const isConsultant = user?.role === 'consultant';
 
@@ -82,6 +90,16 @@ const SitesPage = () => {
       };
     });
 
+    // Apply site name search filter
+    if (debouncedSiteNameSearch.trim()) {
+      const searchTerm = debouncedSiteNameSearch.trim().toLowerCase();
+      return enrichedSites.filter(site =>
+        site.building.toLowerCase().includes(searchTerm) ||
+        site.address?.toLowerCase().includes(searchTerm) ||
+        site.city?.toLowerCase().includes(searchTerm)
+      );
+    }
+
     // Apply project code search filter using debounced value
     if (debouncedProjectCodeSearch.trim()) {
       const searchTerm = debouncedProjectCodeSearch.trim().toLowerCase();
@@ -94,7 +112,7 @@ const SitesPage = () => {
     }
 
     return enrichedSites;
-  }, [sitesData, projectsData, filterState, debouncedProjectCodeSearch, user]);
+  }, [sitesData, projectsData, filterState, debouncedProjectCodeSearch, debouncedSiteNameSearch, user]);
 
   const handleAddSite = (site: Omit<Site, 'projects' | 'assets'>) => {
     addSite(site);
@@ -235,8 +253,8 @@ const SitesPage = () => {
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Sites</h1>
-            <p className="text-muted-foreground">Browse sites, projects, and associated files</p>
+            <h1 className="text-3xl font-bold">Projects</h1>
+            <p className="text-muted-foreground">Browse projects by site, manage stages, and associated files</p>
           </div>
           <div className="flex items-center gap-2">
             {isConsultant && !selectedSite && (
@@ -265,6 +283,15 @@ const SitesPage = () => {
         {/* Filters */}
         {!selectedSite && (
           <div className="flex items-center gap-4 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by site name, address..."
+                value={siteNameSearch}
+                onChange={(e) => setSiteNameSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
