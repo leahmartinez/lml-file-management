@@ -1,91 +1,118 @@
 /**
  * Type definitions for all data models in the application
- * These represent the structure of Sites, Projects, Assets, and Contacts
+ * These represent the structure of Sites, Projects, Stages, Notes, and Contacts
+ *
+ * Hierarchy: Site -> Project -> ProjectStage -> ProjectFile
+ *                          -> ProjectNote
+ *                          -> Contacts (assigned users/external contacts)
  */
 
 /**
- * Asset Type - represents individual elevators, escalators, moving walkways
+ * Project State - Australian states where projects are located
  */
-export type AssetType = 'Elevator' | 'Escalator' | 'Moving Walkway';
-export type AssetStatus = 'Active' | 'Maintenance' | 'Offline' | 'Operational' | 'Warranty Active';
-export type Contractor = 'TKE' | 'KONE' | 'Schindler' | 'Otis';
+export type ProjectState = 'Victoria' | 'NSW' | 'South Australia' | 'Queensland';
 
 /**
- * Asset - Individual unit (elevator, escalator, etc.)
+ * Project Status - Current status of a project
  */
-export interface Asset {
-  id: string;
-  name?: string;
-  nickname?: string;
-  type: AssetType;
-  status: AssetStatus;
-  building: string; // Site name
-  projectCode?: string; // Links to Project
-  floor?: string;
-  contractor: Contractor;
-  lastService?: string;
-  nextMaintenance?: string;
-  installYear?: number | string;
-  warrantyStatus?: 'Active' | 'Expired';
-  uptime?: string | number;
-  avgResponseTime?: string | number;
-  timeToRepair?: string | number;
-  cost?: string | number;
-  serviceTickets?: string; // Comma-separated
-  fileName?: string;
-  fileUrl?: string;
-  fileDateUploaded?: string;
-  fileSize?: string;
-  // Additional fields that may exist in CSV/API
-  [key: string]: any;
-}
+export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'Archived';
 
 /**
- * Project File - File attached to a project
+ * Project Stage Names - Fixed 5 stages for all projects
+ */
+export type ProjectStageName =
+  | 'Feasibility'
+  | 'Technical Specification'
+  | 'Tender'
+  | 'Contract Draft'
+  | 'Project Management';
+
+/**
+ * Project File - File attached to a project stage
+ * Files are organized by stage, not at project root
  */
 export interface ProjectFile {
-  id?: string;
+  id: string;
   name: string;
-  url: string; // OneDrive link or uploaded file URL
-  dateUploaded?: string;
-  fileSize?: string;
-  fileType?: string;
-  uploadedBy?: string;
-  source?: 'onedrive' | 'manual'; // How the file was added
+  url?: string; // For uploaded files (Data URL or Blob URL)
+  sharePointUrl?: string; // For SharePoint live documents
+  documentType: 'sharepoint' | 'uploaded' | 'external_link';
+  stageId: string; // Links to ProjectStage
+  projectCode: string; // Links to Project
+  dateUploaded: string; // ISO date string
+  fileSize?: string; // In bytes or formatted string
+  fileType?: string; // MIME type
+  uploadedBy: string; // User email
+  uploadedByName?: string; // Display name
+  description?: string; // Optional file description
+  isFolder?: boolean; // For folder structure support
+  parentId?: string; // For hierarchical folders
 }
 
 /**
  * Project Stage - A stage within a project
+ * There are always 5 predefined stages per project
  */
 export interface ProjectStage {
-  stage: string;
-  description?: string;
+  id: string;
+  name: ProjectStageName;
+  projectCode: string; // Links to Project
+  files: ProjectFile[]; // Files specific to this stage
+  order: number; // Display order (1-5)
+  description?: string; // Stage description
+  createdAt: string; // ISO date string
+  updatedAt?: string; // ISO date string
 }
 
 /**
- * Project - A project within a site (e.g., "3 Elevator Upgrade")
- * Each project has a unique PWXXX code
+ * Project Note - A comment or note on a project
+ * Supports markdown/HTML and includes historical timeline
+ */
+export interface ProjectNote {
+  id: string;
+  projectCode: string; // Links to Project
+  content: string; // Note/comment text (supports markdown/HTML)
+  author: string; // User email
+  authorName?: string; // Display name
+  createdAt: string; // ISO date string
+  updatedAt?: string; // ISO date string
+  status?: string; // Project status at time of note
+  isSystemNote?: boolean; // Auto-generated vs user-created
+}
+
+/**
+ * Project - A consulting project within a site
+ * Format: {StatePrefix}{4-digit number}
+ * Examples: PV1296 (Victoria), PN2001 (NSW), PSA0045 (SA), PQ3012 (Queensland)
  */
 export interface Project {
-  projectCode: string; // Unique PWXXX code
+  projectCode: string; // Unique state-based code (PVXXXX, PNXXXX, PSAXXXX, PQXXXX)
   building: string; // Site name (links to Site via building name)
-  description?: string; // Project description
-  stages?: ProjectStage[]; // Multiple stages per project
-  assets?: Asset[]; // Assets associated with this project
-  files?: ProjectFile[]; // Files attached to this project (manually uploaded)
+  description?: string; // Rich text project description
+  status: ProjectStatus; // Current project status
+  state: ProjectState; // Australian state
+  stages: ProjectStage[]; // Always 5 predefined stages per project
+  notes: ProjectNote[]; // Historical comments/notes
+  contacts?: string[]; // Assigned contact emails (users or external)
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+  createdBy?: string; // User email who created the project
 }
 
 /**
- * Site - A building/location (e.g., "Tower A")
+ * Site - A consulting site location
  */
 export interface Site {
   building: string; // Site identifier/name
   address?: string;
-  state?: string;
+  state?: ProjectState; // Australian state
   city?: string;
   country?: string;
-  projects?: Project[]; // Projects at this site
-  assets?: Asset[]; // All assets at this site
+  description?: string; // Rich text site information
+  projects: Project[]; // Projects at this site
+  contacts?: string[]; // Assigned contact emails (users or external)
+  createdAt?: string; // ISO date string
+  updatedAt?: string; // ISO date string
 }
 
 /**
@@ -164,12 +191,13 @@ export interface Contact {
 
 /**
  * Data structure representing the full hierarchy
- * Sites -> Projects -> Assets
+ * Sites -> Projects -> ProjectStages -> ProjectFiles
+ *               -> ProjectNotes
+ *               -> Contacts
  */
 export interface DataHierarchy {
   sites: Site[];
   projects: Project[];
-  assets: Asset[];
   contacts: Contact[];
 }
 

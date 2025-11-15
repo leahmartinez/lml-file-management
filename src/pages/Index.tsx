@@ -8,8 +8,6 @@ import { ContractorDistributionChart } from "@/components/dashboard/ContractorDi
 import { UptimeChart } from "@/components/dashboard/UptimeChart";
 import { AssetStatusChartComponent as AssetStatusChart } from "@/components/dashboard/AssetStatusChart";
 import { ResponseTimeChart } from "@/components/dashboard/ResponseTimeChart";
-import { AssetTable, Asset } from "@/components/assets/AssetTable";
-import { AssetDetailPanel } from "@/components/assets/AssetDetailPanel";
 import { ProfileCompletionBanner } from "@/components/profile/ProfileCompletionBanner";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { Building, Wrench, Calendar, TrendingUp } from "lucide-react";

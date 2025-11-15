@@ -6,9 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building, MapPin, Calendar, Wrench, Filter, Search, Eye } from "lucide-react";
-import { AssetDetailDialog } from "@/components/assets/AssetDetailDialog";
-import { Asset } from "@/components/assets/AssetTable";
+import { Briefcase, Calendar, Filter, Search, Eye } from "lucide-react";
 import {
   Pagination,
   PaginationContent,
@@ -19,40 +17,24 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 
-import { useMasterData } from "@/hooks/useMasterData";
-import { useAuth } from "@/hooks/useAuth.tsx";
-
-interface PortfolioAsset {
-  id: string;
-  name: string;
-  type: "Elevator" | "Escalator" | "Moving Walkway";
-  building: string;
-  floor: string;
-  contractor: "TKE" | "KONE" | "Schindler" | "Otis";
-  status: "Operational" | "Maintenance" | "Offline";
-  lastService: string;
-  nextMaintenance: string;
-  installYear: number;
-  warrantyStatus: "Active" | "Expired";
-}
+import { mockProjects } from "@/test/mockData";
+import { useAuth } from "@/hooks/useAuth";
+import type { Project, ProjectState, ProjectStatus } from "@/types/data";
 
 const Portfolio = () => {
-  const masterData = useMasterData();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterBuilding, setFilterBuilding] = useState("all");
-  const [filterContractor, setFilterContractor] = useState("all");
+  const [filterState, setFilterState] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
-  const [dialogMode, setDialogMode] = useState<'details' | 'service-history'>('details');
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Pagination state
   const ITEMS_PER_PAGE = 9; // 3 columns x 3 rows
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Debounce search input to avoid excessive filtering calculations
+  // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
     return () => clearTimeout(timer);
@@ -61,49 +43,45 @@ const Portfolio = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, filterBuilding, filterContractor, filterStatus]);
+  }, [debouncedSearch, filterState, filterStatus]);
 
-  // Memoize filter dropdown options to avoid recalculating on every render
-  const buildingOptions = useMemo(() =>
-    [...new Set(masterData.map(asset => asset.building))],
-    [masterData]
-  );
-
-  const contractorOptions = useMemo(() =>
-    [...new Set(masterData.map(asset => asset.contractor))],
-    [masterData]
+  // Memoize filter dropdown options
+  const stateOptions = useMemo(() =>
+    [...new Set(mockProjects.map(project => project.state))],
+    []
   );
 
   const statusOptions = useMemo(() =>
-    [...new Set(masterData.map(asset => asset.status))],
-    [masterData]
+    [...new Set(mockProjects.map(project => project.status))],
+    []
   );
 
-  const filteredAssets = useMemo(() => {
-    let assets = masterData;
+  const filteredProjects = useMemo(() => {
+    let projects = mockProjects;
 
-    // Admin, national managers, and consultants see all data
+    // Filter by user's site assignments if site_manager
     if (user?.role === "site_manager" && user.sites.length > 0) {
-      assets = assets.filter(asset => user.sites.includes(asset.building));
+      projects = projects.filter(project => user.sites.includes(project.building));
     }
-    // Other roles (admin, national_manager, consultant) see all assets
 
-    return assets.filter(asset => {
-      const matchesSearch = (asset.nickname && asset.nickname.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-                         (asset.building && asset.building.toLowerCase().includes(debouncedSearch.toLowerCase()));
-      const matchesBuilding = filterBuilding === "all" || asset.building === filterBuilding;
-      const matchesContractor = filterContractor === "all" || asset.contractor === filterContractor;
-      const matchesStatus = filterStatus === "all" || asset.status === filterStatus;
+    return projects.filter(project => {
+      const matchesSearch =
+        project.projectCode.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        project.building.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (project.description && project.description.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
-      return matchesSearch && matchesBuilding && matchesContractor && matchesStatus;
+      const matchesState = filterState === "all" || project.state === filterState;
+      const matchesStatus = filterStatus === "all" || project.status === filterStatus;
+
+      return matchesSearch && matchesState && matchesStatus;
     });
-  }, [masterData, debouncedSearch, filterBuilding, filterContractor, filterStatus, user]);
+  }, [debouncedSearch, filterState, filterStatus, user]);
 
   // Calculate pagination
-  const totalPages = Math.ceil(filteredAssets.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedAssets = filteredAssets.slice(startIndex, endIndex);
+  const paginatedProjects = filteredProjects.slice(startIndex, endIndex);
 
   // Generate page numbers for pagination UI
   const getPageNumbers = () => {
@@ -114,7 +92,6 @@ const Portfolio = () => {
     let startPage = Math.max(1, currentPage - halfVisible);
     let endPage = Math.min(totalPages, startPage + maxVisible - 1);
 
-    // Adjust startPage if we're near the end
     if (endPage - startPage + 1 < maxVisible) {
       startPage = Math.max(1, endPage - maxVisible + 1);
     }
@@ -126,87 +103,56 @@ const Portfolio = () => {
     return pages;
   };
 
-  const getStatusColor = (status: PortfolioAsset["status"]) => {
+  const getStatusColor = (status: ProjectStatus) => {
     switch (status) {
-      case "Operational":
-        return "status-active";
-      case "Maintenance":
-        return "bg-warning/10 text-warning border-warning/20";
-      case "Offline":
-        return "bg-destructive/10 text-destructive border-destructive/20";
+      case "Active":
+        return "bg-green-50 text-green-700 border-green-200";
+      case "On Hold":
+        return "bg-yellow-50 text-yellow-700 border-yellow-200";
+      case "Completed":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "Archived":
+        return "bg-gray-50 text-gray-700 border-gray-200";
       default:
-        return "bg-muted/10 text-muted-foreground border-muted/20";
+        return "bg-gray-50 text-gray-700 border-gray-200";
     }
   };
 
-  const getWarrantyColor = (status: PortfolioAsset["warrantyStatus"]) => {
-    return status === "Active" 
-      ? "status-active"
-      : "bg-destructive/10 text-destructive border-destructive/20";
+  const getStateColor = (state: ProjectState) => {
+    const colors: Record<ProjectState, string> = {
+      Victoria: "bg-blue-50 text-blue-700 border-blue-200",
+      NSW: "bg-red-50 text-red-700 border-red-200",
+      "South Australia": "bg-orange-50 text-orange-700 border-orange-200",
+      Queensland: "bg-teal-50 text-teal-700 border-teal-200",
+    };
+    return colors[state];
   };
 
-  const handleViewDetails = (asset: PortfolioAsset) => {
-    // Convert PortfolioAsset to Asset format
-    const assetForDetail: Asset = {
-      id: asset.id,
-      name: asset.name,
-      nickname: asset.name,
-      type: asset.type,
-      status: asset.status,
-      building: asset.building,
-      floor: asset.floor,
-      contractor: asset.contractor,
-      lastService: asset.lastService,
-      nextMaintenance: asset.nextMaintenance,
-      installYear: asset.installYear,
-      warrantyStatus: asset.warrantyStatus,
-    };
-    setSelectedAsset(assetForDetail);
-    setDialogMode('details');
-    setDialogOpen(true);
-  };
-
-  const handleViewServiceHistory = (asset: PortfolioAsset) => {
-    // Convert PortfolioAsset to Asset format
-    const assetForDetail: Asset = {
-      id: asset.id,
-      name: asset.name,
-      nickname: asset.name,
-      type: asset.type,
-      status: asset.status,
-      building: asset.building,
-      floor: asset.floor,
-      contractor: asset.contractor,
-      lastService: asset.lastService,
-      nextMaintenance: asset.nextMaintenance,
-      installYear: asset.installYear,
-      warrantyStatus: asset.warrantyStatus,
-    };
-    setSelectedAsset(assetForDetail);
-    setDialogMode('service-history');
+  const handleViewDetails = (project: Project) => {
+    setSelectedProject(project);
     setDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setDialogOpen(false);
-    setSelectedAsset(null);
+    setSelectedProject(null);
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <Navigation />
-      
+
       <div className="p-6 space-y-6">
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Asset Portfolio</h1>
-            <p className="text-muted-foreground">Comprehensive view of all vertical transport assets</p>
+            <h1 className="text-2xl font-bold text-foreground">Projects Portfolio</h1>
+            <p className="text-muted-foreground">Comprehensive view of all consulting projects</p>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-sm">
-              {filteredAssets.length} of {masterData.length} assets
+              {filteredProjects.length} of {mockProjects.length} projects
             </Badge>
           </div>
         </div>
@@ -220,35 +166,24 @@ const Portfolio = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search assets..."
+                  placeholder="Search projects..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
-              <Select value={filterBuilding} onValueChange={setFilterBuilding}>
+              <Select value={filterState} onValueChange={setFilterState}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All Buildings" />
+                  <SelectValue placeholder="All States" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Buildings</SelectItem>
-                  {buildingOptions.map(building => (
-                    <SelectItem key={building} value={building}>{building}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterContractor} onValueChange={setFilterContractor}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Contractors" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Contractors</SelectItem>
-                  {contractorOptions.map(contractor => (
-                    <SelectItem key={contractor} value={contractor}>{contractor}</SelectItem>
+                  <SelectItem value="all">All States</SelectItem>
+                  {stateOptions.map(state => (
+                    <SelectItem key={state} value={state}>{state}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -263,12 +198,11 @@ const Portfolio = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setSearchTerm("");
-                  setFilterBuilding("all");
-                  setFilterContractor("all");
+                  setFilterState("all");
                   setFilterStatus("all");
                 }}
               >
@@ -280,78 +214,65 @@ const Portfolio = () => {
 
         {/* Results Info */}
         <div className="text-sm text-muted-foreground">
-          Showing {filteredAssets.length === 0 ? 0 : startIndex + 1}–{Math.min(endIndex, filteredAssets.length)} of {filteredAssets.length} results
+          Showing {filteredProjects.length === 0 ? 0 : startIndex + 1}–{Math.min(endIndex, filteredProjects.length)} of {filteredProjects.length} results
         </div>
 
-        {/* Asset Grid */}
+        {/* Projects Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {paginatedAssets.map((asset) => (
-            <Card key={asset.id} className="hover:shadow-lg transition-shadow">
+          {paginatedProjects.map((project) => (
+            <Card key={project.projectCode} className="hover:shadow-lg transition-shadow flex flex-col">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="text-lg">{asset.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{asset.type} • ID: {asset.id}</p>
+                    <CardTitle className="text-lg">{project.projectCode}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{project.building}</p>
                   </div>
-                  <Badge variant="outline" className={getStatusColor(asset.status)}>
-                    {asset.status}
+                  <Badge variant="outline" className={getStatusColor(project.status)}>
+                    {project.status}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Location */}
-                <div className="flex items-center gap-2">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{asset.building}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{asset.floor}</span>
-                </div>
+              <CardContent className="space-y-4 flex-1 flex flex-col">
+                {/* Description */}
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {project.description || "No description provided"}
+                </p>
 
-                {/* Contractor & Warranty */}
-                <div className="flex items-center justify-between">
-                  <Badge variant="outline">{asset.contractor}</Badge>
-                  <Badge variant="outline" className={getWarrantyColor(asset.warrantyStatus)}>
-                    Warranty: {asset.warrantyStatus}
+                {/* State Badge */}
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={getStateColor(project.state)}>
+                    {project.state}
                   </Badge>
                 </div>
 
-                {/* Service Dates */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Last Service:</span>
-                    <span>{asset.lastService}</span>
+                {/* Project Info */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Stages:</span>
+                    <span className="font-medium">{project.stages.length}/5</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Next Maintenance:</span>
-                    <span>{asset.nextMaintenance}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Notes:</span>
+                    <span className="font-medium">{project.notes.length}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Install Year:</span>
-                    <span>{asset.installYear}</span>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground text-xs">
+                      Updated {new Date(project.updatedAt).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => handleViewDetails(asset)}
+                <div className="pt-4 mt-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => handleViewDetails(project)}
                   >
                     <Eye className="h-4 w-4 mr-2" />
-                    View Details
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => handleViewServiceHistory(asset)}
-                  >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Service History
+                    View Project Details
                   </Button>
                 </div>
               </CardContent>
@@ -360,7 +281,7 @@ const Portfolio = () => {
         </div>
 
         {/* Pagination Controls */}
-        {totalPages > 1 && paginatedAssets.length > 0 && (
+        {totalPages > 1 && paginatedProjects.length > 0 && (
           <div className="flex justify-center mt-8">
             <Pagination>
               <PaginationContent>
@@ -424,24 +345,50 @@ const Portfolio = () => {
           </div>
         )}
 
-        {filteredAssets.length === 0 && (
+        {filteredProjects.length === 0 && (
           <Card>
             <CardContent className="text-center py-12">
-              <Building className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No assets found</h3>
+              <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No projects found</h3>
               <p className="text-muted-foreground">Try adjusting your filters to see more results.</p>
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Asset Detail Dialog */}
-      <AssetDetailDialog
-        asset={selectedAsset}
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        mode={dialogMode}
-      />
+      {/* Project Detail Modal - TODO: Create ProjectDetailModal component */}
+      {/* For now, just showing that we'll implement this later */}
+      {selectedProject && dialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl max-h-[80vh] overflow-auto">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle>{selectedProject.projectCode}</CardTitle>
+                <p className="text-sm text-muted-foreground">{selectedProject.building}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCloseDialog}
+              >
+                ✕
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">{selectedProject.description}</p>
+              <p className="text-sm">
+                <strong>Status:</strong> {selectedProject.status}
+              </p>
+              <p className="text-sm">
+                <strong>State:</strong> {selectedProject.state}
+              </p>
+              <p className="text-sm">
+                <strong>Created:</strong> {new Date(selectedProject.createdAt).toLocaleDateString()}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
