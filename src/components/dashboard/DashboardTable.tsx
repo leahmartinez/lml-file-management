@@ -59,7 +59,22 @@ const DashboardTableComponent = ({
 
   // Group rows based on view type
   const groupedRows = useMemo(() => {
-    if (activeView === 'timeline') {
+    if (activeView === 'compact') {
+      // Group by project code for compact view
+      const groups = new Map<string, { projectCode: string; projectLabel: string; rows: DashboardRow[] }>();
+      sortedRows.forEach((row) => {
+        const projectCode = row.projectCode;
+        if (!groups.has(projectCode)) {
+          groups.set(projectCode, {
+            projectCode,
+            projectLabel: `${projectCode} - ${row.building}`,
+            rows: [],
+          });
+        }
+        groups.get(projectCode)!.rows.push(row);
+      });
+      return Array.from(groups.values());
+    } else if (activeView === 'timeline') {
       // Group by date
       const groups = new Map<string, { dateKey: string; dateLabel: string; rows: DashboardRow[] }>();
       sortedRows.forEach((row) => {
@@ -141,7 +156,7 @@ const DashboardTableComponent = ({
   }, [sortedRows, activeView]);
 
   // Notify parent of row count
-  useMemo(() => {
+  useEffect(() => {
     onRowCount?.(sortedRows.length);
   }, [sortedRows.length, onRowCount]);
 
@@ -220,9 +235,13 @@ const DashboardTableComponent = ({
     return <div className="text-center py-8 text-muted-foreground">No projects found</div>;
   }
 
-  // Render flat list for compact and detailed views
-  if (activeView === 'compact' || activeView === 'detailed') {
-    const flatGroups = groupedRows as { rows: DashboardRow[] };
+  // Render compact view with project grouping
+  if (activeView === 'compact') {
+    const projectGroups = groupedRows as Array<{
+      projectCode: string;
+      projectLabel: string;
+      rows: DashboardRow[];
+    }>;
     return (
       <>
         <div className="border rounded-lg overflow-x-auto">
@@ -237,7 +256,60 @@ const DashboardTableComponent = ({
               onSelectAll={handleSelectAll}
             />
             <TableBody>
-              {flatGroups.rows.map((row) => (
+              {projectGroups.map((group) => (
+                <TimelineGroup
+                  key={group.projectCode}
+                  dateKey={group.projectCode}
+                  dateLabel={group.projectLabel}
+                  rows={group.rows}
+                  activeView={activeView}
+                  selectedStageIds={selectedStageIds}
+                  onSelectionChange={handleRowSelection}
+                  onViewProject={(row) => {
+                    navigate(
+                      `/sites?building=${encodeURIComponent(row.project.building)}&projectCode=${row.project.projectCode}`
+                    );
+                  }}
+                  onEditStageJWSummary={handleEditStageJWSummary}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <EditStageJWSummaryModal
+          stage={selectedStageForJWSummary}
+          projectType={selectedStageForJWSummary?.project?.projectType}
+          isOpen={editStageJWSummaryOpen}
+          onClose={() => {
+            setEditStageJWSummaryOpen(false);
+            setSelectedStageForJWSummary(null);
+          }}
+          onSave={handleSaveStageJWSummary}
+        />
+      </>
+    );
+  }
+
+  // Render detailed view as flat list
+  if (activeView === 'detailed') {
+    const flatGroups = groupedRows as any;
+    const rows = Array.isArray(flatGroups) ? [] : (flatGroups.rows || []);
+    return (
+      <>
+        <div className="border rounded-lg overflow-x-auto">
+          <Table className="border-collapse w-full" style={{ borderCollapse: 'collapse' }}>
+            <DashboardTableHeader
+              activeView={activeView}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              selectedCount={selectedStageIds.size}
+              totalCount={sortedRows.length}
+              onSort={handleSort}
+              onSelectAll={handleSelectAll}
+            />
+            <TableBody>
+              {(rows.length > 0 ? rows : sortedRows).map((row) => (
                 <DashboardTableRow
                   key={row.stageId}
                   row={row}

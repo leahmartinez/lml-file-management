@@ -58,8 +58,12 @@ export const DashboardTableHeader: React.FC<DashboardTableHeaderProps> = ({
         <TableHead className="w-12 border-b border-r border-border/30">
           <input
             type="checkbox"
+            ref={(input) => {
+              if (input) {
+                input.indeterminate = selectedCount > 0 && selectedCount < totalCount;
+              }
+            }}
             checked={selectedCount === totalCount && totalCount > 0}
-            indeterminate={selectedCount > 0 && selectedCount < totalCount}
             onChange={onSelectAll}
             className="rounded"
             title="Select all stages"
