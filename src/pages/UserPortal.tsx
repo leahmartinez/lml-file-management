@@ -3,7 +3,7 @@
  * Shows current user's profile and assigned work
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,9 +17,14 @@ import { Briefcase } from 'lucide-react';
 
 const UserPortal = () => {
   const { user } = useAuth();
-  const { userProfile, loading: profileLoading } = useProfile();
+  const { profile: userProfile, loading: profileLoading, fetchMyProfile } = useProfile();
   const { assignedStages, totalAssigned, loading: portalLoading } = useUserPortal();
   const [editProfileOpen, setEditProfileOpen] = useState(false);
+
+  // Fetch user profile on mount
+  useEffect(() => {
+    fetchMyProfile();
+  }, [fetchMyProfile]);
 
   return (
     <div className="min-h-screen bg-background">
