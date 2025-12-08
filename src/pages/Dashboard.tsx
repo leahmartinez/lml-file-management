@@ -112,7 +112,7 @@ const Dashboard = () => {
 
       <main className="flex flex-col">
         {/* Page Header */}
-        <div className="container mx-auto py-6 px-4">
+        <div className="py-6 px-4">
           <div className="mb-8">
             <div className="flex items-center justify-between gap-4">
               <div>
