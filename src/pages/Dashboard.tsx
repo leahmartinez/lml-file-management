@@ -3,6 +3,7 @@ import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { useDashboardData, DashboardRow } from '@/hooks/useDashboardData';
 import { useProjectManagement } from '@/hooks/useProjectManagement';
+import { useDashboardView } from '@/hooks/useDashboardView';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { DashboardTable } from '@/components/dashboard/DashboardTable';
 import { EditJWSummaryModal } from '@/components/dashboard/EditJWSummaryModal';
@@ -23,6 +24,7 @@ const STATES = ['Victoria', 'NSW', 'South Australia', 'Queensland'];
 const Dashboard = () => {
   const { rows: allRows = [], loading } = useDashboardData();
   const { projects = [], updateProject } = useProjectManagement();
+  const { activeView, setView } = useDashboardView();
   const [selectedState, setSelectedState] = useState('Victoria');
   const [filteredRows, setFilteredRows] = useState<DashboardRow[]>([]);
   const [selectedRows, setSelectedRows] = useState<DashboardRow[]>([]);
@@ -151,6 +153,8 @@ const Dashboard = () => {
             rows={stateFilteredRows}
             filteredRows={filteredRows}
             onFilterChange={handleFilterChange}
+            activeView={activeView}
+            onViewChange={setView}
           />
 
           {/* Main Content */}
@@ -250,6 +254,7 @@ const Dashboard = () => {
                   <DashboardTable
                     rows={filteredRows}
                     loading={loading}
+                    activeView={activeView}
                     onSelectionChange={setSelectedRows}
                     onRowCount={setTotalCount}
                     onEditJWSummary={handleEditJWSummary}

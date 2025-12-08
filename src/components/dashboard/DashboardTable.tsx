@@ -1,11 +1,11 @@
 import { useMemo, useState, useCallback, memo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardRow } from '@/hooks/useDashboardData';
+import { ViewType } from '@/components/dashboard/views/viewConfigs';
 import { EditStageJWSummaryModal } from './EditStageJWSummaryModal';
 import { DashboardTableHeader, SortField } from '@/components/dashboard/DashboardTableHeader';
 import { DashboardTableRow } from '@/components/dashboard/DashboardTableRow';
 import { TimelineGroup } from '@/components/dashboard/TimelineGroup';
-import { useDashboardView } from '@/hooks/useDashboardView';
 import { getDateGroupKey, formatDateForGrouping } from '@/components/dashboard/utils/formatters';
 import { Table, TableBody } from '@/components/ui/table';
 import { ProjectType } from '@/types/data';
@@ -14,6 +14,7 @@ export type SortDirection = 'asc' | 'desc';
 
 interface DashboardTableProps {
   rows: DashboardRow[];
+  activeView: ViewType;
   loading?: boolean;
   onRowCount?: (count: number) => void;
   onSelectionChange?: (selectedRows: DashboardRow[]) => void;
@@ -22,13 +23,13 @@ interface DashboardTableProps {
 
 const DashboardTableComponent = ({
   rows,
+  activeView,
   loading = false,
   onRowCount,
   onSelectionChange,
   onEditJWSummary,
 }: DashboardTableProps) => {
   const navigate = useNavigate();
-  const { activeView } = useDashboardView();
   const [sortField, setSortField] = useState<SortField>('projectCode');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [selectedStageIds, setSelectedStageIds] = useState<Set<string>>(new Set());

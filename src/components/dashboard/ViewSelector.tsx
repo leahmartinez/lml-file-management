@@ -32,7 +32,6 @@ export const ViewSelector: React.FC<ViewSelectorProps> = ({ activeView, onViewCh
             />
             <label htmlFor={`view-${view.id}`} className="flex-1 cursor-pointer">
               <div className="text-sm font-medium text-foreground">{view.label}</div>
-              <div className="text-xs text-muted-foreground">{view.description}</div>
             </label>
           </div>
         ))}
