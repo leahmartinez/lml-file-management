@@ -9,8 +9,10 @@ import { Navigation } from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserPortal } from '@/hooks/useUserPortal';
+import { useNotifications } from '@/hooks/useNotifications';
 import { UserPortalProfileCard } from '@/components/userportal/UserPortalProfileCard';
 import { AssignedWorkTable } from '@/components/userportal/AssignedWorkTable';
+import { UserPortalNotifications } from '@/components/userportal/UserPortalNotifications';
 import { EditProfileModal } from '@/components/profile/EditProfileModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Briefcase } from 'lucide-react';
@@ -19,6 +21,13 @@ const UserPortal = () => {
   const { user } = useAuth();
   const { profile: userProfile, loading: profileLoading, fetchMyProfile, updateProfile } = useProfile();
   const { assignedStages, totalAssigned, loading: portalLoading } = useUserPortal();
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications(user?.email);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
 
   // Fetch user profile on mount
@@ -60,16 +69,27 @@ const UserPortal = () => {
             />
           </div>
 
-          {/* Right Column: Assigned Work */}
+          {/* Right Column: Assigned Work and Notifications */}
           <div className="flex-1 min-w-0 overflow-y-auto">
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle>Assigned Work</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AssignedWorkTable rows={assignedStages} loading={portalLoading || profileLoading} />
-              </CardContent>
-            </Card>
+            <div className="space-y-4 h-full">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Assigned Work</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AssignedWorkTable rows={assignedStages} loading={portalLoading || profileLoading} />
+                </CardContent>
+              </Card>
+
+              {/* Notifications Section */}
+              <UserPortalNotifications
+                notifications={notifications}
+                unreadCount={unreadCount}
+                onMarkAsRead={markAsRead}
+                onMarkAllAsRead={markAllAsRead}
+                onDelete={deleteNotification}
+              />
+            </div>
           </div>
         </div>
       </main>
