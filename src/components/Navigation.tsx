@@ -7,6 +7,7 @@ interface NavigationProps {
 }
 
 const navItems = [
+  { label: "My Work", path: "/my-work" },
   { label: "Projects", path: "/sites" },
   { label: "Dashboard", path: "/dashboard" },
   { label: "Proposals", path: "/proposals" },

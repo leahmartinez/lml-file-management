@@ -116,8 +116,8 @@ const Dashboard = () => {
           <div className="mb-8">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h1 className="text-4xl font-bold tracking-tight">Projects Dashboard</h1>
-                <p className="text-muted-foreground mt-2">
+                <h1 className="text-3xl font-bold flex items-center gap-2">Projects Dashboard</h1>
+                <p className="text-muted-foreground mt-1">
                   Manage and track all projects with filtering, sorting, and export options
                 </p>
               </div>
