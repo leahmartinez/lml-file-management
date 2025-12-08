@@ -2,15 +2,14 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import { DashboardRow } from '@/hooks/useDashboardData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { X, ChevronDown, ChevronUp } from 'lucide-react';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { X, ChevronDown } from 'lucide-react';
 
 interface FilterState {
   search: string;
@@ -46,7 +45,6 @@ export const DashboardFilters = ({ rows, onFilterChange }: DashboardFiltersProps
     stageStatuses: new Set(),
     valueRange: [0, 100000],
   });
-  const [isExpanded, setIsExpanded] = useState(false);
 
   // Calculate value range from data
   const [minValue, maxValue] = useMemo(() => {
@@ -155,15 +153,6 @@ export const DashboardFilters = ({ rows, onFilterChange }: DashboardFiltersProps
     filterState.valueRange[0] > 0 ||
     filterState.valueRange[1] < maxValue;
 
-  const activeFilterCount =
-    (filterState.search ? 1 : 0) +
-    filterState.invoiceStatuses.size +
-    filterState.jobStatuses.size +
-    filterState.states.size +
-    filterState.projectTypes.size +
-    filterState.stageNames.size +
-    filterState.stageStatuses.size;
-
   // Clear all filters
   const handleClearFilters = () => {
     setFilterState({
@@ -178,8 +167,13 @@ export const DashboardFilters = ({ rows, onFilterChange }: DashboardFiltersProps
     });
   };
 
+  // Helper to get selected count for filter display
+  const getFilterLabel = (label: string, count: number) => {
+    return count > 0 ? `${label} (${count})` : label;
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Search Bar */}
       <div>
         <Input
@@ -191,213 +185,273 @@ export const DashboardFilters = ({ rows, onFilterChange }: DashboardFiltersProps
               search: e.target.value,
             }))
           }
-          className="h-10"
+          className="h-9 text-sm"
         />
       </div>
 
-      {/* Filter Toggle Button */}
-      <div className="flex items-center justify-between">
+      {/* Clear All Filters Button */}
+      {hasActiveFilters && (
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2"
+          onClick={handleClearFilters}
+          className="w-full justify-start text-xs h-8"
         >
-          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          More Filters
-          {activeFilterCount > 0 && (
-            <Badge variant="secondary" className="ml-2">
-              {activeFilterCount}
-            </Badge>
-          )}
+          <X className="h-3 w-3 mr-2" />
+          Clear All Filters
         </Button>
+      )}
 
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={handleClearFilters}>
-            <X className="h-4 w-4 mr-2" />
-            Clear All
+      {/* Invoice Status Filter */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-between h-8 text-xs"
+          >
+            <span>{getFilterLabel('Invoice Status', filterState.invoiceStatuses.size)}</span>
+            <ChevronDown className="h-3 w-3 opacity-50" />
           </Button>
-        )}
-      </div>
-
-      {/* Expandable Filters */}
-      {isExpanded && (
-        <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
-          {/* Invoice Status Filter */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">Invoice Status</label>
-            <div className="flex flex-wrap gap-2">
-              {INVOICE_STATUSES.map((status) => (
-                <Badge
-                  key={status}
-                  variant={filterState.invoiceStatuses.has(status) ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() =>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-3">
+          <div className="space-y-2">
+            {INVOICE_STATUSES.map((status) => (
+              <div key={status} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`invoice-${status}`}
+                  checked={filterState.invoiceStatuses.has(status)}
+                  onCheckedChange={() =>
                     setFilterState((prev) => ({
                       ...prev,
                       invoiceStatuses: toggleFilter(prev.invoiceStatuses, status),
                     }))
                   }
-                >
+                />
+                <label htmlFor={`invoice-${status}`} className="text-sm cursor-pointer">
                   {status}
-                </Badge>
-              ))}
-            </div>
+                </label>
+              </div>
+            ))}
           </div>
+        </PopoverContent>
+      </Popover>
 
-          {/* Job Status Filter */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">Job Status</label>
-            <div className="flex flex-wrap gap-2">
-              {JOB_STATUSES.map((status) => (
-                <Badge
-                  key={status}
-                  variant={filterState.jobStatuses.has(status) ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() =>
+      {/* Job Status Filter */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-between h-8 text-xs"
+          >
+            <span>{getFilterLabel('Job Status', filterState.jobStatuses.size)}</span>
+            <ChevronDown className="h-3 w-3 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-3">
+          <div className="space-y-2">
+            {JOB_STATUSES.map((status) => (
+              <div key={status} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`job-${status}`}
+                  checked={filterState.jobStatuses.has(status)}
+                  onCheckedChange={() =>
                     setFilterState((prev) => ({
                       ...prev,
                       jobStatuses: toggleFilter(prev.jobStatuses, status),
                     }))
                   }
-                >
+                />
+                <label htmlFor={`job-${status}`} className="text-sm cursor-pointer">
                   {status}
-                </Badge>
-              ))}
-            </div>
+                </label>
+              </div>
+            ))}
           </div>
+        </PopoverContent>
+      </Popover>
 
-          {/* State Filter */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">State</label>
-            <div className="flex flex-wrap gap-2">
-              {STATES.map((state) => (
-                <Badge
-                  key={state}
-                  variant={filterState.states.has(state) ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() =>
+      {/* State Filter */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-between h-8 text-xs"
+          >
+            <span>{getFilterLabel('State', filterState.states.size)}</span>
+            <ChevronDown className="h-3 w-3 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-3">
+          <div className="space-y-2">
+            {STATES.map((state) => (
+              <div key={state} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`state-${state}`}
+                  checked={filterState.states.has(state)}
+                  onCheckedChange={() =>
                     setFilterState((prev) => ({
                       ...prev,
                       states: toggleFilter(prev.states, state),
                     }))
                   }
-                >
+                />
+                <label htmlFor={`state-${state}`} className="text-sm cursor-pointer">
                   {state}
-                </Badge>
-              ))}
-            </div>
+                </label>
+              </div>
+            ))}
           </div>
+        </PopoverContent>
+      </Popover>
 
-          {/* Project Type Filter */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">JW Summary (Project Type)</label>
-            <div className="flex flex-wrap gap-2">
-              {PROJECT_TYPES.map((type) => (
-                <Badge
-                  key={type}
-                  variant={filterState.projectTypes.has(type) ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() =>
+      {/* Project Type Filter */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-between h-8 text-xs"
+          >
+            <span>{getFilterLabel('JW Summary', filterState.projectTypes.size)}</span>
+            <ChevronDown className="h-3 w-3 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-3">
+          <div className="space-y-2">
+            {PROJECT_TYPES.map((type) => (
+              <div key={type} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`project-${type}`}
+                  checked={filterState.projectTypes.has(type)}
+                  onCheckedChange={() =>
                     setFilterState((prev) => ({
                       ...prev,
                       projectTypes: toggleFilter(prev.projectTypes, type),
                     }))
                   }
-                >
+                />
+                <label htmlFor={`project-${type}`} className="text-sm cursor-pointer">
                   {type}
-                </Badge>
-              ))}
-            </div>
+                </label>
+              </div>
+            ))}
           </div>
+        </PopoverContent>
+      </Popover>
 
-          {/* Stage Name Filter */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">Stage Name</label>
-            <div className="flex flex-wrap gap-2">
-              {STAGE_NAMES.map((name) => (
-                <Badge
-                  key={name}
-                  variant={filterState.stageNames.has(name) ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() =>
+      {/* Stage Name Filter */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-between h-8 text-xs"
+          >
+            <span>{getFilterLabel('Stage Name', filterState.stageNames.size)}</span>
+            <ChevronDown className="h-3 w-3 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-3">
+          <div className="space-y-2">
+            {STAGE_NAMES.map((name) => (
+              <div key={name} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`stage-name-${name}`}
+                  checked={filterState.stageNames.has(name)}
+                  onCheckedChange={() =>
                     setFilterState((prev) => ({
                       ...prev,
                       stageNames: toggleFilter(prev.stageNames, name),
                     }))
                   }
-                >
+                />
+                <label htmlFor={`stage-name-${name}`} className="text-sm cursor-pointer">
                   {name}
-                </Badge>
-              ))}
-            </div>
+                </label>
+              </div>
+            ))}
           </div>
+        </PopoverContent>
+      </Popover>
 
-          {/* Stage Status Filter */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">Stage Status</label>
-            <div className="flex flex-wrap gap-2">
-              {STAGE_STATUSES.map((status) => (
-                <Badge
-                  key={status}
-                  variant={filterState.stageStatuses.has(status) ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() =>
+      {/* Stage Status Filter */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-between h-8 text-xs"
+          >
+            <span>{getFilterLabel('Stage Status', filterState.stageStatuses.size)}</span>
+            <ChevronDown className="h-3 w-3 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-3">
+          <div className="space-y-2">
+            {STAGE_STATUSES.map((status) => (
+              <div key={status} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`stage-status-${status}`}
+                  checked={filterState.stageStatuses.has(status)}
+                  onCheckedChange={() =>
                     setFilterState((prev) => ({
                       ...prev,
                       stageStatuses: toggleFilter(prev.stageStatuses, status),
                     }))
                   }
-                >
+                />
+                <label htmlFor={`stage-status-${status}`} className="text-sm cursor-pointer">
                   {status}
-                </Badge>
-              ))}
-            </div>
+                </label>
+              </div>
+            ))}
           </div>
+        </PopoverContent>
+      </Popover>
 
-          {/* Value Range Filter */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              Value Range: ${filterState.valueRange[0].toLocaleString()} - $
-              {filterState.valueRange[1].toLocaleString()}
-            </label>
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                placeholder="Min"
-                value={filterState.valueRange[0]}
-                onChange={(e) =>
-                  setFilterState((prev) => ({
-                    ...prev,
-                    valueRange: [parseInt(e.target.value) || 0, prev.valueRange[1]],
-                  }))
-                }
-                min={0}
-                max={maxValue}
-                className="flex-1 h-9"
-              />
-              <Input
-                type="number"
-                placeholder="Max"
-                value={filterState.valueRange[1]}
-                onChange={(e) =>
-                  setFilterState((prev) => ({
-                    ...prev,
-                    valueRange: [prev.valueRange[0], parseInt(e.target.value) || maxValue],
-                  }))
-                }
-                min={0}
-                max={maxValue}
-                className="flex-1 h-9"
-              />
-            </div>
-          </div>
+      {/* Value Range Filter */}
+      <div className="space-y-2">
+        <label className="text-xs font-medium">
+          Value Range: ${filterState.valueRange[0].toLocaleString()} - ${filterState.valueRange[1].toLocaleString()}
+        </label>
+        <div className="flex gap-2">
+          <Input
+            type="number"
+            placeholder="Min"
+            value={filterState.valueRange[0]}
+            onChange={(e) =>
+              setFilterState((prev) => ({
+                ...prev,
+                valueRange: [parseInt(e.target.value) || 0, prev.valueRange[1]],
+              }))
+            }
+            min={0}
+            max={maxValue}
+            className="flex-1 h-8 text-xs"
+          />
+          <Input
+            type="number"
+            placeholder="Max"
+            value={filterState.valueRange[1]}
+            onChange={(e) =>
+              setFilterState((prev) => ({
+                ...prev,
+                valueRange: [prev.valueRange[0], parseInt(e.target.value) || maxValue],
+              }))
+            }
+            min={0}
+            max={maxValue}
+            className="flex-1 h-8 text-xs"
+          />
         </div>
-      )}
+      </div>
 
       {/* Result summary */}
-      <div className="text-sm text-muted-foreground">
-        Showing {filteredRows.length} of {rows.length} stages
+      <div className="text-xs text-muted-foreground pt-2 border-t">
+        {filteredRows.length} of {rows.length} stages
       </div>
     </div>
   );

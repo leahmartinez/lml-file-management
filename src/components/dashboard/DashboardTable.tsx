@@ -1,21 +1,14 @@
 import { useMemo, useState, useCallback, memo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardRow } from '@/hooks/useDashboardData';
-import { ProjectRowGroup } from './ProjectRowGroup';
 import { EditStageJWSummaryModal } from './EditStageJWSummaryModal';
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { DashboardTableHeader, SortField } from '@/components/dashboard/DashboardTableHeader';
+import { DashboardTableRow } from '@/components/dashboard/DashboardTableRow';
+import { TimelineGroup } from '@/components/dashboard/TimelineGroup';
+import { useDashboardView } from '@/hooks/useDashboardView';
+import { getDateGroupKey, formatDateForGrouping } from '@/components/dashboard/utils/formatters';
+import { Table, TableBody } from '@/components/ui/table';
 import { ProjectType } from '@/types/data';
-
-export type SortField =
-  | 'projectCode'
-  | 'orderDate'
-  | 'invoiceStatus'
-  | 'jobStatus'
-  | 'building'
-  | 'state'
-  | 'value'
-  | 'clientName';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -35,13 +28,14 @@ const DashboardTableComponent = ({
   onEditJWSummary,
 }: DashboardTableProps) => {
   const navigate = useNavigate();
+  const { activeView } = useDashboardView();
   const [sortField, setSortField] = useState<SortField>('projectCode');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [selectedStageIds, setSelectedStageIds] = useState<Set<string>>(new Set());
   const [editStageJWSummaryOpen, setEditStageJWSummaryOpen] = useState(false);
   const [selectedStageForJWSummary, setSelectedStageForJWSummary] = useState<any>(null);
 
-  // Sort rows by the specified field, maintaining stage order within each project
+  // Sort rows by the specified field
   const sortedRows = useMemo(() => {
     const sorted = [...rows].sort((a, b) => {
       let aVal: any = a[sortField as keyof DashboardRow];
@@ -63,19 +57,75 @@ const DashboardTableComponent = ({
     return sorted;
   }, [rows, sortField, sortDirection]);
 
-  // Group sorted rows by projectCode while maintaining order
-  const groupedProjects = useMemo(() => {
-    const groups = new Map<string, DashboardRow[]>();
-    sortedRows.forEach((row) => {
-      if (!groups.has(row.projectCode)) {
-        groups.set(row.projectCode, []);
-      }
-      groups.get(row.projectCode)!.push(row);
-    });
-    return Array.from(groups.entries());
-  }, [sortedRows]);
+  // Group rows based on view type
+  const groupedRows = useMemo(() => {
+    if (activeView === 'timeline') {
+      // Group by date
+      const groups = new Map<string, { dateKey: string; dateLabel: string; rows: DashboardRow[] }>();
+      sortedRows.forEach((row) => {
+        const dateKey = getDateGroupKey(row.orderDate);
+        if (!groups.has(dateKey)) {
+          groups.set(dateKey, {
+            dateKey,
+            dateLabel: formatDateForGrouping(row.orderDate),
+            rows: [],
+          });
+        }
+        groups.get(dateKey)!.rows.push(row);
+      });
+      return Array.from(groups.values());
+    } else if (activeView === 'by-job-status') {
+      // Group by job status
+      const groups = new Map<string, DashboardRow[]>();
+      sortedRows.forEach((row) => {
+        const key = row.jobStatus || 'Unknown';
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key)!.push(row);
+      });
+      return Array.from(groups.entries()).map(([status, rows]) => ({
+        statusKey: status,
+        statusLabel: status,
+        rows,
+      }));
+    } else if (activeView === 'by-invoice') {
+      // Group by invoice status
+      const groups = new Map<string, DashboardRow[]>();
+      sortedRows.forEach((row) => {
+        const key = row.invoiceStatus || 'Unknown';
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key)!.push(row);
+      });
+      return Array.from(groups.entries()).map(([status, rows]) => ({
+        statusKey: status,
+        statusLabel: status,
+        rows,
+      }));
+    } else if (activeView === 'by-stage-type') {
+      // Group by stage name
+      const groups = new Map<string, DashboardRow[]>();
+      sortedRows.forEach((row) => {
+        const key = row.stageName || 'Unknown';
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key)!.push(row);
+      });
+      return Array.from(groups.entries()).map(([stageName, rows]) => ({
+        stageKey: stageName,
+        stageLabel: stageName,
+        rows,
+      }));
+    } else {
+      // Flat list for compact and detailed views
+      return { rows: sortedRows };
+    }
+  }, [sortedRows, activeView]);
 
-  // Notify parent of row count (stage count, not project count)
+  // Notify parent of row count
   useMemo(() => {
     onRowCount?.(sortedRows.length);
   }, [sortedRows.length, onRowCount]);
@@ -90,23 +140,31 @@ const DashboardTableComponent = ({
     }
   };
 
-  // Handle selection change from ProjectRowGroup
-  const handleSelectionChange = useCallback((stageIds: string[]) => {
-    setSelectedStageIds(new Set(stageIds));
+  // Handle individual row selection
+  const handleRowSelection = useCallback((stageId: string, selected: boolean) => {
+    setSelectedStageIds((prev) => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(stageId);
+      } else {
+        newSet.delete(stageId);
+      }
+      return newSet;
+    });
   }, []);
 
-  // Compute selected rows from selectedStageIds - memoized for efficiency
+  // Compute selected rows - memoized for efficiency
   const selectedRowsArray = useMemo(() => {
     if (selectedStageIds.size === 0) return [];
     return sortedRows.filter((row) => selectedStageIds.has(row.stageId));
   }, [selectedStageIds, sortedRows]);
 
-  // Notify parent when selection changes - separate effect to avoid callback churn
+  // Notify parent when selection changes
   useEffect(() => {
     onSelectionChange?.(selectedRowsArray);
   }, [selectedRowsArray, onSelectionChange]);
 
-  // Handle select all - select all stages in all projects
+  // Handle select all
   const handleSelectAll = () => {
     if (selectedStageIds.size === sortedRows.length) {
       setSelectedStageIds(new Set());
@@ -125,36 +183,19 @@ const DashboardTableComponent = ({
   }, []);
 
   // Handle saving stage JW Summary
-  const handleSaveStageJWSummary = useCallback((
-    stageId: string,
-    projectType: ProjectType,
-    customProjectType?: string
-  ) => {
-    // Find the stage and update it in the project
-    const row = sortedRows.find(r => r.stage.id === stageId);
-    if (row) {
-      const stage = row.stage;
-      const project = row.project;
-
-      stage.projectType = projectType;
-      stage.customProjectType = customProjectType;
-
-      // Update the project in the backend (mock for now)
-      console.log('Updated stage JW Summary:', { stageId, projectType, customProjectType });
-    }
-    setEditStageJWSummaryOpen(false);
-  }, [sortedRows]);
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) {
-      return <div className="w-4 h-4" />;
-    }
-    return sortDirection === 'asc' ? (
-      <ChevronUp className="w-4 h-4" />
-    ) : (
-      <ChevronDown className="w-4 h-4" />
-    );
-  };
+  const handleSaveStageJWSummary = useCallback(
+    (stageId: string, projectType: ProjectType, customProjectType?: string) => {
+      const row = sortedRows.find((r) => r.stage.id === stageId);
+      if (row) {
+        const stage = row.stage;
+        stage.projectType = projectType;
+        stage.customProjectType = customProjectType;
+        console.log('Updated stage JW Summary:', { stageId, projectType, customProjectType });
+      }
+      setEditStageJWSummaryOpen(false);
+    },
+    [sortedRows]
+  );
 
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground">Loading projects...</div>;
@@ -164,133 +205,155 @@ const DashboardTableComponent = ({
     return <div className="text-center py-8 text-muted-foreground">No projects found</div>;
   }
 
+  // Render flat list for compact and detailed views
+  if (activeView === 'compact' || activeView === 'detailed') {
+    const flatGroups = groupedRows as { rows: DashboardRow[] };
+    return (
+      <>
+        <div className="border rounded-lg overflow-x-auto">
+          <Table className="border-collapse w-full" style={{ borderCollapse: 'collapse' }}>
+            <DashboardTableHeader
+              activeView={activeView}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              selectedCount={selectedStageIds.size}
+              totalCount={sortedRows.length}
+              onSort={handleSort}
+              onSelectAll={handleSelectAll}
+            />
+            <TableBody>
+              {flatGroups.rows.map((row) => (
+                <DashboardTableRow
+                  key={row.stageId}
+                  row={row}
+                  activeView={activeView}
+                  isSelected={selectedStageIds.has(row.stageId)}
+                  onSelectionChange={handleRowSelection}
+                  onViewProject={(row) => {
+                    navigate(
+                      `/sites?building=${encodeURIComponent(row.project.building)}&projectCode=${row.project.projectCode}`
+                    );
+                  }}
+                  onEditStageJWSummary={handleEditStageJWSummary}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <EditStageJWSummaryModal
+          stage={selectedStageForJWSummary}
+          projectType={selectedStageForJWSummary?.project?.projectType}
+          isOpen={editStageJWSummaryOpen}
+          onClose={() => {
+            setEditStageJWSummaryOpen(false);
+            setSelectedStageForJWSummary(null);
+          }}
+          onSave={handleSaveStageJWSummary}
+        />
+      </>
+    );
+  }
+
+  // Render timeline view with date grouping
+  if (activeView === 'timeline') {
+    const timelineGroups = groupedRows as Array<{
+      dateKey: string;
+      dateLabel: string;
+      rows: DashboardRow[];
+    }>;
+    return (
+      <>
+        <div className="border rounded-lg overflow-x-auto">
+          <Table className="border-collapse w-full" style={{ borderCollapse: 'collapse' }}>
+            <DashboardTableHeader
+              activeView={activeView}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              selectedCount={selectedStageIds.size}
+              totalCount={sortedRows.length}
+              onSort={handleSort}
+              onSelectAll={handleSelectAll}
+            />
+            <TableBody>
+              {timelineGroups.map((group) => (
+                <TimelineGroup
+                  key={group.dateKey}
+                  dateKey={group.dateKey}
+                  dateLabel={group.dateLabel}
+                  rows={group.rows}
+                  activeView={activeView}
+                  selectedStageIds={selectedStageIds}
+                  onSelectionChange={handleRowSelection}
+                  onViewProject={(row) => {
+                    navigate(
+                      `/sites?building=${encodeURIComponent(row.project.building)}&projectCode=${row.project.projectCode}`
+                    );
+                  }}
+                  onEditStageJWSummary={handleEditStageJWSummary}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <EditStageJWSummaryModal
+          stage={selectedStageForJWSummary}
+          projectType={selectedStageForJWSummary?.project?.projectType}
+          isOpen={editStageJWSummaryOpen}
+          onClose={() => {
+            setEditStageJWSummaryOpen(false);
+            setSelectedStageForJWSummary(null);
+          }}
+          onSave={handleSaveStageJWSummary}
+        />
+      </>
+    );
+  }
+
+  // Render status-grouped views (by-job-status, by-invoice, by-stage-type)
+  const statusGroups = groupedRows as Array<{
+    statusKey?: string;
+    statusLabel?: string;
+    stageKey?: string;
+    stageLabel?: string;
+    rows: DashboardRow[];
+  }>;
+
   return (
     <>
       <div className="border rounded-lg overflow-x-auto">
-        <Table
-          className="border-collapse w-full"
-          style={{
-            borderCollapse: 'collapse',
-          }}
-        >
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              {/* Expand/Collapse Toggle Header */}
-              <TableHead className="w-12 border-b border-r border-border/30" />
-
-              {/* Select All Checkbox */}
-              <TableHead className="w-12 border-b border-r border-border/30">
-                <input
-                  type="checkbox"
-                  checked={selectedStageIds.size === sortedRows.length && sortedRows.length > 0}
-                  onChange={handleSelectAll}
-                  className="rounded"
-                  title="Select all stages"
-                />
-              </TableHead>
-
-              {/* Project Code */}
-              <TableHead className="w-24 cursor-pointer border-b border-r border-border/30" onClick={() => handleSort('projectCode')}>
-                <div className="flex items-center gap-2">
-                  Project Code
-                  <SortIcon field="projectCode" />
-                </div>
-              </TableHead>
-
-              {/* Order Date */}
-              <TableHead className="w-28 cursor-pointer border-b border-r border-border/30" onClick={() => handleSort('orderDate')}>
-                <div className="flex items-center gap-2">
-                  Order Date
-                  <SortIcon field="orderDate" />
-                </div>
-              </TableHead>
-
-              {/* Invoice Status */}
-              <TableHead className="w-32 cursor-pointer border-b border-r border-border/30" onClick={() => handleSort('invoiceStatus')}>
-                <div className="flex items-center gap-2">
-                  Invoice Status
-                  <SortIcon field="invoiceStatus" />
-                </div>
-              </TableHead>
-
-              {/* Job Status */}
-              <TableHead className="w-24 cursor-pointer border-b border-r border-border/30" onClick={() => handleSort('jobStatus')}>
-                <div className="flex items-center gap-2">
-                  Job Status
-                  <SortIcon field="jobStatus" />
-                </div>
-              </TableHead>
-
-              {/* Building */}
-              <TableHead className="w-40 cursor-pointer border-b border-r border-border/30" onClick={() => handleSort('building')}>
-                <div className="flex items-center gap-2">
-                  Building Name
-                  <SortIcon field="building" />
-                </div>
-              </TableHead>
-
-              {/* Address */}
-              <TableHead className="border-b border-r border-border/30">Address</TableHead>
-
-              {/* Suburb */}
-              <TableHead className="w-24 border-b border-r border-border/30">Suburb</TableHead>
-
-              {/* State */}
-              <TableHead className="w-20 cursor-pointer border-b border-r border-border/30" onClick={() => handleSort('state')}>
-                <div className="flex items-center gap-2">
-                  State
-                  <SortIcon field="state" />
-                </div>
-              </TableHead>
-
-              {/* Postcode */}
-              <TableHead className="w-20 border-b border-r border-border/30">Postcode</TableHead>
-
-              {/* JW Summary */}
-              <TableHead className="w-28 border-b border-r border-border/30">JW Summary</TableHead>
-
-              {/* Stage Name / Description */}
-              <TableHead className="w-32 border-b border-r border-border/30">Stage Name</TableHead>
-
-              {/* Client */}
-              <TableHead className="w-32 cursor-pointer border-b border-r border-border/30" onClick={() => handleSort('clientName')}>
-                <div className="flex items-center gap-2">
-                  Client
-                  <SortIcon field="clientName" />
-                </div>
-              </TableHead>
-
-              {/* Business */}
-              <TableHead className="border-b border-r border-border/30">Business</TableHead>
-
-              {/* Stage Price */}
-              <TableHead className="w-24 text-right cursor-pointer border-b border-r border-border/30" onClick={() => handleSort('value')}>
-                <div className="flex items-center justify-end gap-2">
-                  Stage Price
-                  <SortIcon field="value" />
-                </div>
-              </TableHead>
-
-              {/* Action */}
-              <TableHead className="w-12 text-center border-b border-border/30">Action</TableHead>
-            </TableRow>
-          </TableHeader>
+        <Table className="border-collapse w-full" style={{ borderCollapse: 'collapse' }}>
+          <DashboardTableHeader
+            activeView={activeView}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            selectedCount={selectedStageIds.size}
+            totalCount={sortedRows.length}
+            onSort={handleSort}
+            onSelectAll={handleSelectAll}
+          />
           <TableBody>
-            {groupedProjects.map(([projectCode, stages]) => (
-              <ProjectRowGroup
-                key={projectCode}
-                projectCode={projectCode}
-                stages={stages}
-                selectedRows={selectedStageIds}
-                onSelectionChange={handleSelectionChange}
-                onViewProject={(row) => {
-                  // Navigate to Sites page with the project pre-selected
-                  navigate(`/sites?building=${encodeURIComponent(row.project.building)}&projectCode=${row.project.projectCode}`);
-                }}
-                onEditJWSummary={onEditJWSummary}
-                onEditStageJWSummary={handleEditStageJWSummary}
-              />
-            ))}
+            {statusGroups.map((group, idx) => {
+              const groupLabel = group.statusLabel || group.stageLabel || `Group ${idx}`;
+              return (
+                <TimelineGroup
+                  key={groupLabel}
+                  dateKey={groupLabel}
+                  dateLabel={groupLabel}
+                  rows={group.rows}
+                  activeView={activeView}
+                  selectedStageIds={selectedStageIds}
+                  onSelectionChange={handleRowSelection}
+                  onViewProject={(row) => {
+                    navigate(
+                      `/sites?building=${encodeURIComponent(row.project.building)}&projectCode=${row.project.projectCode}`
+                    );
+                  }}
+                  onEditStageJWSummary={handleEditStageJWSummary}
+                />
+              );
+            })}
           </TableBody>
         </Table>
       </div>
