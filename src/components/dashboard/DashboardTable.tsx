@@ -119,6 +119,21 @@ const DashboardTableComponent = ({
         stageLabel: stageName,
         rows,
       }));
+    } else if (activeView === 'by-consultants') {
+      // Group by stage consultants
+      const groups = new Map<string, DashboardRow[]>();
+      sortedRows.forEach((row) => {
+        const consultants = row.stage?.consultants?.map((c: any) => c.name).join(', ') || 'Unassigned';
+        if (!groups.has(consultants)) {
+          groups.set(consultants, []);
+        }
+        groups.get(consultants)!.push(row);
+      });
+      return Array.from(groups.entries()).map(([consultants, rows]) => ({
+        consultantKey: consultants,
+        consultantLabel: consultants,
+        rows,
+      }));
     } else {
       // Flat list for compact and detailed views
       return { rows: sortedRows };
@@ -311,12 +326,14 @@ const DashboardTableComponent = ({
     );
   }
 
-  // Render status-grouped views (by-job-status, by-invoice, by-stage-type)
+  // Render status-grouped views (by-job-status, by-invoice, by-stage-type, by-consultants)
   const statusGroups = groupedRows as Array<{
     statusKey?: string;
     statusLabel?: string;
     stageKey?: string;
     stageLabel?: string;
+    consultantKey?: string;
+    consultantLabel?: string;
     rows: DashboardRow[];
   }>;
 
@@ -335,7 +352,7 @@ const DashboardTableComponent = ({
           />
           <TableBody>
             {statusGroups.map((group, idx) => {
-              const groupLabel = group.statusLabel || group.stageLabel || `Group ${idx}`;
+              const groupLabel = group.statusLabel || group.stageLabel || group.consultantLabel || `Group ${idx}`;
               return (
                 <TimelineGroup
                   key={groupLabel}
