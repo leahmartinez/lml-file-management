@@ -17,7 +17,7 @@ import { Briefcase } from 'lucide-react';
 
 const UserPortal = () => {
   const { user } = useAuth();
-  const { profile: userProfile, loading: profileLoading, fetchMyProfile } = useProfile();
+  const { profile: userProfile, loading: profileLoading, fetchMyProfile, updateProfile } = useProfile();
   const { assignedStages, totalAssigned, loading: portalLoading } = useUserPortal();
   const [editProfileOpen, setEditProfileOpen] = useState(false);
 
@@ -25,6 +25,11 @@ const UserPortal = () => {
   useEffect(() => {
     fetchMyProfile();
   }, [fetchMyProfile]);
+
+  const handleSaveProfile = async (updates: any) => {
+    await updateProfile(updates);
+    setEditProfileOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -70,10 +75,15 @@ const UserPortal = () => {
       </main>
 
       {/* Edit Profile Modal */}
-      <EditProfileModal
-        isOpen={editProfileOpen}
-        onClose={() => setEditProfileOpen(false)}
-      />
+      {userProfile && (
+        <EditProfileModal
+          profile={userProfile}
+          isOpen={editProfileOpen}
+          onClose={() => setEditProfileOpen(false)}
+          onSave={handleSaveProfile}
+          loading={profileLoading}
+        />
+      )}
     </div>
   );
 };
