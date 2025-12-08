@@ -16,7 +16,8 @@
       "Bash(az functionapp config appsettings list:*)",
       "Bash(func azure functionapp publish:*)",
       "Bash(npm run build:dev:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
