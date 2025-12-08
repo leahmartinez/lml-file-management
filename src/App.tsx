@@ -21,6 +21,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const Proposals = lazy(() => import("./pages/Proposals"));
 const Admin = lazy(() => import("./pages/Admin"));
+const UserPortal = lazy(() => import("./pages/UserPortal"));
 
 // Loading placeholder component
 const PageLoader = () => (
@@ -74,6 +75,16 @@ const AppContent = () => {
           />
 
           {/* Main application routes */}
+          <Route
+            path="/my-work"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <UserPortal />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/sites"
             element={
