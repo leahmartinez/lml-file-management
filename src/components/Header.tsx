@@ -2,11 +2,20 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth.tsx";
+import { useNotifications } from "@/hooks/useNotifications";
+import { NotificationBell } from "@/components/NotificationBell";
 import LMLIcon from "@/assets/LML-Icon.svg";
 
 export const Header = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications(user?.email);
 
   const handleLogout = () => {
     logout();
@@ -32,6 +41,13 @@ export const Header = () => {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            <NotificationBell
+              unreadCount={unreadCount}
+              notifications={notifications}
+              onMarkAsRead={markAsRead}
+              onDelete={deleteNotification}
+              onMarkAllAsRead={markAllAsRead}
+            />
             <Button
               variant="outline"
               size="sm"

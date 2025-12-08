@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { parseMentionedUsers } from '@/utils/parseMentions';
 
 export interface ProjectComment {
   id: string;
@@ -14,6 +15,7 @@ export interface ProjectComment {
   createdAt: string;
   parentId?: string; // For nested replies
   replies?: ProjectComment[]; // Child comments
+  mentionedUserEmails?: string[]; // Array of mentioned user emails
 }
 
 /**
@@ -54,6 +56,10 @@ export const useProjectComments = (projectCode: string) => {
       return null;
     }
 
+    // Extract mentioned user emails from the comment HTML
+    const mentionedUsers = commentHtml ? parseMentionedUsers(commentHtml) : [];
+    const mentionedUserEmails = mentionedUsers.map(u => u.email);
+
     const newComment: ProjectComment = {
       id: `comment_${Date.now()}`,
       projectCode,
@@ -65,6 +71,7 @@ export const useProjectComments = (projectCode: string) => {
       timestamp: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       parentId,
+      mentionedUserEmails: mentionedUserEmails.length > 0 ? mentionedUserEmails : undefined,
     };
 
     // Add to beginning if it's a top-level comment, otherwise add to end for oldest-first in replies
