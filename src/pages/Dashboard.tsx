@@ -3,7 +3,7 @@ import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { useDashboardData, DashboardRow } from '@/hooks/useDashboardData';
 import { useProjectManagement } from '@/hooks/useProjectManagement';
-import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
+import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { DashboardTable } from '@/components/dashboard/DashboardTable';
 import { EditJWSummaryModal } from '@/components/dashboard/EditJWSummaryModal';
 import { Button } from '@/components/ui/button';
@@ -108,152 +108,156 @@ const Dashboard = () => {
       <Header />
       <Navigation />
 
-      <main className="container mx-auto py-6 px-4">
+      <main className="flex flex-col">
         {/* Page Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight">Projects Dashboard</h1>
-              <p className="text-muted-foreground mt-2">
-                Manage and track all projects with filtering, sorting, and export options
-              </p>
+        <div className="container mx-auto py-6 px-4">
+          <div className="mb-8">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h1 className="text-4xl font-bold tracking-tight">Projects Dashboard</h1>
+                <p className="text-muted-foreground mt-2">
+                  Manage and track all projects with filtering, sorting, and export options
+                </p>
+              </div>
+              <LayoutGrid className="h-12 w-12 text-muted-foreground" />
             </div>
-            <LayoutGrid className="h-12 w-12 text-muted-foreground" />
+          </div>
+
+          {/* State Tabs */}
+          <div className="flex gap-2 mb-8 border-b">
+            {STATES.map((state) => (
+              <button
+                key={state}
+                onClick={() => setSelectedState(state)}
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                  selectedState === state
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {state}
+                <span className="ml-2 text-xs font-semibold">
+                  ({new Set(allRows.filter(r => r.state === state).map(r => r.projectCode)).size})
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* State Tabs */}
-        <div className="flex gap-2 mb-8 border-b">
-          {STATES.map((state) => (
-            <button
-              key={state}
-              onClick={() => setSelectedState(state)}
-              className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
-                selectedState === state
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {state}
-              <span className="ml-2 text-xs font-semibold">
-                ({new Set(allRows.filter(r => r.state === state).map(r => r.projectCode)).size})
-              </span>
-            </button>
-          ))}
-        </div>
+        {/* Main Content Area with Sidebar */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar */}
+          <DashboardSidebar
+            rows={stateFilteredRows}
+            filteredRows={filteredRows}
+            onFilterChange={handleFilterChange}
+          />
 
-        {/* Main Content */}
-        <div className="space-y-8">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {/* Total Projects Card */}
-            <div className="rounded-lg border border-border bg-card p-6 hover:shadow-md transition-shadow">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Projects</p>
-                <div className="text-4xl font-bold text-foreground">{totalProjects}</div>
-              </div>
-            </div>
+          {/* Main Content */}
+          <div className="flex-1 overflow-auto">
+            <div className="container mx-auto py-6 px-4 space-y-6">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* Total Projects Card */}
+                <div className="rounded-lg border border-border bg-card p-6 hover:shadow-md transition-shadow">
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Projects</p>
+                    <div className="text-4xl font-bold text-foreground">{totalProjects}</div>
+                  </div>
+                </div>
 
-            {/* Matching Stages Card */}
-            <div className="rounded-lg border border-border bg-card p-6 hover:shadow-md transition-shadow">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Matching Stages</p>
-                <div className="text-4xl font-bold text-foreground">{filteredRows.length}</div>
-              </div>
-            </div>
+                {/* Matching Stages Card */}
+                <div className="rounded-lg border border-border bg-card p-6 hover:shadow-md transition-shadow">
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Matching Stages</p>
+                    <div className="text-4xl font-bold text-foreground">{filteredRows.length}</div>
+                  </div>
+                </div>
 
-            {/* Selected Stages Card */}
-            <div className="rounded-lg border border-border bg-card p-6 hover:shadow-md transition-shadow">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Selected Stages</p>
-                <div className="text-4xl font-bold text-primary">{selectedRows.length}</div>
-              </div>
-            </div>
+                {/* Selected Stages Card */}
+                <div className="rounded-lg border border-border bg-card p-6 hover:shadow-md transition-shadow">
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Selected Stages</p>
+                    <div className="text-4xl font-bold text-primary">{selectedRows.length}</div>
+                  </div>
+                </div>
 
-            {/* Selected Value Card */}
-            <div className="rounded-lg border border-border bg-card p-6 hover:shadow-md transition-shadow">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Selected Value</p>
-                <div className="text-3xl font-bold text-primary">
-                  ${selectedRows.reduce((sum, row) => sum + (row.value || 0), 0).toLocaleString()}
+                {/* Selected Value Card */}
+                <div className="rounded-lg border border-border bg-card p-6 hover:shadow-md transition-shadow">
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Selected Value</p>
+                    <div className="text-3xl font-bold text-primary">
+                      ${selectedRows.reduce((sum, row) => sum + (row.value || 0), 0).toLocaleString()}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Filter Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Filters</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DashboardFilters rows={stateFilteredRows} onFilterChange={handleFilterChange} />
-            </CardContent>
-          </Card>
+              {/* Actions Bar */}
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="text-sm text-muted-foreground">
+                  {selectedRows.length > 0 && (
+                    <span>
+                      {selectedRows.length} row{selectedRows.length !== 1 ? 's' : ''} selected
+                    </span>
+                  )}
+                </div>
 
-          {/* Actions Bar */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="text-sm text-muted-foreground">
-              {selectedRows.length > 0 && (
-                <span>
-                  {selectedRows.length} row{selectedRows.length !== 1 ? 's' : ''} selected
-                </span>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              {/* Copy Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopyToClipboard}
-                disabled={filteredRows.length === 0}
-                title="Copy selected or all filtered rows to clipboard"
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                Copy
-              </Button>
-
-              {/* Export Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <div className="flex gap-2">
+                  {/* Copy Button */}
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={handleCopyToClipboard}
                     disabled={filteredRows.length === 0}
-                    title="Export filtered data"
+                    title="Copy selected or all filtered rows to clipboard"
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleExportCSV}>
-                    <span>Export as CSV</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportExcel}>
-                    <span>Export as Excel</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+
+                  {/* Export Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={filteredRows.length === 0}
+                        title="Export filtered data"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleExportCSV}>
+                        <span>Export as CSV</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExportExcel}>
+                        <span>Export as Excel</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+
+              {/* Table Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Projects</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <DashboardTable
+                    rows={filteredRows}
+                    loading={loading}
+                    onSelectionChange={setSelectedRows}
+                    onRowCount={setTotalCount}
+                    onEditJWSummary={handleEditJWSummary}
+                  />
+                </CardContent>
+              </Card>
             </div>
           </div>
-
-          {/* Table Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Projects</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DashboardTable
-                rows={filteredRows}
-                loading={loading}
-                onSelectionChange={setSelectedRows}
-                onRowCount={setTotalCount}
-                onEditJWSummary={handleEditJWSummary}
-              />
-            </CardContent>
-          </Card>
         </div>
       </main>
 
