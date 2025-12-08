@@ -10,36 +10,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Eye, MapPin } from 'lucide-react';
-import {
-  formatDate,
-  formatCurrency,
-} from '@/components/dashboard/utils/formatters';
+import { formatDate } from '@/components/dashboard/utils/formatters';
 
 interface AssignedWorkTableProps {
   rows: UserAssignedWork[];
   loading?: boolean;
 }
 
-export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = ({
-  rows,
-  loading = false,
-}) => {
+export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = (props) => {
   const navigate = useNavigate();
   const [searchText, setSearchText] = useState('');
-  const [filterProject, setFilterProject] = useState('');
-  const [filterStage, setFilterStage] = useState('');
 
-  // Get unique projects and stages for filter options
-  const filterOptions = useMemo(() => {
-    const projects = new Set(rows.map(r => r.projectCode));
-    const stages = new Set(rows.map(r => r.stageName));
-    return {
-      projects: Array.from(projects).sort(),
-      stages: Array.from(stages).sort(),
-    };
-  }, [rows]);
+  const rows = props.rows;
+  const loading = props.loading || false;
 
-  // Filter rows based on search and filter criteria
+  // Filter rows based on search
   const filteredRows = useMemo(() => {
     return rows.filter(row => {
       const searchLower = searchText.toLowerCase();
@@ -49,12 +34,9 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = ({
         row.stageName.toLowerCase().includes(searchLower) ||
         row.address.toLowerCase().includes(searchLower);
 
-      const matchesProject = !filterProject || row.projectCode === filterProject;
-      const matchesStage = !filterStage || row.stageName === filterStage;
-
-      return matchesSearch && matchesProject && matchesStage;
+      return matchesSearch;
     });
-  }, [rows, searchText, filterProject, filterStage]);
+  }, [rows, searchText]);
 
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground">Loading assigned work...</div>;
@@ -69,48 +51,25 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = ({
     );
   }
 
+  const handleViewProject = (row: UserAssignedWork) => {
+    const building = encodeURIComponent(row.project.building);
+    const projectCode = row.project.projectCode;
+    navigate(`/sites?building=${building}&projectCode=${projectCode}`);
+  };
+
   return (
     <div className="space-y-4">
-      {/* Search and Filters */}
-      <div className="space-y-3">
-        <Input
-          placeholder="Search by project code, building, stage name, or address..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          className="h-9 text-sm"
-        />
+      <Input
+        placeholder="Search by project code, building, stage name, or address..."
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        className="h-9 text-sm"
+      />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <select
-            value={filterProject}
-            onChange={(e) => setFilterProject(e.target.value)}
-            className="h-9 px-3 rounded-md border border-input bg-background text-sm"
-          >
-            <option value="">All Projects</option>
-            {filterOptions.projects.map(project => (
-              <option key={project} value={project}>{project}</option>
-            ))}
-          </select>
-
-          <select
-            value={filterStage}
-            onChange={(e) => setFilterStage(e.target.value)}
-            className="h-9 px-3 rounded-md border border-input bg-background text-sm"
-          >
-            <option value="">All Stages</option>
-            {filterOptions.stages.map(stage => (
-              <option key={stage} value={stage}>{stage}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Results Summary */}
       <div className="text-xs text-muted-foreground">
         {filteredRows.length} of {rows.length} assigned stages
       </div>
 
-      {/* Table */}
       <div className="border rounded-lg overflow-x-auto">
         <Table className="border-collapse w-full">
           <TableHeader>
@@ -119,8 +78,7 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = ({
               <TableHead className="border-b border-r border-border/30">Building</TableHead>
               <TableHead className="border-b border-r border-border/30">Stage</TableHead>
               <TableHead className="border-b border-r border-border/30">Location</TableHead>
-              <TableHead className="border-b border-r border-border/30 w-24">Stage Price</TableHead>
-              <TableHead className="border-b border-r border-border/30 w-24">Order Date</TableHead>
+              <TableHead className="border-b border-r border-border/30 w-32">Assigned Date</TableHead>
               <TableHead className="border-b border-border/30 w-20 text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -128,7 +86,7 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = ({
           <TableBody>
             {filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No matching results
                 </TableCell>
               </TableRow>
@@ -144,17 +102,14 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = ({
                       {row.suburb}, {row.state}
                     </div>
                   </TableCell>
-                  <TableCell className="border-r border-border/30 text-right">{formatCurrency(row.value)}</TableCell>
-                  <TableCell className="border-r border-border/30 text-sm">{formatDate(row.orderDate)}</TableCell>
+                  <TableCell className="border-r border-border/30 text-sm">
+                    {row.assignmentDate ? formatDate(row.assignmentDate) : 'Recently assigned'}
+                  </TableCell>
                   <TableCell className="text-center">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        navigate(
-                          `/sites?building=${encodeURIComponent(row.project.building)}&projectCode=${row.project.projectCode}`
-                        );
-                      }}
+                      onClick={() => handleViewProject(row)}
                       title="View project details"
                       className="h-7 w-7 p-0"
                     >
