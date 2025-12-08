@@ -69,7 +69,7 @@ export const DashboardTableHeader: React.FC<DashboardTableHeaderProps> = ({
         {/* Dynamic Column Headers */}
         {columns.map((column) => {
           const isSortable = column.sortable && column.sortField;
-          const fieldToSort = column.sortField as SortField;
+          const fieldToSort = (column.sortField || column.key) as SortField;
 
           return (
             <TableHead
@@ -77,7 +77,6 @@ export const DashboardTableHeader: React.FC<DashboardTableHeaderProps> = ({
               className={`border-b border-r border-border/30 ${
                 isSortable ? 'cursor-pointer' : ''
               }`}
-              style={{ width: column.width }}
               onClick={() => isSortable && onSort(fieldToSort)}
             >
               <div className="flex items-center gap-2">
