@@ -78,14 +78,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Bio */}
-        {profile.bio && (
-          <div>
-            <h3 className="text-sm font-semibold mb-2">About</h3>
-            <p className="text-sm text-muted-foreground">{profile.bio}</p>
-          </div>
-        )}
-
         {/* Contact Information */}
         <div>
           <h3 className="text-sm font-semibold mb-3">Contact Information</h3>

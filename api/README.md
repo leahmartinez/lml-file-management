@@ -1,4 +1,4 @@
-# LiftWatch API Documentation
+# LML File Management API Documentation
 
 Backend API for secure authentication and user management.
 
@@ -40,7 +40,7 @@ Login with email and password.
 **Request:**
 ```json
 {
-  "email": "admin@liftwatch.com",
+  "email": "leah@lmllift.com",
   "password": "password"
 }
 ```
@@ -50,7 +50,7 @@ Login with email and password.
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
-    "email": "admin@liftwatch.com",
+    "email": "leah@lmllift.com",
     "role": "admin",
     "sites": [],
     "lastLogin": "2025-11-08T..."
@@ -72,7 +72,7 @@ Authorization: Bearer {token}
 ```json
 [
   {
-    "email": "admin@liftwatch.com",
+    "email": "leah@lmllift.com",
     "role": "admin",
     "sites": [],
     "createdAt": "2025-11-08T...",
@@ -153,7 +153,7 @@ Initialize database and seed initial admin user.
 ```json
 {
   "message": "Database initialized successfully",
-  "info": "Initial admin user: admin@liftwatch.com / password"
+  "info": "Initial admin user: leah@lmllift.com / password"
 }
 ```
 
@@ -294,7 +294,7 @@ curl https://liftwatch-api.azurewebsites.net/api/initialize
 # Login
 curl -X POST http://localhost:7071/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@liftwatch.com","password":"password"}'
+  -d '{"email":"leah@lmllift.com","password":"password"}'
 
 # Save token
 TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."

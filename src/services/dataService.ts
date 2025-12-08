@@ -202,6 +202,7 @@ function transformToProjects(rawData: any[]): Project[] {
         project.stages.push({
           stage: stageValue,
           description: item.stageDescription,
+          status: item.stageStatus || 'Not Started',
         });
       }
     }

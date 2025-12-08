@@ -283,46 +283,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             )}
           </div>
 
-          {/* Category */}
-          <div className="space-y-2">
-            <Label htmlFor="category" className="text-sm font-medium">
-              User Status
-            </Label>
-            <Select
-              value={formData.category || 'LML Lift Consultants'}
-              onValueChange={handleCategoryChange}
-            >
-              <SelectTrigger disabled={loading}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="LML Lift Consultants">LML Lift Consultants</SelectItem>
-                <SelectItem value="Client">Client</SelectItem>
-                <SelectItem value="Contractor">Contractor</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Bio */}
-          <div className="space-y-2">
-            <Label htmlFor="bio" className="text-sm font-medium">
-              Bio
-            </Label>
-            <Textarea
-              id="bio"
-              name="bio"
-              value={formData.bio || ''}
-              onChange={handleInputChange}
-              placeholder="Tell us about yourself..."
-              rows={4}
-              disabled={loading}
-              className="resize-none"
-            />
-            <p className="text-xs text-muted-foreground">
-              {(formData.bio || '').length} / 500 characters
-            </p>
-          </div>
-
           {/* Info about Site Assignment */}
           <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
             <p className="text-sm text-blue-900">

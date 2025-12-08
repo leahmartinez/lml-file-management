@@ -18,6 +18,11 @@ export type ProjectState = 'Victoria' | 'NSW' | 'South Australia' | 'Queensland'
 export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'Archived';
 
 /**
+ * Proposal Status - Current status of a proposal
+ */
+export type ProposalStatus = 'Draft' | 'Sent' | 'Under Review' | 'Accepted' | 'Part Acceptance' | 'Rejected' | 'Expired';
+
+/**
  * Site Status - Status of a site/location
  */
 export type SiteStatus = 'Active' | 'Completed';
@@ -36,6 +41,16 @@ export type ProjectStageName =
   | 'Tender'
   | 'Contract Draft'
   | 'Project Management';
+
+/**
+ * Invoice Status - Tracks invoicing state of a project
+ */
+export type InvoiceStatus = 'Not Ready' | 'Ready for Invoice' | 'Invoiced';
+
+/**
+ * Project Type / JW Summary - Type of work being performed
+ */
+export type ProjectType = 'Upgrade' | 'MACA' | 'CMA' | 'Desktop Review' | 'Other';
 
 /**
  * Unit/Property - A unit or property within a site
@@ -86,6 +101,9 @@ export interface ProjectStage {
   order: number; // Display order (1-5)
   description?: string; // Stage description
   status: ProjectStageStatus; // Status of this stage
+  price?: number; // Price/cost for this stage
+  projectType?: ProjectType; // JW Summary - stage-level type (overrides project type)
+  customProjectType?: string; // Custom type when projectType === 'Other'
   createdAt: string; // ISO date string
   updatedAt?: string; // ISO date string
 }
@@ -107,6 +125,18 @@ export interface ProjectNote {
 }
 
 /**
+ * PO File - Purchase Order file attached to a project
+ */
+export interface POFile {
+  id: string;
+  name: string; // Original file name
+  url?: string; // Data URL or Blob URL for uploaded files
+  uploadedAt: string; // ISO date string
+  uploadedBy: string; // User email who uploaded
+  fileSize?: string; // File size in bytes or formatted string
+}
+
+/**
  * Project - A consulting project within a site
  * Format: {StatePrefix}{4-digit number}
  * Examples: PV1296 (Victoria), PN2001 (NSW), PSA0045 (SA), PQ3012 (Queensland)
@@ -120,9 +150,18 @@ export interface Project {
   stages: ProjectStage[]; // Always 5 predefined stages per project
   notes: ProjectNote[]; // Historical comments/notes
   contacts?: string[]; // Assigned contact emails (users or external)
+  proposalId?: string; // Link to the proposal that created this project
+  poFiles?: POFile[]; // Purchase Order files attached to this project
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
   createdBy?: string; // User email who created the project
+  orderDate?: string; // ISO date string - when the order was placed
+  invoiceStatus?: InvoiceStatus; // Track invoice state: Not Ready | Ready for Invoice | Invoiced
+  invoicedDate?: string; // ISO date string - when marked as invoiced
+  projectType?: ProjectType; // JW Summary - type of work: Upgrade | MACA | CMA | Desktop Review | Other
+  customProjectType?: string; // Custom type when projectType === 'Other'
+  projectValue?: number; // Total project value in dollars (ex GST) from proposal
+  primaryClientEmail?: string; // Primary client contact email
 }
 
 /**
@@ -133,7 +172,7 @@ export interface Site {
   address?: string;
   state?: ProjectState; // Australian state
   city?: string;
-  country?: string;
+  postcode?: string;
   description?: string; // Rich text site information
   status?: SiteStatus; // Site status (Active/Completed)
   units?: Unit[]; // Units/properties within this site
@@ -259,5 +298,54 @@ export interface DataFetchResult<T> {
   loading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
+}
+
+/**
+ * Proposal Template - Reusable template for creating proposals
+ * Allows admins to pre-define stages and structure for common proposal types
+ */
+export interface ProposalTemplate {
+  id: string;
+  name: string; // Template name (e.g., "Standard Lift Consultancy", "Feasibility Study")
+  description: string; // Template description
+  stages: Array<{
+    name: string; // Stage name
+    price?: number; // Optional default price for this stage
+  }>;
+  createdBy: string; // User email who created template
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+}
+
+/**
+ * Proposal - A proposal for a potential new project
+ * Tracks proposals sent to clients that may convert to projects
+ */
+export interface Proposal {
+  id: string;
+  proposalNumber: string; // Unique proposal number (e.g., PROP-2024-001)
+  clientName: string;
+  clientContact?: string; // Contact email or name
+  siteName: string; // Proposed site name
+  siteAddress?: string;
+  state?: ProjectState;
+  city?: string;
+  postcode?: string;
+  description: string; // Proposal description/scope
+  estimatedValue?: number; // Total estimated value (calculated from stage pricing)
+  status: ProposalStatus;
+  stages?: ProjectStage[]; // Proposed project stages with individual pricing
+  acceptedStageNames?: string[]; // Names of stages that have been accepted (for Part Acceptance)
+  sentDate?: string; // ISO date when proposal was sent
+  expiryDate?: string; // ISO date when proposal expires
+  acceptedDate?: string; // ISO date when accepted (fully or partially)
+  rejectedDate?: string; // ISO date when rejected
+  rejectionReason?: string;
+  notes?: string; // Additional notes
+  attachments?: string[]; // File URLs or names
+  createdBy: string; // User email who created proposal
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+  projectCode?: string; // Set when converted to project (fully or partially)
 }
 

@@ -56,7 +56,7 @@ async function test() {
 
     // 7. Test admin user exists
     console.log('7. Testing admin user...');
-    const admin = await getUserByEmail('admin@liftwatch.com');
+    const admin = await getUserByEmail('leah@lmllift.com');
     if (admin) {
       console.log('   ✅ Admin user exists');
       const adminPasswordValid = await verifyPassword('password', admin.passwordHash);

@@ -24,8 +24,8 @@ export async function initializeLocalDatabase(): Promise<void> {
     const demoUsers: UserEntity[] = [
       {
         partitionKey: 'USER',
-        rowKey: 'admin@liftwatch.com',
-        email: 'admin@liftwatch.com',
+        rowKey: 'leah@lmllift.com',
+        email: 'leah@lmllift.com',
         passwordHash: defaultPassword,
         role: 'admin',
         sites: '[]',
@@ -36,34 +36,10 @@ export async function initializeLocalDatabase(): Promise<void> {
       },
       {
         partitionKey: 'USER',
-        rowKey: 'manager@liftwatch.com',
-        email: 'manager@liftwatch.com',
+        rowKey: 'user@lmllift.com',
+        email: 'user@lmllift.com',
         passwordHash: defaultPassword,
-        role: 'national_manager',
-        sites: '[]',
-        createdAt: new Date().toISOString(),
-        createdBy: 'system',
-        accountStatus: 'active',
-        emailVerified: true,
-      },
-      {
-        partitionKey: 'USER',
-        rowKey: 'sitemanager@liftwatch.com',
-        email: 'sitemanager@liftwatch.com',
-        passwordHash: defaultPassword,
-        role: 'site_manager',
-        sites: '["Tower A"]',
-        createdAt: new Date().toISOString(),
-        createdBy: 'system',
-        accountStatus: 'active',
-        emailVerified: true,
-      },
-      {
-        partitionKey: 'USER',
-        rowKey: 'consultant@liftwatch.com',
-        email: 'consultant@liftwatch.com',
-        passwordHash: defaultPassword,
-        role: 'consultant',
+        role: 'user',
         sites: '[]',
         createdAt: new Date().toISOString(),
         createdBy: 'system',
@@ -83,10 +59,8 @@ export async function initializeLocalDatabase(): Promise<void> {
     });
     
     console.log('✅ Seeded demo users:');
-    console.log('   - admin@liftwatch.com / password');
-    console.log('   - manager@liftwatch.com / password');
-    console.log('   - sitemanager@liftwatch.com / password');
-    console.log('   - consultant@liftwatch.com / password');
+    console.log('   - leah@lmllift.com / password (admin)');
+    console.log('   - user@lmllift.com / password (user)');
   }
 }
 

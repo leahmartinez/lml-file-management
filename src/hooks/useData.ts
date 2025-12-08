@@ -68,10 +68,13 @@ export function useProjects(): DataFetchResult<Project[]> {
 }
 
 /**
- * Hook for fetching contacts with loading and error states
- * Now uses React Query for caching
+ * @deprecated Use useContacts() from './useContacts' instead
+ *
+ * Hook for fetching contacts with loading and error states (Legacy)
+ * This returns Contact[] (legacy format). Use the modern useContacts() hook
+ * from './useContacts' which returns DirectoryContact[] with user + external contacts.
  */
-export function useContacts(): DataFetchResult<Contact[]> {
+export function useLegacyContacts(): DataFetchResult<Contact[]> {
   const query = useContactsQuery();
 
   const refetch = useCallback(() => {

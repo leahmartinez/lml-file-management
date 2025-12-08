@@ -23,7 +23,7 @@ export interface UserEntity extends TableEntity {
   rowKey: string; // email
   email: string;
   passwordHash: string;
-  role: 'national_manager' | 'site_manager' | 'admin' | 'consultant';
+  role: 'admin' | 'user';
   sites: string; // JSON stringified array
   createdAt: string;
   lastLogin?: string;
@@ -233,14 +233,14 @@ export async function seedInitialUsers(): Promise<void> {
     const adminPasswordHash = await bcrypt.hash('password', 10);
     
     await createUser({
-      email: 'admin@liftwatch.com',
+      email: 'leah@lmllift.com',
       passwordHash: adminPasswordHash,
       role: 'admin',
       sites: [],
       createdBy: 'system',
     });
-    
-    console.log('Initial admin user created: admin@liftwatch.com / password');
+
+    console.log('Initial admin user created: leah@lmllift.com / password');
   }
 }
 

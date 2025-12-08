@@ -1,11 +1,11 @@
 /**
- * @deprecated Use useContacts() from '@/hooks/useData' instead
+ * @deprecated Use useContacts() from '@/hooks/useContacts' instead
  * This hook is kept for backward compatibility but now uses the data service layer
  */
-import { useContacts } from './useData';
+import { useLegacyContacts } from './useData';
 import { Contact } from '@/types/data';
 
 export const useContactsData = (): Contact[] => {
-  const { data } = useContacts();
+  const { data } = useLegacyContacts();
   return data;
 };

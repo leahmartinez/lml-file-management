@@ -9,11 +9,13 @@ import { DirectoryContact } from '@/types/data';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Mail, Phone, MapPin, Building, ExternalLink, Loader2 } from 'lucide-react';
+import { Mail, Phone, MapPin, Building, ExternalLink, Loader2, Trash2 } from 'lucide-react';
 
 interface ContactCardProps {
   contact: DirectoryContact;
   onViewDetails?: (contact: DirectoryContact) => void;
+  onDelete?: (contact: DirectoryContact) => void;
+  canDelete?: boolean;
   compact?: boolean;
   isLoading?: boolean;
 }
@@ -21,6 +23,8 @@ interface ContactCardProps {
 export const ContactCard: React.FC<ContactCardProps> = ({
   contact,
   onViewDetails,
+  onDelete,
+  canDelete = false,
   compact = false,
   isLoading = false,
 }) => {
@@ -28,6 +32,9 @@ export const ContactCard: React.FC<ContactCardProps> = ({
 
   // Generate initials for fallback avatar
   const initials = `${contact.firstName.charAt(0)}${contact.lastName.charAt(0)}`.toUpperCase();
+
+  // Only show delete button for external contacts when user has permission
+  const showDeleteButton = canDelete && contact.type === 'external' && onDelete;
 
   if (compact) {
     // Compact card for list view
@@ -68,21 +75,39 @@ export const ContactCard: React.FC<ContactCardProps> = ({
                 )}
               </div>
 
-              {/* Category badge */}
-              {contact.category && (
-                <Badge
-                  variant={
-                    contact.category === 'LML Lift Consultants'
-                      ? 'default'
-                      : contact.category === 'Client'
-                        ? 'secondary'
-                        : 'outline'
-                  }
-                  className="text-xs flex-shrink-0"
-                >
-                  {contact.category}
-                </Badge>
-              )}
+              <div className="flex items-start gap-2">
+                {/* Category badge */}
+                {contact.category && (
+                  <Badge
+                    variant={
+                      contact.category === 'LML Lift Consultants'
+                        ? 'default'
+                        : contact.category === 'Client'
+                          ? 'secondary'
+                          : 'outline'
+                    }
+                    className="text-xs flex-shrink-0"
+                  >
+                    {contact.category}
+                  </Badge>
+                )}
+
+                {/* Delete button */}
+                {showDeleteButton && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(contact);
+                    }}
+                    className="h-6 w-6 p-0 hover:bg-red-50"
+                    title="Delete contact"
+                  >
+                    <Trash2 className="h-3 w-3 text-red-600" />
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Contact info summary */}

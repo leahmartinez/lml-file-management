@@ -7,10 +7,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import { DirectoryContact, ExternalContact, UserProfile } from '@/types/data';
 import { contactsApi, profileApi } from '@/services/apiService';
-import { getMockCategories, getMockProfileByEmail, mockExternalContacts } from '@/utils/mockContactData';
+import { getMockCategories, getMockProfileByEmail, getExternalContacts as getExternalContactsFromStorage, addExternalContact as addExternalContactToCache, updateExternalContact as updateExternalContactInCache, deleteExternalContact as deleteExternalContactFromCache } from '@/utils/mockContactData';
 import { useAuth } from './useAuth';
 
-const DEV_MODE = import.meta.env.DEV;
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true' || import.meta.env.DEV;
+
+console.log('[useContacts] USE_MOCK_DATA:', USE_MOCK_DATA);
+console.log('[useContacts] import.meta.env.DEV:', import.meta.env.DEV);
+console.log('[useContacts] import.meta.env.VITE_USE_MOCK_DATA:', import.meta.env.VITE_USE_MOCK_DATA);
 
 export interface ContactFilters {
   category?: string;
@@ -25,12 +29,21 @@ export function useContacts() {
   const [categories, setCategories] = useState<string[]>([]);
   const [externalContacts, setExternalContacts] = useState<ExternalContact[]>([]);
 
+  // Load external contacts from localStorage on mount
+  useEffect(() => {
+    if (USE_MOCK_DATA) {
+      const loadedExternalContacts = getExternalContactsFromStorage();
+      console.log('[useContacts] Loaded external contacts from localStorage:', loadedExternalContacts.length);
+      setExternalContacts(loadedExternalContacts);
+    }
+  }, []);
+
   /**
    * Fetch a user's profile by email
    */
   const fetchUserProfile = useCallback(async (email: string): Promise<UserProfile | null> => {
     try {
-      if (DEV_MODE) {
+      if (USE_MOCK_DATA) {
         return getMockProfileByEmail(email) || null;
       }
       try {
@@ -52,12 +65,14 @@ export function useContacts() {
    * Fetches fresh profile data for each user
    */
   const fetchContacts = useCallback(async (filters?: ContactFilters) => {
+    console.log('[useContacts] fetchContacts called with allUsers:', allUsers.length);
     setLoading(true);
     setError(null);
     try {
       // Fetch profile data for all users
       const profilesPromises = allUsers.map((user) => fetchUserProfile(user.email));
       const profiles = await Promise.all(profilesPromises);
+      console.log('[useContacts] Fetched profiles for', profiles.length, 'users');
 
       // Create a map of email -> profile for easy lookup
       const profileMap: { [email: string]: UserProfile | null } = {};
@@ -86,24 +101,38 @@ export function useContacts() {
         };
       });
 
-      // Combine with external contacts
-      const externalContactsData: DirectoryContact[] = externalContacts.map((contact) => ({
-        id: contact.id,
-        type: 'external' as const,
-        firstName: contact.firstName,
-        lastName: contact.lastName,
-        email: contact.email || '',
-        position: contact.position,
-        phone: contact.phone,
-        officePhone: contact.officePhone,
-        category: contact.category,
-        photo: undefined,
-        department: undefined,
-        bio: undefined,
-        userEmail: undefined,
-      }));
+      // Reload external contacts from localStorage to ensure we have latest
+      const freshExternalContacts = USE_MOCK_DATA ? getExternalContactsFromStorage() : externalContacts;
+      console.log('[useContacts] Fresh external contacts:', freshExternalContacts.length);
+
+      // Combine with external contacts - VALIDATE emails!
+      const externalContactsData: DirectoryContact[] = freshExternalContacts
+        .filter((contact) => {
+          // Validate email exists and is not empty
+          if (!contact.email || contact.email.trim().length === 0) {
+            console.warn('[useContacts] Skipping external contact without email:', contact.id, contact.firstName, contact.lastName);
+            return false;
+          }
+          return true;
+        })
+        .map((contact) => ({
+          id: contact.id,
+          type: 'external' as const,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          email: contact.email!, // Non-null assertion safe after filter above
+          position: contact.position,
+          phone: contact.phone,
+          officePhone: contact.officePhone,
+          category: contact.category,
+          photo: undefined,
+          department: undefined,
+          bio: undefined,
+          userEmail: undefined,
+        }));
 
       let data: DirectoryContact[] = [...userContacts, ...externalContactsData];
+      console.log('[useContacts] Total contacts before filtering:', data.length);
 
       // Apply filters client-side
       if (filters?.category) {
@@ -120,6 +149,7 @@ export function useContacts() {
         );
       }
 
+      console.log('[useContacts] Setting contacts:', data.length);
       setContacts(data);
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to fetch contacts');
@@ -136,7 +166,7 @@ export function useContacts() {
   const fetchCategories = useCallback(async () => {
     try {
       let data;
-      if (DEV_MODE) {
+      if (USE_MOCK_DATA) {
         data = getMockCategories();
       } else {
         // Get categories from contacts or use defaults
@@ -153,7 +183,7 @@ export function useContacts() {
    */
   const getContact = useCallback(async (id: string): Promise<DirectoryContact | null> => {
     try {
-      if (DEV_MODE) {
+      if (USE_MOCK_DATA) {
         // Find in mock data
         return contacts.find((c) => c.id === id) || null;
       }
@@ -169,21 +199,18 @@ export function useContacts() {
    */
   const createContact = useCallback(async (contact: Omit<ExternalContact, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      if (DEV_MODE) {
-        // Mock create - just update local state
-        const newContact: DirectoryContact = {
-          id: `ext-${Date.now()}`,
-          type: 'external',
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          email: contact.email || '',
-          position: contact.position,
-          phone: contact.phone,
-          officePhone: contact.officePhone,
-          category: contact.category,
-        };
-        setContacts([...contacts, newContact]);
-        return newContact;
+      if (USE_MOCK_DATA) {
+        // Add to localStorage cache
+        const newExternalContact = addExternalContactToCache(contact);
+        console.log('[useContacts] Created external contact:', newExternalContact);
+
+        // Update local state
+        setExternalContacts(prev => [...prev, newExternalContact]);
+
+        // Refresh contacts to show the new external contact
+        await fetchContacts();
+
+        return newExternalContact;
       }
       const result = await contactsApi.createContact(contact);
       // Refresh contacts list
@@ -193,7 +220,7 @@ export function useContacts() {
       console.error('Error creating contact:', err);
       throw err;
     }
-  }, [contacts, fetchContacts]);
+  }, [fetchContacts]);
 
   /**
    * Update external contact (admin/consultant only)
@@ -201,17 +228,21 @@ export function useContacts() {
   const updateContact = useCallback(
     async (id: string, updates: Partial<ExternalContact>) => {
       try {
-        if (DEV_MODE) {
-          // Mock update - just update local state
-          const index = contacts.findIndex((c) => c.id === id);
-          if (index >= 0) {
-            const updated = { ...contacts[index], ...updates };
-            const newContacts = [...contacts];
-            newContacts[index] = updated;
-            setContacts(newContacts);
-            return updated;
+        if (USE_MOCK_DATA) {
+          // Update in localStorage cache
+          const updated = updateExternalContactInCache(id, updates);
+          if (!updated) {
+            throw new Error('Contact not found');
           }
-          throw new Error('Contact not found');
+          console.log('[useContacts] Updated external contact:', updated);
+
+          // Update local state
+          setExternalContacts(prev => prev.map(c => c.id === id ? updated : c));
+
+          // Refresh contacts
+          await fetchContacts();
+
+          return updated;
         }
         const result = await contactsApi.updateContact(id, updates);
         // Refresh contacts list
@@ -222,7 +253,7 @@ export function useContacts() {
         throw err;
       }
     },
-    [contacts, fetchContacts]
+    [fetchContacts]
   );
 
   /**
@@ -231,9 +262,20 @@ export function useContacts() {
   const deleteContact = useCallback(
     async (id: string) => {
       try {
-        if (DEV_MODE) {
-          // Mock delete - just update local state
-          setContacts(contacts.filter((c) => c.id !== id));
+        if (USE_MOCK_DATA) {
+          // Delete from localStorage cache
+          const deleted = deleteExternalContactFromCache(id);
+          if (!deleted) {
+            throw new Error('Contact not found');
+          }
+          console.log('[useContacts] Deleted external contact:', id);
+
+          // Update local state
+          setExternalContacts(prev => prev.filter(c => c.id !== id));
+
+          // Refresh contacts
+          await fetchContacts();
+
           return;
         }
         await contactsApi.deleteContact(id);
@@ -244,7 +286,7 @@ export function useContacts() {
         throw err;
       }
     },
-    [contacts, fetchContacts]
+    [fetchContacts]
   );
 
   /**

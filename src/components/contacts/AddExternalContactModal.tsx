@@ -6,6 +6,7 @@
 
 import React, { useState } from 'react';
 import { ExternalContact } from '@/types/data';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
   categories,
   onAdd,
 }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -138,7 +140,7 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
         email: formData.email || undefined,
         phone: formData.phone || undefined,
         category: formData.category as 'LML Lift Consultants' | 'Client' | 'Contractor',
-        createdBy: 'current-user@company.com', // This will be set by backend
+        createdBy: user?.email || 'unknown',
       };
 
       if (onAdd) {

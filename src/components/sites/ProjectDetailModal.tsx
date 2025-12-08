@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Project, ProjectStatus } from "@/types/data";
+import { useState, useEffect } from "react";
+import { Project, ProjectStatus, POFile } from "@/types/data";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -28,6 +29,10 @@ interface ProjectDetailModalProps {
   onEditCode?: (newCode: string) => void;
   onEditDescription?: (newDescription: string) => void;
   onEditStatus?: (newStatus: ProjectStatus) => void;
+  onAddPOFile?: (file: POFile) => void;
+  onDeletePOFile?: (fileId: string) => void;
+  proposalNumber?: string; // Show proposal number if available
+  onProposalClick?: () => void; // Handle proposal link click
 }
 
 const PROJECT_STATUSES: ProjectStatus[] = [
@@ -44,6 +49,10 @@ export const ProjectDetailModal = ({
   onEditCode,
   onEditDescription,
   onEditStatus,
+  onAddPOFile,
+  onDeletePOFile,
+  proposalNumber,
+  onProposalClick,
 }: ProjectDetailModalProps) => {
   const [isEditingCode, setIsEditingCode] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -52,13 +61,39 @@ export const ProjectDetailModal = ({
     project?.description || ""
   );
 
+  const handlePOFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onAddPOFile) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const newPOFile: POFile = {
+          id: `po_${Date.now()}`,
+          name: file.name,
+          url: event.target?.result as string,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: 'current-user', // Should get from auth context in real scenario
+          fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+        };
+        onAddPOFile(newPOFile);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input
+    e.target.value = '';
+  };
+
   // Update state when project changes
-  if (project && !isEditingCode) {
-    setEditCodeValue(project.projectCode);
-  }
-  if (project && !isEditingDescription) {
-    setEditDescValue(project.description || "");
-  }
+  useEffect(() => {
+    if (project && !isEditingCode) {
+      setEditCodeValue(project.projectCode);
+    }
+  }, [project, isEditingCode]);
+
+  useEffect(() => {
+    if (project && !isEditingDescription) {
+      setEditDescValue(project.description || "");
+    }
+  }, [project, isEditingDescription]);
 
   const handleSaveCode = () => {
     if (onEditCode && editCodeValue.trim() && editCodeValue !== project?.projectCode) {
@@ -146,42 +181,41 @@ export const ProjectDetailModal = ({
           <div className="space-y-3">
             <Label className="text-base font-semibold">Description</Label>
             {isEditingDescription ? (
-              <div className="flex gap-2">
-                <Textarea
+              <div className="space-y-2">
+                <RichTextEditor
                   value={editDescValue}
-                  onChange={(e) => setEditDescValue(e.target.value)}
+                  onChange={(html, text) => setEditDescValue(html)}
                   placeholder="Enter project description..."
-                  rows={5}
-                  className="flex-1"
                 />
-                <div className="flex flex-col gap-2 pt-2">
+                <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="ghost"
                     onClick={handleSaveDescription}
-                    className="px-3"
                   >
-                    <Check className="h-4 w-4 text-green-600" />
+                    <Check className="h-4 w-4 mr-2" />
+                    Save
                   </Button>
                   <Button
                     size="sm"
-                    variant="ghost"
+                    variant="outline"
                     onClick={handleCancelDescription}
-                    className="px-3"
                   >
-                    <X className="h-4 w-4 text-red-600" />
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="flex items-start justify-between gap-4 p-3 bg-muted rounded-lg">
-                <p className="text-sm whitespace-pre-wrap flex-1">
-                  {project.description || (
+                <div className="prose prose-sm max-w-none flex-1 text-foreground">
+                  {editDescValue ? (
+                    <div dangerouslySetInnerHTML={{ __html: editDescValue }} />
+                  ) : (
                     <span className="text-muted-foreground italic">
                       No description added
                     </span>
                   )}
-                </p>
+                </div>
                 {onEditDescription && (
                   <Button
                     size="sm"
@@ -217,6 +251,30 @@ export const ProjectDetailModal = ({
             )}
           </div>
 
+          {/* Proposal Link Section */}
+          {proposalNumber && (
+            <div
+              className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+              onClick={onProposalClick}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  onProposalClick?.();
+                }
+              }}
+            >
+              <Label className="text-base font-semibold">Linked Proposal</Label>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-blue-900">{proposalNumber}</span>
+                <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">
+                  Proposal
+                </Badge>
+              </div>
+              <p className="text-xs text-blue-700">This project was created from a proposal</p>
+            </div>
+          )}
+
           {/* Info Section */}
           <div className="grid grid-cols-2 gap-4 pt-4 border-t">
             <div>
@@ -238,7 +296,7 @@ export const ProjectDetailModal = ({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4">
+        <div className="flex justify-end gap-2 pt-6">
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>

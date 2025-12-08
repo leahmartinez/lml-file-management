@@ -12,10 +12,8 @@ Quick guide to test the backend API locally before deploying.
 
 All test users have password: `password`
 
-- `admin@liftwatch.com` - Admin role
-- `manager@liftwatch.com` - National Manager
-- `sitemanager@liftwatch.com` - Site Manager (Tower A)
-- `consultant@liftwatch.com` - Consultant role
+- `leah@lmllift.com` - Admin role
+- `user@lmllift.com` - User role
 
 ---
 
@@ -28,7 +26,7 @@ All test users have password: `password`
 $response = Invoke-RestMethod -Uri 'http://localhost:7071/api/auth/login' `
   -Method POST `
   -ContentType 'application/json' `
-  -Body '{"email":"admin@liftwatch.com","password":"password"}'
+  -Body '{"email":"leah@lmllift.com","password":"password"}'
 
 # View response
 $response
@@ -43,7 +41,7 @@ echo "Token: $token"
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
-    "email": "admin@liftwatch.com",
+    "email": "leah@lmllift.com",
     "role": "admin",
     "sites": []
   }
@@ -65,7 +63,7 @@ $profile
 **Expected output:**
 ```json
 {
-  "email": "admin@liftwatch.com",
+  "email": "leah@lmllift.com",
   "role": "admin",
   "sites": [],
   "lastLogin": "2025-11-08T..."
@@ -87,12 +85,12 @@ $users
 ```json
 [
   {
-    "email": "admin@liftwatch.com",
+    "email": "leah@lmllift.com",
     "role": "admin",
     "sites": []
   },
   {
-    "email": "manager@liftwatch.com",
+    "email": "manager@lmllift.com",
     "role": "national_manager",
     "sites": []
   },
@@ -164,7 +162,7 @@ If you prefer curl:
 # Login
 curl -X POST http://localhost:7071/api/auth/login \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"admin@liftwatch.com\",\"password\":\"password\"}"
+  -d "{\"email\":\"leah@lmllift.com\",\"password\":\"password\"}"
 
 # Save token
 TOKEN="paste-token-here"
@@ -190,13 +188,13 @@ curl http://localhost:7071/api/users \
    - Profile should NOT include password
 
 2. **Authorization works**:
-   - Login as `sitemanager@liftwatch.com`
+   - Login as `user@lmllift.com`
    - Try to create user (should fail with 403 Forbidden)
    - Try to list users (should fail with 403 Forbidden)
 
 3. **Self-deletion prevention**:
    - Login as admin
-   - Try to delete admin@liftwatch.com (should fail)
+   - Try to delete leah@lmllift.com (should fail)
 
 ### 🔍 Test Scenarios
 
@@ -205,7 +203,7 @@ curl http://localhost:7071/api/users \
    Invoke-RestMethod -Uri 'http://localhost:7071/api/auth/login' `
      -Method POST `
      -ContentType 'application/json' `
-     -Body '{"email":"admin@liftwatch.com","password":"wrong"}'
+     -Body '{"email":"leah@lmllift.com","password":"wrong"}'
    ```
    Expected: 401 error
 
@@ -222,7 +220,7 @@ curl http://localhost:7071/api/users \
      -Method POST `
      -ContentType 'application/json' `
      -Headers $headers `
-     -Body '{"email":"admin@liftwatch.com","password":"test","role":"admin","sites":[]}'
+     -Body '{"email":"leah@lmllift.com","password":"test","role":"admin","sites":[]}'
    ```
    Expected: 400 error "User already exists"
 

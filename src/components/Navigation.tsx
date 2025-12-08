@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
-import { memo } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface NavigationProps {
   className?: string;
@@ -8,14 +8,23 @@ interface NavigationProps {
 
 const navItems = [
   { label: "Projects", path: "/sites" },
+  { label: "Dashboard", path: "/dashboard" },
+  { label: "Proposals", path: "/proposals" },
   { label: "Contacts", path: "/contact" },
+  { label: "Admin", path: "/admin", adminOnly: true },
 ];
 
 const NavigationComponent = ({ className }: NavigationProps) => {
   const location = useLocation();
+  const { user } = useAuth();
 
-  // Simplified navigation - all users have same permissions
-  const allNavItems = navItems;
+  // Filter navigation items based on user role
+  const allNavItems = navItems.filter(item => {
+    if (item.adminOnly) {
+      return user?.role === 'admin';
+    }
+    return true;
+  });
 
   return (
     <nav className={cn("border-b border-border bg-card", className)}>
@@ -44,8 +53,5 @@ const NavigationComponent = ({ className }: NavigationProps) => {
   );
 };
 
-// Memoize Navigation component to prevent re-renders when parent updates
-// Only re-render if className prop changes (which rarely happens)
-export const Navigation = memo(NavigationComponent, (prevProps, nextProps) => {
-  return prevProps.className === nextProps.className;
-});
+// Export Navigation component (no memoization to ensure proper re-renders when user role changes)
+export const Navigation = NavigationComponent;

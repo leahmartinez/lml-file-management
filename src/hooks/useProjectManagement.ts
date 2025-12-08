@@ -11,7 +11,19 @@ export const useProjectManagement = () => {
   const { data: sourceProjects, refetch } = useProjects();
   const [customProjects, setCustomProjects] = useState<Project[]>(() => {
     const stored = localStorage.getItem('customProjects');
-    return stored ? JSON.parse(stored) : [];
+    if (!stored) return [];
+    try {
+      const parsed = JSON.parse(stored);
+      // Filter out null/undefined projects from stored data
+      return Array.isArray(parsed) ? parsed.filter((p): p is Project => p !== null && p !== undefined && !!p.projectCode) : [];
+    } catch (error) {
+      console.error('[useProjectManagement] Error parsing customProjects from localStorage:', error);
+      return [];
+    }
+  });
+  const [deletedProjectCodes, setDeletedProjectCodes] = useState<Set<string>>(() => {
+    const stored = localStorage.getItem('deletedProjects');
+    return new Set(stored ? JSON.parse(stored) : []);
   });
 
   // Update project code
@@ -132,13 +144,23 @@ export const useProjectManagement = () => {
     });
   }, [customProjects, sourceProjects]);
 
-  // Get merged projects (source projects with custom overrides)
+  // Get merged projects (source projects with custom overrides), excluding deleted projects
   const getMergedProjects = useCallback((): Project[] => {
     const merged: Project[] = [];
-    const customMap = new Map(customProjects.map(p => [p.projectCode, p]));
+    // Filter out null/undefined projects before creating map
+    const customMap = new Map(
+      customProjects
+        .filter((p): p is Project => p !== null && p !== undefined && !!p.projectCode)
+        .map(p => [p.projectCode, p])
+    );
 
-    // Add source projects, using custom overrides if they exist
+    // Add source projects, using custom overrides if they exist (skip if deleted)
     sourceProjects.forEach(sourceProject => {
+      // Skip deleted projects
+      if (deletedProjectCodes.has(sourceProject.projectCode)) {
+        return;
+      }
+
       const customOverride = customMap.get(sourceProject.projectCode);
       if (customOverride) {
         merged.push(customOverride);
@@ -148,14 +170,95 @@ export const useProjectManagement = () => {
       }
     });
 
-    // Add remaining custom projects
-    customMap.forEach(project => merged.push(project));
+    // Add remaining custom projects (skip if deleted)
+    customMap.forEach(project => {
+      if (!deletedProjectCodes.has(project.projectCode)) {
+        merged.push(project);
+      }
+    });
 
     return merged;
-  }, [sourceProjects, customProjects]);
+  }, [sourceProjects, customProjects, deletedProjectCodes]);
+
+  // Add a new project
+  const addProject = useCallback((project: Project) => {
+    // Check if project already exists
+    const allProjects = getMergedProjects();
+    if (allProjects.some(p => p.projectCode === project.projectCode)) {
+      toast({
+        title: "Error",
+        description: `A project with code "${project.projectCode}" already exists`,
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    const updated = [...customProjects, project];
+    setCustomProjects(updated);
+    localStorage.setItem('customProjects', JSON.stringify(updated));
+
+    toast({
+      title: "Success",
+      description: `Project "${project.projectCode}" has been added`,
+    });
+    return true;
+  }, [customProjects, getMergedProjects]);
+
+  // Update entire project (useful for stages, files, etc.)
+  const updateProject = useCallback((projectCode: string, updatedProject: Project) => {
+    const existingCustom = customProjects.find(p => p.projectCode === projectCode);
+    if (existingCustom) {
+      const updated_list = customProjects.map(p =>
+        p.projectCode === projectCode ? updatedProject : p
+      );
+      setCustomProjects(updated_list);
+      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+    } else {
+      // Project doesn't exist in custom, add it
+      const updated_list = [...customProjects, updatedProject];
+      setCustomProjects(updated_list);
+      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+    }
+  }, [customProjects]);
+
+  // Delete a project
+  const deleteProject = useCallback((projectCode: string) => {
+    // VALIDATE project code before deletion
+    if (!projectCode || projectCode.trim().length === 0) {
+      console.error('[useProjectManagement] Invalid project code for deletion:', projectCode);
+      toast({
+        title: "Error",
+        description: "Invalid project code",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Add to deleted projects list
+    const updated = new Set(deletedProjectCodes);
+    updated.add(projectCode);
+    setDeletedProjectCodes(updated);
+    localStorage.setItem('deletedProjects', JSON.stringify(Array.from(updated)));
+
+    // Also remove from custom projects if it exists there
+    const customUpdated = customProjects.filter(p => p.projectCode !== projectCode);
+    if (customUpdated.length !== customProjects.length) {
+      setCustomProjects(customUpdated);
+      localStorage.setItem('customProjects', JSON.stringify(customUpdated));
+    }
+
+    toast({
+      title: "Success",
+      description: `Project "${projectCode}" has been deleted`,
+    });
+    return true;
+  }, [customProjects, deletedProjectCodes]);
 
   return {
     projects: getMergedProjects(),
+    addProject,
+    updateProject,
+    deleteProject,
     updateProjectCode,
     updateProjectDescription,
     updateProjectStatus,

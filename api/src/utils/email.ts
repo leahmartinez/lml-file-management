@@ -37,7 +37,7 @@ function getEmailClient(): EmailClient | null {
 }
 
 // Sender email address - must be a verified sender in Azure Communication Services
-const SENDER_EMAIL = process.env.SENDER_EMAIL || 'noreply@liftwatch.com';
+const SENDER_EMAIL = process.env.SENDER_EMAIL || 'noreply@lmllift.com';
 
 export interface EmailOptions {
   to: string;
@@ -148,7 +148,7 @@ export async function sendVerificationEmail(
           <h1>Verify Your Email Address</h1>
         </div>
         <div class="content">
-          <p>Welcome to LiftWatch Asset View!</p>
+          <p>Welcome to LML File Management!</p>
           <p>Please verify your email address by clicking the button below:</p>
           <p style="text-align: center;">
             <a href="${verificationUrl}" class="button">Verify Email Address</a>
@@ -160,7 +160,7 @@ export async function sendVerificationEmail(
           <p>If you didn't create an account, you can safely ignore this email.</p>
         </div>
         <div class="footer">
-          <p>LiftWatch Asset View - Lift Asset Management System</p>
+          <p>LML File Management - LML Lift Consultants</p>
         </div>
       </div>
     </body>
@@ -170,7 +170,7 @@ export async function sendVerificationEmail(
   const textBody = `
     Verify Your Email Address
 
-    Welcome to LiftWatch Asset View!
+    Welcome to LML File Management!
 
     Please verify your email address by visiting this link:
     ${verificationUrl}
@@ -184,7 +184,7 @@ export async function sendVerificationEmail(
 
   await sendEmail({
     to: email,
-    subject: 'Verify Your Email - LiftWatch Asset View',
+    subject: 'Verify Your Email - LML File Management',
     htmlBody,
     textBody,
   }, context);
@@ -220,7 +220,7 @@ export async function sendPasswordResetEmail(
           <h1>Reset Your Password</h1>
         </div>
         <div class="content">
-          <p>We received a request to reset your password for your LiftWatch Asset View account.</p>
+          <p>We received a request to reset your password for your LML File Management account.</p>
           <p>Click the button below to reset your password:</p>
           <p style="text-align: center;">
             <a href="${resetUrl}" class="button">Reset Password</a>
@@ -237,7 +237,7 @@ export async function sendPasswordResetEmail(
           <p>If you didn't request a password reset, please ignore this email or contact support if you're concerned about your account security.</p>
         </div>
         <div class="footer">
-          <p>LiftWatch Asset View - Lift Asset Management System</p>
+          <p>LML File Management - LML Lift Consultants</p>
         </div>
       </div>
     </body>
@@ -247,7 +247,7 @@ export async function sendPasswordResetEmail(
   const textBody = `
     Reset Your Password
 
-    We received a request to reset your password for your LiftWatch Asset View account.
+    We received a request to reset your password for your LML File Management account.
 
     Visit this link to reset your password:
     ${resetUrl}
@@ -261,7 +261,7 @@ export async function sendPasswordResetEmail(
 
   await sendEmail({
     to: email,
-    subject: 'Reset Your Password - LiftWatch Asset View',
+    subject: 'Reset Your Password - LML File Management',
     htmlBody,
     textBody,
   }, context);
@@ -295,7 +295,7 @@ export async function sendAccountApprovedEmail(
           <h1>✅ Account Approved!</h1>
         </div>
         <div class="content">
-          <p>Good news! Your LiftWatch Asset View account has been approved by an administrator.</p>
+          <p>Good news! Your LML File Management account has been approved by an administrator.</p>
           <p>You can now log in and access the system:</p>
           <p style="text-align: center;">
             <a href="${loginUrl}" class="button">Log In Now</a>
@@ -303,7 +303,7 @@ export async function sendAccountApprovedEmail(
           <p>If you have any questions, please contact your system administrator.</p>
         </div>
         <div class="footer">
-          <p>LiftWatch Asset View - Lift Asset Management System</p>
+          <p>LML File Management - LML Lift Consultants</p>
         </div>
       </div>
     </body>
@@ -313,7 +313,7 @@ export async function sendAccountApprovedEmail(
   const textBody = `
     Account Approved!
 
-    Good news! Your LiftWatch Asset View account has been approved by an administrator.
+    Good news! Your LML File Management account has been approved by an administrator.
 
     You can now log in at:
     ${loginUrl}
@@ -323,7 +323,7 @@ export async function sendAccountApprovedEmail(
 
   await sendEmail({
     to: email,
-    subject: 'Account Approved - LiftWatch Asset View',
+    subject: 'Account Approved - LML File Management',
     htmlBody,
     textBody,
   }, context);
@@ -363,10 +363,10 @@ export async function sendInvitationEmail(
     <body>
       <div class="container">
         <div class="header">
-          <h1>You're Invited to LiftWatch Asset View!</h1>
+          <h1>You're Invited to LML File Management!</h1>
         </div>
         <div class="content">
-          <p>You've been invited to join LiftWatch Asset View as a <strong>${formatRole(role)}</strong>.</p>
+          <p>You've been invited to join LML File Management as a <strong>${formatRole(role)}</strong>.</p>
           <p>Click the button below to accept your invitation and set up your account:</p>
           <p style="text-align: center;">
             <a href="${invitationUrl}" class="button">Accept Invitation</a>
@@ -386,7 +386,7 @@ export async function sendInvitationEmail(
           <p>If you didn't expect this invitation, you can safely ignore this email.</p>
         </div>
         <div class="footer">
-          <p>LiftWatch Asset View - Lift Asset Management System</p>
+          <p>LML File Management - LML Lift Consultants</p>
         </div>
       </div>
     </body>
@@ -394,9 +394,9 @@ export async function sendInvitationEmail(
   `;
 
   const textBody = `
-    You're Invited to LiftWatch Asset View!
+    You're Invited to LML File Management!
 
-    You've been invited to join LiftWatch Asset View as a ${formatRole(role)}.
+    You've been invited to join LML File Management as a ${formatRole(role)}.
 
     Accept your invitation by visiting this link:
     ${invitationUrl}
@@ -414,7 +414,7 @@ export async function sendInvitationEmail(
 
   await sendEmail({
     to: email,
-    subject: 'Invitation to LiftWatch Asset View',
+    subject: 'Invitation to LML File Management',
     htmlBody,
     textBody,
   }, context);

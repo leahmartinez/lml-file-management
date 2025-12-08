@@ -1,33 +1,19 @@
 import { useState, useEffect, createContext, useContext, useMemo, useCallback } from 'react';
 import { authLog, errorLog } from '@/lib/logger';
 import { authApi, usersApi, ApiUser } from '@/services/apiService';
+import { initializeAllMockData, isMockDataInitialized } from '@/utils/mockFullDataGenerator';
 
 // Mock users for local development
 const MOCK_USERS: Record<string, { password: string; role: User['role']; sites: string[] }> = {
-  'admin@lml.com': {
+  'leah@lmllift.com': {
     password: 'password',
     role: 'admin',
     sites: [],
   },
-  'consultant@lml.com': {
+  'user@lmllift.com': {
     password: 'password',
-    role: 'consultant',
+    role: 'user',
     sites: [],
-  },
-  'manager@lml.com': {
-    password: 'password',
-    role: 'national_manager',
-    sites: [],
-  },
-  'site_manager_a@lml.com': {
-    password: 'password',
-    role: 'site_manager',
-    sites: ['Melbourne Central'],
-  },
-  'site_manager_b@lml.com': {
-    password: 'password',
-    role: 'site_manager',
-    sites: ['Sydney Tower'],
   },
 };
 
@@ -41,7 +27,7 @@ function useMockAuth(): boolean {
 // Updated User interface to match API (uses email instead of username)
 export interface User {
   email: string;
-  role: 'national_manager' | 'site_manager' | 'admin' | 'consultant';
+  role: 'admin' | 'user';
   sites: string[];
   createdAt?: string;
   lastLogin?: string;
@@ -69,9 +55,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const loadUser = async () => {
       authLog("useAuth: Loading user from token...");
 
-      // In mock mode, skip API calls
+      // In mock mode, restore user from localStorage
       if (useMockAuth()) {
         authLog("useAuth: Using mock authentication mode");
+        // Initialize complete mock data pipeline (sites, contacts, projects, proposals)
+        // Only initialize on first load - don't overwrite existing data and deletions
+        if (!isMockDataInitialized()) {
+          authLog("useAuth: First app load - initializing mock data");
+          initializeAllMockData();
+        } else {
+          authLog("useAuth: Mock data already initialized, skipping initialization");
+        }
+
+        const storedUser = localStorage.getItem('current_user');
+        if (storedUser) {
+          try {
+            const user = JSON.parse(storedUser);
+            authLog("useAuth: Restored user from localStorage:", user);
+            setUser(user);
+            // Load users list for admin
+            if (user.role === 'admin') {
+              refreshUsers().catch((error) => {
+                errorLog("useAuth: Failed to refresh users on app mount:", error);
+              });
+            }
+          } catch (error) {
+            authLog("useAuth: Failed to parse stored user");
+            localStorage.removeItem('current_user');
+            localStorage.removeItem('jwt_token');
+          }
+        }
         setIsLoading(false);
         return;
       }
@@ -98,9 +111,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           lastLogin: profile.lastLogin,
         });
 
-        // Load all users if admin/consultant - NON-BLOCKING on app mount
+        // Load all users if admin - NON-BLOCKING on app mount
         // Fire-and-forget: fetch users in background after profile loads
-        if (profile.role === 'admin' || profile.role === 'consultant') {
+        if (profile.role === 'admin') {
           refreshUsers().catch((error) => {
             errorLog("useAuth: Failed to refresh users on app mount:", error);
           });
@@ -129,6 +142,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           role: userData.role,
           sites: userData.sites,
         }));
+
+        // Add current user if not in mock users list
+        if (user && !mockUsers.find(u => u.email === user.email)) {
+          mockUsers.push(user);
+          authLog("useAuth: Added current user to mock users list");
+        }
+
         setAllUsers(mockUsers);
         authLog("useAuth: Mock users loaded:", mockUsers.length);
         return;
@@ -146,7 +166,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         authLog("useAuth: User doesn't have permission to view users");
       }
     }
-  }, []);
+  }, [user]);
 
   const login = async (email: string, password: string): Promise<User | null> => {
     authLog("useAuth: Login attempt for email:", email);
@@ -154,23 +174,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       // Use mock authentication if enabled
       if (useMockAuth()) {
-        const mockUser = MOCK_USERS[email];
-        if (!mockUser || mockUser.password !== password) {
-          authLog("useAuth: Mock auth failed - invalid credentials");
+        // Try exact match first, then case-insensitive lookup
+        let mockUser = MOCK_USERS[email];
+
+        if (!mockUser) {
+          const lowerEmail = email.toLowerCase().trim();
+          mockUser = MOCK_USERS[lowerEmail];
+        }
+
+        // Allow login with any email in mock mode - use predefined role if exists, otherwise default to consultant
+        if (mockUser && mockUser.password !== password) {
+          authLog("useAuth: Mock auth failed - wrong password for known user");
           return null;
         }
 
         authLog("useAuth: Mock login successful");
         const loggedInUser: User = {
           email,
-          role: mockUser.role,
-          sites: mockUser.sites,
+          role: mockUser?.role || 'user',
+          sites: mockUser?.sites || [],
           lastLogin: new Date().toISOString(),
         };
 
         setUser(loggedInUser);
         // Store mock auth in localStorage
         localStorage.setItem('jwt_token', `mock_token_${email}`);
+        localStorage.setItem('current_user', JSON.stringify(loggedInUser));
+
+        // Immediately refresh users list to include current user
+        setTimeout(() => {
+          refreshUsers().catch(err => console.error('Failed to refresh users after login:', err));
+        }, 100);
+
         return loggedInUser;
       }
 
@@ -187,9 +222,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(loggedInUser);
 
-      // Load all users if admin/consultant - NON-BLOCKING to prevent login delay
+      // Load all users if admin - NON-BLOCKING to prevent login delay
       // Use fire-and-forget pattern: fetch users in background after login completes
-      if (loggedInUser.role === 'admin' || loggedInUser.role === 'consultant') {
+      if (loggedInUser.role === 'admin') {
         // Don't await refreshUsers() - this prevents adding 1.5-3s delay to login
         // Instead, call it as a side effect that happens asynchronously after login
         refreshUsers().catch((error) => {
@@ -209,6 +244,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     authApi.logout();
     setUser(null);
     setAllUsers([]);
+    // Clear stored user from localStorage
+    localStorage.removeItem('current_user');
+    localStorage.removeItem('jwt_token');
   };
 
   const updateUsers = useCallback(async (users: User[]) => {

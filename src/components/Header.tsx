@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { LogOut, Building2, User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth.tsx";
 import { useProfile } from "@/hooks/useProfile";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
+import LMLIcon from "@/assets/LML-Icon.svg";
 
 export const Header = () => {
   const navigate = useNavigate();
@@ -37,9 +38,11 @@ export const Header = () => {
         <div className="flex h-16 items-center justify-between px-6">
           {/* Company Logo */}
           <div className="flex items-center space-x-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <Building2 className="h-6 w-6 text-primary-foreground" />
-            </div>
+            <img
+              src={LMLIcon}
+              alt="LML Lift Consultants"
+              className="h-10 w-10"
+            />
             <div>
               <h1 className="text-lg font-semibold text-foreground">LML Lift Consultants</h1>
               <p className="text-xs text-muted-foreground">Work Management</p>

@@ -15,6 +15,8 @@ interface ContactListViewProps {
   error?: Error | null;
   viewMode?: 'grid' | 'list';
   onViewDetails?: (contact: DirectoryContact) => void;
+  onDelete?: (contact: DirectoryContact) => void;
+  canDelete?: boolean;
   loadingContactEmail?: string | null;
   emptyMessage?: string;
 }
@@ -25,6 +27,8 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
   error = null,
   viewMode = 'grid',
   onViewDetails,
+  onDelete,
+  canDelete = false,
   loadingContactEmail = null,
   emptyMessage = 'No contacts found',
 }) => {
@@ -78,6 +82,8 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
             key={contact.id}
             contact={contact}
             onViewDetails={onViewDetails}
+            onDelete={onDelete}
+            canDelete={canDelete}
             compact
             isLoading={loadingContactEmail === contact.email}
           />
@@ -94,6 +100,8 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
           key={contact.id}
           contact={contact}
           onViewDetails={onViewDetails}
+          onDelete={onDelete}
+          canDelete={canDelete}
           compact
           isLoading={loadingContactEmail === contact.email}
         />

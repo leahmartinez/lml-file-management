@@ -1,5 +1,5 @@
 /**
- * Integration tests for LiftWatch API
+ * Integration tests for LML File Management API
  * Tests all 16 function endpoints on Flex Consumption
  */
 
@@ -105,7 +105,7 @@ async function test(
 }
 
 async function runTests(): Promise<void> {
-  console.log('Testing LiftWatch API Integration\n');
+  console.log('Testing LML File Management API Integration\n');
 
   // Health endpoint
   await test('Health Check', 'GET', '/health', 200);

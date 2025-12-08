@@ -30,7 +30,7 @@ const AddSiteModal: React.FC<AddSiteModalProps> = ({ open, onClose, onSave }) =>
   const [address, setAddress] = useState('');
   const [state, setState] = useState('');
   const [city, setCity] = useState('');
-  const [country, setCountry] = useState('Australia');
+  const [postcode, setPostcode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,11 +71,11 @@ const AddSiteModal: React.FC<AddSiteModalProps> = ({ open, onClose, onSave }) =>
         address: address.trim(),
         state: state,
         city: city.trim() || '',
-        country: country.trim() || 'Australia',
+        postcode: postcode.trim() || '',
       };
 
       onSave(newSite);
-      
+
       toast({
         title: "Success",
         description: `Site "${building}" has been added successfully`,
@@ -86,7 +86,7 @@ const AddSiteModal: React.FC<AddSiteModalProps> = ({ open, onClose, onSave }) =>
       setAddress('');
       setState('');
       setCity('');
-      setCountry('Australia');
+      setPostcode('');
       onClose();
     } catch (error) {
       toast({
@@ -129,7 +129,7 @@ const AddSiteModal: React.FC<AddSiteModalProps> = ({ open, onClose, onSave }) =>
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="city">City</Label>
                 <Input
@@ -153,16 +153,16 @@ const AddSiteModal: React.FC<AddSiteModalProps> = ({ open, onClose, onSave }) =>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            <div>
-              <Label htmlFor="country">Country</Label>
-              <Input
-                id="country"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                placeholder="e.g., Australia"
-              />
+              <div>
+                <Label htmlFor="postcode">Postcode</Label>
+                <Input
+                  id="postcode"
+                  value={postcode}
+                  onChange={(e) => setPostcode(e.target.value)}
+                  placeholder="e.g., 2000"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>

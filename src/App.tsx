@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
 import { RegisterForm } from "./components/RegisterForm";
@@ -12,10 +12,15 @@ import { ForgotPassword } from "./components/ForgotPassword";
 import { ResetPassword } from "./components/ResetPassword";
 import { AcceptInvitation } from "./components/AcceptInvitation";
 import { useAuth } from "./hooks/useAuth.tsx";
+import { initializeMockProjectUnits } from "./utils/initMockData";
 
 // Code split heavy page components for better initial load performance
 const ContactDirectory = lazy(() => import("./pages/ContactDirectory"));
 const SitesPage = lazy(() => import("./pages/Sites"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
+const Proposals = lazy(() => import("./pages/Proposals"));
+const Admin = lazy(() => import("./pages/Admin"));
 
 // Loading placeholder component
 const PageLoader = () => (
@@ -37,7 +42,13 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const App = () => (
+const AppContent = () => {
+  // Initialize mock project units on app startup
+  useEffect(() => {
+    initializeMockProjectUnits();
+  }, []);
+
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -74,11 +85,51 @@ const App = () => (
             }
           />
           <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <Dashboard />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:projectCode"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <ProjectDetail />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/contact"
             element={
               <ProtectedRoute>
                 <Suspense fallback={<PageLoader />}>
                   <ContactDirectory />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/proposals"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <Proposals />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <Admin />
                 </Suspense>
               </ProtectedRoute>
             }
@@ -90,6 +141,9 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
+
+const App = () => <AppContent />;
 
 export default App;
