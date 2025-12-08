@@ -34,40 +34,38 @@ const UserPortal = () => {
       <main className="flex flex-col">
         {/* Page Header */}
         <div className="py-6 px-4">
-          <div className="mb-8">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold flex items-center gap-2">
-                  <Briefcase className="h-8 w-8" />
-                  My Work Portal
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  View your profile and all work assigned to you
-                </p>
-              </div>
-            </div>
-          </div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Briefcase className="h-8 w-8" />
+            My Work Portal
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            View your profile and all work assigned to you
+          </p>
         </div>
 
-        {/* Main Content */}
-        <div className="px-4 space-y-6 flex-1">
-          {/* Profile Card */}
-          <UserPortalProfileCard
-            profile={userProfile}
-            email={user?.email || ''}
-            totalAssigned={totalAssigned}
-            onEditProfile={() => setEditProfileOpen(true)}
-          />
+        {/* Two Column Layout: Profile and Assigned Work */}
+        <div className="flex gap-6 px-4 flex-1 min-h-0">
+          {/* Left Column: Profile Card */}
+          <div className="w-96 flex-shrink-0 overflow-y-auto">
+            <UserPortalProfileCard
+              profile={userProfile}
+              email={user?.email || ''}
+              totalAssigned={totalAssigned}
+              onEditProfile={() => setEditProfileOpen(true)}
+            />
+          </div>
 
-          {/* Assigned Work Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Assigned Work</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AssignedWorkTable rows={assignedStages} loading={portalLoading || profileLoading} />
-            </CardContent>
-          </Card>
+          {/* Right Column: Assigned Work */}
+          <div className="flex-1 min-w-0 overflow-y-auto">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle>Assigned Work</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AssignedWorkTable rows={assignedStages} loading={portalLoading || profileLoading} />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </main>
 
