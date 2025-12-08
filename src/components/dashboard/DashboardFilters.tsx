@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, memo, useCallback } from 'react';
 import { DashboardRow } from '@/hooks/useDashboardData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,7 @@ const PROJECT_TYPES = ['Upgrade', 'MACA', 'CMA', 'Desktop Review', 'Other'];
 const STAGE_NAMES = ['Feasibility', 'Technical Specification', 'Tender', 'Contract Draft', 'Project Management'];
 const STAGE_STATUSES = ['Not Started', 'In Progress', 'Ready for Invoice', 'Complete'];
 
-export const DashboardFilters = ({ rows, onFilterChange }: DashboardFiltersProps) => {
+const DashboardFiltersComponent = ({ rows, onFilterChange }: DashboardFiltersProps) => {
   const [filterState, setFilterState] = useState<FilterState>({
     search: '',
     invoiceStatuses: new Set(),
@@ -456,3 +456,6 @@ export const DashboardFilters = ({ rows, onFilterChange }: DashboardFiltersProps
     </div>
   );
 };
+
+export const DashboardFilters = memo(DashboardFiltersComponent);
+DashboardFilters.displayName = 'DashboardFilters';
