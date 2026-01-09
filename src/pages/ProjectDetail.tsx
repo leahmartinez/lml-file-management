@@ -89,7 +89,8 @@ export default function ProjectDetail() {
     if (project) {
       setIsDeleting(true);
       try {
-        if (deleteProject(project.projectCode)) {
+        const result = await deleteProject(project.projectCode);
+        if (result) {
           navigate('/dashboard');
         }
       } finally {
