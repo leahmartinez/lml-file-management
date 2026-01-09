@@ -95,6 +95,20 @@ export const useSiteManagement = () => {
         throw new Error(error.message || 'Failed to delete site');
       }
 
+      // Track deleted site codes in localStorage (for mock data filtering in local dev mode)
+      const deleted = (() => {
+        try {
+          const stored = localStorage.getItem('_deletedSiteCodes');
+          return stored ? JSON.parse(stored) : [];
+        } catch (e) {
+          return [];
+        }
+      })();
+      if (!deleted.includes(building)) {
+        deleted.push(building);
+        localStorage.setItem('_deletedSiteCodes', JSON.stringify(deleted));
+      }
+
       // Remove from custom sites if it exists there
       const updated = customSites.filter(s => s.building !== building);
       if (updated.length !== customSites.length) {
