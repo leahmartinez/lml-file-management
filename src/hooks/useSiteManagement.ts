@@ -78,26 +78,46 @@ export const useSiteManagement = () => {
     });
   }, [customSites, csvSites]);
 
-  const deleteSite = useCallback((building: string) => {
-    // Only allow deletion of custom sites
-    if (csvSites.some(s => s.building === building)) {
+  const deleteSite = useCallback(async (building: string) => {
+    try {
+      // Call backend DELETE endpoint
+      const response = await fetch('/api/sites/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: JSON.stringify({ siteId: building }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete site');
+      }
+
+      // Remove from custom sites if it exists there
+      const updated = customSites.filter(s => s.building !== building);
+      if (updated.length !== customSites.length) {
+        setCustomSites(updated);
+        localStorage.setItem('customSites', JSON.stringify(updated));
+      }
+
+      toast({
+        title: "Success",
+        description: `Site "${building}" has been permanently deleted`,
+      });
+
+      // Refetch to get updated data from backend
+      refetch?.();
+    } catch (error: any) {
+      console.error('[useSiteManagement] Error deleting site:', error);
       toast({
         title: "Error",
-        description: "Cannot delete sites from the original data. You can only delete sites you've added.",
+        description: error.message || 'Failed to delete site',
         variant: "destructive",
       });
-      return;
     }
-
-    const updated = customSites.filter(s => s.building !== building);
-    setCustomSites(updated);
-    localStorage.setItem('customSites', JSON.stringify(updated));
-    
-    toast({
-      title: "Success",
-      description: `Site "${building}" has been deleted`,
-    });
-  }, [customSites, csvSites]);
+  }, [customSites, refetch]);
 
   // Get merged sites (CSV sites with custom overrides)
   const getMergedSites = useCallback((): Site[] => {

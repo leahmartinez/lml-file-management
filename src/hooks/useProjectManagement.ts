@@ -21,10 +21,7 @@ export const useProjectManagement = () => {
       return [];
     }
   });
-  const [deletedProjectCodes, setDeletedProjectCodes] = useState<Set<string>>(() => {
-    const stored = localStorage.getItem('deletedProjects');
-    return new Set(stored ? JSON.parse(stored) : []);
-  });
+  // No longer tracking soft-deleted projects - all deletions are permanent on backend
 
   // Update project code
   const updateProjectCode = useCallback((projectCode: string, newCode: string) => {
@@ -144,7 +141,7 @@ export const useProjectManagement = () => {
     });
   }, [customProjects, sourceProjects]);
 
-  // Get merged projects (source projects with custom overrides), excluding deleted projects
+  // Get merged projects (source projects with custom overrides)
   const getMergedProjects = useCallback((): Project[] => {
     const merged: Project[] = [];
     // Filter out null/undefined projects before creating map
@@ -154,13 +151,8 @@ export const useProjectManagement = () => {
         .map(p => [p.projectCode, p])
     );
 
-    // Add source projects, using custom overrides if they exist (skip if deleted)
+    // Add source projects, using custom overrides if they exist
     sourceProjects.forEach(sourceProject => {
-      // Skip deleted projects
-      if (deletedProjectCodes.has(sourceProject.projectCode)) {
-        return;
-      }
-
       const customOverride = customMap.get(sourceProject.projectCode);
       if (customOverride) {
         merged.push(customOverride);
@@ -170,15 +162,13 @@ export const useProjectManagement = () => {
       }
     });
 
-    // Add remaining custom projects (skip if deleted)
+    // Add remaining custom projects
     customMap.forEach(project => {
-      if (!deletedProjectCodes.has(project.projectCode)) {
-        merged.push(project);
-      }
+      merged.push(project);
     });
 
     return merged;
-  }, [sourceProjects, customProjects, deletedProjectCodes]);
+  }, [sourceProjects, customProjects]);
 
   // Add a new project
   const addProject = useCallback((project: Project) => {
@@ -221,8 +211,8 @@ export const useProjectManagement = () => {
     }
   }, [customProjects]);
 
-  // Delete a project
-  const deleteProject = useCallback((projectCode: string) => {
+  // Delete a project (permanent backend deletion)
+  const deleteProject = useCallback(async (projectCode: string) => {
     // VALIDATE project code before deletion
     if (!projectCode || projectCode.trim().length === 0) {
       console.error('[useProjectManagement] Invalid project code for deletion:', projectCode);
@@ -234,43 +224,57 @@ export const useProjectManagement = () => {
       return false;
     }
 
-    // Add to deleted projects list
-    const updated = new Set(deletedProjectCodes);
-    updated.add(projectCode);
-    setDeletedProjectCodes(updated);
-    localStorage.setItem('deletedProjects', JSON.stringify(Array.from(updated)));
+    try {
+      // Call backend DELETE endpoint
+      const response = await fetch('/api/projects/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: JSON.stringify({ projectCode }),
+      });
 
-    // Also remove from custom projects if it exists there
-    const customUpdated = customProjects.filter(p => p.projectCode !== projectCode);
-    if (customUpdated.length !== customProjects.length) {
-      setCustomProjects(customUpdated);
-      localStorage.setItem('customProjects', JSON.stringify(customUpdated));
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete project');
+      }
+
+      // Remove from custom projects if it exists there
+      const customUpdated = customProjects.filter(p => p.projectCode !== projectCode);
+      if (customUpdated.length !== customProjects.length) {
+        setCustomProjects(customUpdated);
+        localStorage.setItem('customProjects', JSON.stringify(customUpdated));
+      }
+
+      toast({
+        title: "Success",
+        description: `Project "${projectCode}" has been permanently deleted`,
+      });
+
+      // Refetch to get updated data from backend
+      refetch?.();
+      return true;
+    } catch (error: any) {
+      console.error('[useProjectManagement] Error deleting project:', error);
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to delete project',
+        variant: "destructive",
+      });
+      return false;
     }
+  }, [customProjects, refetch]);
 
-    toast({
-      title: "Success",
-      description: `Project "${projectCode}" has been deleted`,
-    });
-    return true;
-  }, [customProjects, deletedProjectCodes]);
-
-  // Clean up stale deletion records on initialization
-  // This removes old deleted projects from localStorage that no longer exist in sourceProjects
+  // Clean up old deletedProjects from localStorage (for backward compatibility)
+  // This can be removed in a future version
   useEffect(() => {
-    const validProjectCodes = new Set(sourceProjects.map(p => p.projectCode));
-    const currentDeletions = Array.from(deletedProjectCodes);
-    const cleanedDeletions = currentDeletions.filter(code => validProjectCodes.has(code));
-
-    // Only update if we found stale records to remove
-    if (cleanedDeletions.length < currentDeletions.length) {
-      const updated = new Set(cleanedDeletions);
-      setDeletedProjectCodes(updated);
-      localStorage.setItem('deletedProjects', JSON.stringify(Array.from(updated)));
-      console.log(
-        `[useProjectManagement] Cleaned up ${currentDeletions.length - cleanedDeletions.length} stale deletion records`
-      );
+    const stored = localStorage.getItem('deletedProjects');
+    if (stored) {
+      localStorage.removeItem('deletedProjects');
+      console.log('[useProjectManagement] Cleaned up legacy soft-delete tracking');
     }
-  }, [sourceProjects]);
+  }, []);
 
   // Memoize merged projects so downstream useMemo dependencies work correctly
   // and deleted projects are immediately filtered out

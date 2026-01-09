@@ -550,7 +550,7 @@ const SitesPage = () => {
     if (selectedSite) {
       setIsDeletingSite(true);
       try {
-        deleteSite(selectedSite.building);
+        await deleteSite(selectedSite.building);
         setSelectedSite(null);
         setDeleteSiteDialogOpen(false);
       } finally {
