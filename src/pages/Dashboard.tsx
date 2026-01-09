@@ -10,7 +10,15 @@ import { DashboardTable } from '@/components/dashboard/DashboardTable';
 import { EditJWSummaryModal } from '@/components/dashboard/EditJWSummaryModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Copy, LayoutGrid, RefreshCw } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Download, Copy, LayoutGrid, RefreshCw, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +33,7 @@ const STATES = ['Victoria', 'NSW', 'South Australia', 'Queensland'];
 const Dashboard = () => {
   const queryClient = useQueryClient();
   const { rows: allRows = [], loading } = useDashboardData();
-  const { projects = [], updateProject, refetch } = useProjectManagement();
+  const { projects = [], updateProject, refetch, deleteProject } = useProjectManagement();
   const { activeView, setView } = useDashboardView();
   const [selectedState, setSelectedState] = useState('Victoria');
   const [filteredRows, setFilteredRows] = useState<DashboardRow[]>([]);
@@ -34,6 +42,21 @@ const Dashboard = () => {
   const [editJWSummaryOpen, setEditJWSummaryOpen] = useState(false);
   const [selectedProjectForEdit, setSelectedProjectForEdit] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showDeletedProjects, setShowDeletedProjects] = useState(false);
+  const [deletedProjectCodes, setDeletedProjectCodes] = useState<string[]>([]);
+
+  // Load deleted project codes from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('deletedProjects');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setDeletedProjectCodes(Array.isArray(parsed) ? parsed : []);
+      } catch (e) {
+        console.error('Error loading deleted projects:', e);
+      }
+    }
+  }, []);
 
   // Filter rows by selected state - memoized to prevent infinite loop in DashboardFilters
   const stateFilteredRows = useMemo(
@@ -127,6 +150,24 @@ const Dashboard = () => {
       setIsRefreshing(false);
     }
   }, [queryClient, refetch]);
+
+  const handleRestoreProject = useCallback((projectCode: string) => {
+    // Create a new array without the restored project
+    const updated = deletedProjectCodes.filter(code => code !== projectCode);
+    setDeletedProjectCodes(updated);
+    localStorage.setItem('deletedProjects', JSON.stringify(updated));
+
+    console.log(`[Dashboard] Restored project: ${projectCode}`);
+  }, [deletedProjectCodes]);
+
+  const handleClearAllDeletions = useCallback(() => {
+    if (confirm('Are you sure you want to restore all deleted projects? This action cannot be undone.')) {
+      setDeletedProjectCodes([]);
+      localStorage.removeItem('deletedProjects');
+      console.log('[Dashboard] Cleared all deleted projects');
+      setShowDeletedProjects(false);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -231,6 +272,19 @@ const Dashboard = () => {
                 </div>
 
                 <div className="flex gap-2">
+                  {/* Show Deleted Projects Button */}
+                  {deletedProjectCodes.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDeletedProjects(true)}
+                      title={`${deletedProjectCodes.length} deleted project(s)`}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Deleted ({deletedProjectCodes.length})
+                    </Button>
+                  )}
+
                   {/* Refresh Data Button */}
                   <Button
                     variant="outline"
@@ -311,6 +365,68 @@ const Dashboard = () => {
         }}
         onSave={handleSaveJWSummary}
       />
+
+      {/* Deleted Projects Dialog */}
+      <Dialog open={showDeletedProjects} onOpenChange={setShowDeletedProjects}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Deleted Projects</DialogTitle>
+            <DialogDescription>
+              These projects are hidden from the dashboard. You can restore them individually or clear all deletions.
+            </DialogDescription>
+          </DialogHeader>
+
+          {deletedProjectCodes.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No deleted projects
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {deletedProjectCodes.map(projectCode => {
+                const project = projects.find(p => p.projectCode === projectCode);
+                return (
+                  <div
+                    key={projectCode}
+                    className="flex items-center justify-between p-3 border rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{projectCode}</p>
+                      {project && (
+                        <p className="text-sm text-muted-foreground">{project.building}</p>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRestoreProject(projectCode)}
+                      className="ml-2 flex-shrink-0"
+                    >
+                      Restore
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeletedProjects(false)}
+            >
+              Close
+            </Button>
+            {deletedProjectCodes.length > 0 && (
+              <Button
+                variant="destructive"
+                onClick={handleClearAllDeletions}
+              >
+                Restore All
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
