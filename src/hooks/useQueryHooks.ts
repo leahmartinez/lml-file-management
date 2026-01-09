@@ -21,10 +21,10 @@ const QUERY_CONFIG = {
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   },
-  // Projects: cache for 10 minutes, stale after 5 minutes
+  // Projects: cache for 5 minutes, stale after 1 minute (changed for data accuracy)
   projects: {
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 60 * 1000,         // 1 minute - project data changes frequently
+    gcTime: 5 * 60 * 1000,        // 5 minutes
   },
   // Contacts: cache for 15 minutes, stale after 10 minutes
   contacts: {
