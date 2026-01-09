@@ -92,7 +92,11 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = (props) => {
               </TableRow>
             ) : (
               filteredRows.map(row => (
-                <TableRow key={row.stageId} className="border-b border-border/30 hover:bg-muted/30">
+                <TableRow
+                  key={row.stageId}
+                  onClick={() => handleViewProject(row)}
+                  className="border-b border-border/30 hover:bg-muted/50 cursor-pointer transition-colors"
+                >
                   <TableCell className="border-r border-border/30 font-medium">{row.projectCode}</TableCell>
                   <TableCell className="border-r border-border/30">{row.building}</TableCell>
                   <TableCell className="border-r border-border/30">{row.stageName}</TableCell>
@@ -109,7 +113,10 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = (props) => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleViewProject(row)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewProject(row);
+                      }}
                       title="View project details"
                       className="h-7 w-7 p-0"
                     >
