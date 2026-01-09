@@ -13,6 +13,7 @@ import { ResetPassword } from "./components/ResetPassword";
 import { AcceptInvitation } from "./components/AcceptInvitation";
 import { useAuth } from "./hooks/useAuth.tsx";
 import { initializeMockProjectUnits } from "./utils/initMockData";
+import { SharePointAuthProvider } from "./contexts/SharePointAuthContext";
 
 // Code split heavy page components for better initial load performance
 const ContactDirectory = lazy(() => import("./pages/ContactDirectory"));
@@ -155,6 +156,10 @@ const AppContent = () => {
   );
 };
 
-const App = () => <AppContent />;
+const App = () => (
+  <SharePointAuthProvider>
+    <AppContent />
+  </SharePointAuthProvider>
+);
 
 export default App;

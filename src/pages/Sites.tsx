@@ -28,7 +28,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth.tsx";
 import { useProfile } from "@/hooks/useProfile";
 import { useStageManagement } from "@/hooks/useStageManagement";
+import { useNotifications } from "@/hooks/useNotifications";
 import { useToast } from "@/components/ui/use-toast";
+import { MentionableUser } from "@/components/MentionAutocomplete";
+import { parseMentionedUsers } from "@/utils/parseMentions";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Building2, FolderKanban, MapPin, Plus, Edit, Search, Trash2, Edit2, Check, X, ChevronDown, ChevronUp, FileUp, Download, Grid, List as ListIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +50,35 @@ const ProjectStageDetailModal = lazy(() => import("@/components/sites/ProjectSta
 const ProjectStageView = lazy(() => import("@/components/sites/ProjectStageView"));
 const ProjectUnitsModal = lazy(() => import("@/components/sites/ProjectUnitsModal"));
 
+// Helper function for relative timestamps (Jira/Slack style)
+const getRelativeTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const secondsAgo = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (secondsAgo < 60) return 'just now';
+  const minutesAgo = Math.floor(secondsAgo / 60);
+  if (minutesAgo < 60) return `${minutesAgo}m ago`;
+  const hoursAgo = Math.floor(minutesAgo / 60);
+  if (hoursAgo < 24) return `${hoursAgo}h ago`;
+  const daysAgo = Math.floor(hoursAgo / 24);
+  if (daysAgo < 7) return `${daysAgo}d ago`;
+
+  // Fall back to formatted date
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+};
+
+// Helper function to get user initials for avatar
+const getInitials = (firstName: string, lastName: string, email?: string): string => {
+  if (firstName && lastName) {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  }
+  if (email) {
+    return email.substring(0, 2).toUpperCase();
+  }
+  return 'U';
+};
+
 const SitesPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -62,6 +94,7 @@ const SitesPage = () => {
   const { contacts, fetchContacts } = useContacts();
   const { getSiteContacts, updateSiteContacts } = useContactAssignments();
   const { getStageConsultants, updateStageConsultants } = useStageConsultants();
+  const { addNotification } = useNotifications(user?.email);
 
   // Load user profile and contacts on mount
   useEffect(() => {
@@ -141,10 +174,15 @@ const SitesPage = () => {
   // Comment input state
   const [newComment, setNewComment] = useState("");
   const [newCommentHtml, setNewCommentHtml] = useState("");
+  const [editorKey, setEditorKey] = useState(0); // Force clear editor
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
+  const [editCommentHtml, setEditCommentHtml] = useState("");
+  const [editingEditorKey, setEditingEditorKey] = useState(0); // Force clear edit editor
   const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [replyHtml, setReplyHtml] = useState("");
+  const [replyEditorKey, setReplyEditorKey] = useState(0); // Force clear reply editor
   const [collapsedComments, setCollapsedComments] = useState<Set<string>>(new Set());
 
   // Sync form data when selectedSite changes
@@ -187,6 +225,16 @@ const SitesPage = () => {
   const lmlConsultants = useMemo(() => {
     return contacts.filter(contact => contact.category === 'LML Lift Consultants');
   }, [contacts]);
+
+  // Convert consultants to MentionableUser format for mention autocomplete
+  const availableUsers = useMemo(() => {
+    return lmlConsultants.map(contact => ({
+      email: contact.email,
+      name: `${contact.firstName} ${contact.lastName}`.trim(),
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+    })) as MentionableUser[];
+  }, [lmlConsultants]);
 
   // Filter site contacts to exclude "LML Lift Consultants" category
   const siteEligibleContacts = useMemo(() => {
@@ -864,12 +912,14 @@ const SitesPage = () => {
                   {/* Comment Input */}
                   <div className="space-y-2 mb-6">
                     <RichTextEditor
+                      key={editorKey}
                       value={newCommentHtml}
                       onChange={(html, text) => {
                         setNewCommentHtml(html);
                         setNewComment(text);
                       }}
                       placeholder="Add a comment or update with formatting..."
+                      availableUsers={availableUsers}
                     />
                     <div className="flex justify-end">
                       <Button
@@ -879,13 +929,51 @@ const SitesPage = () => {
                             const userName = profile
                               ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
                               : '';
-                            addComment(newComment, {
+
+                            // Parse mentions from HTML and create notifications
+                            const mentionedUsers = newCommentHtml ? parseMentionedUsers(newCommentHtml) : [];
+                            const mentionedEmails = mentionedUsers.map(u => u.email);
+
+                            // Add comment with mention data
+                            const newCommentObj = addComment(newComment, {
                               id: user.email,
                               name: userName || user.email,
                               email: user.email,
                             }, undefined, newCommentHtml);
+
+                            // Create notifications for mentioned users
+                            if (newCommentObj && mentionedEmails.length > 0 && selectedProject) {
+                              mentionedEmails.forEach(mentionedEmail => {
+                                // Don't send notification to self
+                                if (mentionedEmail !== user.email) {
+                                  const message = `${userName || user.email} mentioned you in ${selectedProject.projectCode}`;
+                                  addNotification(
+                                    selectedProject.projectCode,
+                                    newCommentObj.id,
+                                    {
+                                      email: user.email,
+                                      name: userName || user.email,
+                                    },
+                                    message
+                                  );
+                                }
+                              });
+                              toast({
+                                title: "Success",
+                                description: `Comment posted and ${mentionedEmails.filter(e => e !== user.email).length} user(s) notified`,
+                                duration: 3000,
+                              });
+                            } else if (newCommentObj) {
+                              toast({
+                                title: "Success",
+                                description: "Comment posted",
+                                duration: 3000,
+                              });
+                            }
+
                             setNewComment("");
                             setNewCommentHtml("");
+                            setEditorKey(prev => prev + 1); // Clear editor
                           }
                         }}
                         disabled={!newComment.trim()}
@@ -899,71 +987,82 @@ const SitesPage = () => {
                   <div className="flex-1 space-y-4 overflow-y-auto max-h-[600px]">
                     {comments.filter(c => !c.parentId).length > 0 ? (
                       comments.filter(c => !c.parentId).map((comment) => (
-                        <div key={comment.id} className="border rounded-lg p-4 bg-muted/20 cursor-pointer hover:bg-muted/30 transition-colors">
-                          <div className="flex items-start justify-between mb-2">
-                            <div
-                              className="flex-1"
-                              onClick={() => {
-                                setSelectedCommentDetail(comment);
-                                setCommentDetailOpen(true);
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-sm">{comment.userName}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(comment.timestamp).toLocaleString()}
-                                </span>
+                        <div key={comment.id} className="bg-white dark:bg-slate-950 rounded-lg border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+                          <div className="p-4 pb-3 hover:bg-accent/5 rounded-t-lg transition-colors" onClick={() => {
+                            setSelectedCommentDetail(comment);
+                            setCommentDetailOpen(true);
+                          }}>
+                            <div className="flex items-start gap-3">
+                              {/* User Avatar */}
+                              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-semibold">
+                                {getInitials(comment.userName.split(' ')[0] || '', comment.userName.split(' ')[1] || '', comment.userEmail)}
                               </div>
-                              {comment.userEmail && (
-                                <span className="text-xs text-muted-foreground">{comment.userEmail}</span>
+
+                              {/* Comment Header & Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-baseline gap-2 flex-wrap">
+                                  <span className="font-semibold text-sm text-foreground">{comment.userName}</span>
+                                  <span className="text-xs text-muted-foreground">{getRelativeTime(comment.timestamp)}</span>
+                                </div>
+                              </div>
+
+                              {/* Edit/Delete Buttons */}
+                              {(user?.email === comment.userId || isConsultant) && (
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingCommentId(comment.id);
+                                      setEditCommentText(comment.comment);
+                                      setEditCommentHtml(comment.commentHtml || "");
+                                    }}
+                                    className="h-7 w-7 p-0"
+                                    title="Edit comment"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (window.confirm("Delete this comment?")) {
+                                        deleteComment(comment.id);
+                                      }
+                                    }}
+                                    className="h-7 w-7 p-0"
+                                    title="Delete comment"
+                                  >
+                                    <Trash2 className="h-3 w-3 text-red-600" />
+                                  </Button>
+                                </div>
                               )}
                             </div>
-                            {(user?.email === comment.userId || isConsultant) && (
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setEditingCommentId(comment.id);
-                                    setEditCommentText(comment.comment);
-                                  }}
-                                  className="px-2"
-                                  title="Edit comment"
-                                >
-                                  <Edit2 className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    if (window.confirm("Delete this comment?")) {
-                                      deleteComment(comment.id);
-                                    }
-                                  }}
-                                  className="px-2"
-                                  title="Delete comment"
-                                >
-                                  <Trash2 className="h-3 w-3 text-red-600" />
-                                </Button>
-                              </div>
-                            )}
                           </div>
                           {editingCommentId === comment.id ? (
                             <div className="space-y-2">
-                              <Textarea
-                                value={editCommentText}
-                                onChange={(e) => setEditCommentText(e.target.value)}
-                                rows={3}
-                                className="text-sm"
+                              <RichTextEditor
+                                key={editingEditorKey}
+                                value={editCommentHtml}
+                                onChange={(html, text) => {
+                                  setEditCommentHtml(html);
+                                  setEditCommentText(text);
+                                }}
+                                placeholder="Edit your comment..."
+                                availableUsers={availableUsers}
                               />
                               <div className="flex gap-2">
                                 <Button
                                   size="sm"
                                   onClick={() => {
                                     if (editCommentText.trim()) {
-                                      updateComment(comment.id, editCommentText);
+                                      updateComment(comment.id, editCommentText, editCommentHtml);
                                       setEditingCommentId(null);
                                       setEditCommentText("");
+                                      setEditCommentHtml("");
+                                      setEditingEditorKey(prev => prev + 1);
                                     }
                                   }}
                                 >
@@ -976,6 +1075,7 @@ const SitesPage = () => {
                                   onClick={() => {
                                     setEditingCommentId(null);
                                     setEditCommentText("");
+                                    setEditCommentHtml("");
                                   }}
                                 >
                                   <X className="h-3 w-3 mr-1" />
@@ -985,48 +1085,70 @@ const SitesPage = () => {
                             </div>
                           ) : (
                             <>
-                              {comment.commentHtml ? (
-                                <div
-                                  className="text-sm mb-2 prose prose-sm max-w-none"
-                                  dangerouslySetInnerHTML={{ __html: comment.commentHtml }}
-                                  onClick={() => {
+                              <div className="px-4 py-3 border-t border-border/30">
+                                {comment.commentHtml ? (
+                                  <div
+                                    className="text-sm prose prose-sm max-w-none text-foreground line-clamp-3"
+                                    dangerouslySetInnerHTML={{ __html: comment.commentHtml }}
+                                    onClick={() => {
+                                      setSelectedCommentDetail(comment);
+                                      setCommentDetailOpen(true);
+                                    }}
+                                  />
+                                ) : (
+                                  <p className="text-sm whitespace-pre-wrap line-clamp-3 text-foreground" onClick={() => {
                                     setSelectedCommentDetail(comment);
                                     setCommentDetailOpen(true);
+                                  }}>
+                                    {comment.comment}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="px-4 py-2 border-t border-border/30 bg-accent/5 rounded-b-lg flex justify-between items-center">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setReplyingToCommentId(comment.id);
+                                    setReplyText("");
+                                    setReplyHtml("");
                                   }}
-                                />
-                              ) : (
-                                <p className="text-sm whitespace-pre-wrap mb-2 line-clamp-2" onClick={() => {
-                                  setSelectedCommentDetail(comment);
-                                  setCommentDetailOpen(true);
-                                }}>
-                                  {comment.comment}
-                                </p>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setReplyingToCommentId(comment.id);
-                                  setReplyText("");
-                                }}
-                                className="px-2 text-xs"
-                              >
-                                Reply
-                              </Button>
+                                  className="h-7 px-2 text-xs hover:bg-accent/20"
+                                >
+                                  ↳ Reply
+                                </Button>
+                                <span className="text-xs text-muted-foreground">
+                                  {comments.filter(c => c.parentId === comment.id).length} {comments.filter(c => c.parentId === comment.id).length === 1 ? 'reply' : 'replies'}
+                                </span>
+                              </div>
                             </>
                           )}
 
                           {/* Reply Form */}
                           {replyingToCommentId === comment.id && (
-                            <div className="mt-3 ml-6 space-y-2 border-l-2 border-muted pl-4">
-                              <Textarea
+                            <div className="px-4 py-3 bg-accent/5 border-t border-border/30 space-y-3">
+                              <RichTextEditor
+                                key={replyEditorKey}
+                                value={replyHtml}
+                                onChange={(html, text) => {
+                                  setReplyHtml(html);
+                                  setReplyText(text);
+                                }}
                                 placeholder="Write a reply..."
-                                value={replyText}
-                                onChange={(e) => setReplyText(e.target.value)}
-                                rows={2}
-                                className="text-sm"
+                                availableUsers={availableUsers}
                               />
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setReplyingToCommentId(null);
+                                    setReplyText("");
+                                    setReplyHtml("");
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
                                 <Button
                                   size="sm"
                                   onClick={() => {
@@ -1038,24 +1160,16 @@ const SitesPage = () => {
                                         id: user.email,
                                         name: userName || user.email,
                                         email: user.email,
-                                      }, comment.id);
+                                      }, comment.id, replyHtml);
                                       setReplyText("");
+                                      setReplyHtml("");
                                       setReplyingToCommentId(null);
+                                      setReplyEditorKey(prev => prev + 1);
                                     }
                                   }}
                                   disabled={!replyText.trim()}
                                 >
                                   Post Reply
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setReplyingToCommentId(null);
-                                    setReplyText("");
-                                  }}
-                                >
-                                  Cancel
                                 </Button>
                               </div>
                             </div>
@@ -1063,7 +1177,7 @@ const SitesPage = () => {
 
                           {/* Display Replies */}
                           {comments.filter(c => c.parentId === comment.id).length > 0 && (
-                            <div className="mt-3">
+                            <div className="px-4 py-3 border-t border-border/30 bg-background/50">
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -1076,36 +1190,40 @@ const SitesPage = () => {
                                   }
                                   setCollapsedComments(newCollapsed);
                                 }}
-                                className="px-2 text-xs mb-2"
+                                className="h-6 px-2 text-xs mb-2"
                               >
                                 {collapsedComments.has(comment.id) ? (
                                   <>
-                                    <ChevronDown className="h-3 w-3 mr-1" />
-                                    Show {comments.filter(c => c.parentId === comment.id).length} {comments.filter(c => c.parentId === comment.id).length === 1 ? 'reply' : 'replies'}
+                                    <ChevronRight className="h-3 w-3 mr-1" />
+                                    {comments.filter(c => c.parentId === comment.id).length} {comments.filter(c => c.parentId === comment.id).length === 1 ? 'reply' : 'replies'}
                                   </>
                                 ) : (
                                   <>
-                                    <ChevronUp className="h-3 w-3 mr-1" />
+                                    <ChevronDown className="h-3 w-3 mr-1" />
                                     Hide replies
                                   </>
                                 )}
                               </Button>
                               {!collapsedComments.has(comment.id) && (
-                                <div className="ml-6 space-y-3 border-l-2 border-muted pl-4">
+                                <div className="space-y-2 mt-2">
                                   {comments
                                     .filter(c => c.parentId === comment.id)
                                     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
                                     .map((reply) => (
-                                      <div key={reply.id} className="border rounded-lg p-3 bg-background">
-                                        <div className="flex items-start justify-between mb-1">
-                                          <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                              <span className="font-semibold text-xs">{reply.userName}</span>
-                                              <span className="text-xs text-muted-foreground">
-                                                {new Date(reply.timestamp).toLocaleString()}
-                                              </span>
+                                      <div key={reply.id} className="ml-6 pl-4 border-l-2 border-muted bg-accent/5 rounded p-2">
+                                        <div className="flex items-start gap-2 mb-1">
+                                          {/* Reply Avatar */}
+                                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs font-semibold">
+                                            {getInitials(reply.userName.split(' ')[0] || '', reply.userName.split(' ')[1] || '', reply.userEmail)}
+                                          </div>
+
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <span className="font-semibold text-xs text-foreground">{reply.userName}</span>
+                                              <span className="text-xs text-muted-foreground">{getRelativeTime(reply.timestamp)}</span>
                                             </div>
                                           </div>
+
                                           {(user?.email === reply.userId || isConsultant) && (
                                             <Button
                                               size="sm"
@@ -1115,14 +1233,21 @@ const SitesPage = () => {
                                                   deleteComment(reply.id);
                                                 }
                                               }}
-                                              className="px-1"
+                                              className="h-5 w-5 p-0"
                                               title="Delete reply"
                                             >
                                               <Trash2 className="h-3 w-3 text-red-600" />
                                             </Button>
                                           )}
                                         </div>
-                                        <p className="text-sm whitespace-pre-wrap">{reply.comment}</p>
+                                        {reply.commentHtml ? (
+                                          <div
+                                            className="text-xs prose prose-sm max-w-none text-foreground"
+                                            dangerouslySetInnerHTML={{ __html: reply.commentHtml }}
+                                          />
+                                        ) : (
+                                          <p className="text-xs whitespace-pre-wrap text-foreground">{reply.comment}</p>
+                                        )}
                                       </div>
                                     ))}
                                 </div>

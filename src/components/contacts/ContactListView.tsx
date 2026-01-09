@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { DirectoryContact } from '@/types/data';
+import { DirectoryContact, Business } from '@/types/data';
 import { ContactCard } from './ContactCard';
 import { AlertCircle } from 'lucide-react';
 
@@ -19,6 +19,8 @@ interface ContactListViewProps {
   canDelete?: boolean;
   loadingContactEmail?: string | null;
   emptyMessage?: string;
+  businesses?: Business[];
+  onViewBusiness?: (business: Business) => void;
 }
 
 export const ContactListView: React.FC<ContactListViewProps> = ({
@@ -31,6 +33,8 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
   canDelete = false,
   loadingContactEmail = null,
   emptyMessage = 'No contacts found',
+  businesses = [],
+  onViewBusiness,
 }) => {
   if (loading) {
     return (
@@ -86,6 +90,8 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
             canDelete={canDelete}
             compact
             isLoading={loadingContactEmail === contact.email}
+            businesses={businesses}
+            onViewBusiness={onViewBusiness}
           />
         ))}
       </div>
@@ -104,6 +110,8 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
           canDelete={canDelete}
           compact
           isLoading={loadingContactEmail === contact.email}
+          businesses={businesses}
+          onViewBusiness={onViewBusiness}
         />
       ))}
     </div>

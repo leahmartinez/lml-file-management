@@ -4,7 +4,7 @@
  * Used for people who don't have user accounts
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExternalContact } from '@/types/data';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -25,30 +25,97 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Business } from '@/types/data';
 
 interface AddExternalContactModalProps {
   isOpen: boolean;
   onClose: () => void;
   categories: string[];
+  contact?: ExternalContact | null;
+  businesses?: Business[];
+  unattachedContacts?: ExternalContact[];
+  businessId?: string | null;
   onAdd?: (contact: Omit<ExternalContact, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onUpdate?: (id: string, updates: Partial<ExternalContact>) => Promise<void>;
+  onAssignContact?: (contactId: string, businessId: string) => Promise<void>;
 }
 
 export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = ({
   isOpen,
   onClose,
   categories,
+  contact,
+  businesses = [],
+  unattachedContacts = [],
+  businessId,
   onAdd,
+  onUpdate,
+  onAssignContact,
 }) => {
   const { user } = useAuth();
+  const isEditing = !!contact;
+  const isAssigningToBusinessOnly = businessId && !isEditing && unattachedContacts.length > 0;
+
+  const [mode, setMode] = useState<'new' | 'assign'>('new');
+  const [selectedContactId, setSelectedContactId] = useState<string>('');
+  const [searchContactQuery, setSearchContactQuery] = useState<string>('');
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     position: '',
-    company: '',
+    businessId: '',
+    customBusiness: '',
     email: '',
     phone: '',
     category: '',
   });
+
+  // Populate form with contact data when editing
+  useEffect(() => {
+    if (isEditing && contact) {
+      setFormData({
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        position: contact.position,
+        businessId: contact.businessId || '',
+        customBusiness: contact.company || '',
+        email: contact.email || '',
+        phone: contact.phone || '',
+        category: contact.category || '',
+      });
+      setMode('new');
+    } else if (businessId && !isEditing) {
+      // When adding to a business
+      setFormData({
+        firstName: '',
+        lastName: '',
+        position: '',
+        businessId: businessId,
+        customBusiness: '',
+        email: '',
+        phone: '',
+        category: '',
+      });
+      setMode(unattachedContacts.length > 0 ? 'assign' : 'new');
+    } else {
+      setFormData({
+        firstName: '',
+        lastName: '',
+        position: '',
+        businessId: '',
+        customBusiness: '',
+        email: '',
+        phone: '',
+        category: '',
+      });
+      setMode('new');
+    }
+    setSelectedContactId('');
+    setSearchContactQuery('');
+    setErrors({});
+    setMessage(null);
+  }, [contact, isEditing, isOpen, businessId, unattachedContacts.length]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -124,7 +191,13 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
    * Handle form submission
    */
   const handleSubmit = async () => {
-    if (!validateForm()) {
+    // Validate for assign mode
+    if (mode === 'assign' && !selectedContactId) {
+      setMessage({ type: 'error', text: 'Please select a contact to assign' });
+      return;
+    }
+
+    if (mode === 'new' && !validateForm()) {
       return;
     }
 
@@ -132,25 +205,62 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
     setMessage(null);
 
     try {
-      const contactData: Omit<ExternalContact, 'id' | 'createdAt' | 'updatedAt'> = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        position: formData.position,
-        company: formData.company || undefined,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        category: formData.category as 'LML Lift Consultants' | 'Client' | 'Contractor',
-        createdBy: user?.email || 'unknown',
-      };
+      if (mode === 'assign' && selectedContactId && businessId) {
+        // Assign existing contact to business
+        if (onAssignContact) {
+          await onAssignContact(selectedContactId, businessId);
+        }
 
-      if (onAdd) {
-        await onAdd(contactData);
+        const selectedContact = unattachedContacts.find(c => c.id === selectedContactId);
+        setMessage({
+          type: 'success',
+          text: `${selectedContact?.firstName} ${selectedContact?.lastName} has been assigned to the business`,
+        });
+      } else if (isEditing && contact) {
+        // Update existing contact
+        const selectedBusiness = formData.businessId ? businesses.find(b => b.id === formData.businessId) : null;
+        const updates: Partial<ExternalContact> = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          position: formData.position,
+          businessId: formData.businessId || undefined,
+          company: formData.customBusiness || undefined,
+          email: formData.email || undefined,
+          phone: formData.phone || undefined,
+          category: formData.category as 'LML Lift Consultants' | 'Client' | 'Contractor',
+        };
+
+        if (onUpdate) {
+          await onUpdate(contact.id, updates);
+        }
+
+        setMessage({
+          type: 'success',
+          text: `${formData.firstName} ${formData.lastName} has been updated`,
+        });
+      } else {
+        // Create new contact
+        const contactData: Omit<ExternalContact, 'id' | 'createdAt' | 'updatedAt'> = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          position: formData.position,
+          businessId: formData.businessId || undefined,
+          company: formData.customBusiness || undefined,
+          email: formData.email || undefined,
+          phone: formData.phone || undefined,
+          category: formData.category as 'LML Lift Consultants' | 'Client' | 'Contractor',
+          createdBy: user?.email || 'unknown',
+        };
+
+        if (onAdd) {
+          await onAdd(contactData);
+        }
+
+        setMessage({
+          type: 'success',
+          text: `${formData.firstName} ${formData.lastName} has been added to the directory`,
+        });
       }
-
-      setMessage({
-        type: 'success',
-        text: `${formData.firstName} ${formData.lastName} has been added to the directory`,
-      });
 
       // Reset form and close after delay
       setTimeout(() => {
@@ -158,17 +268,20 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
           firstName: '',
           lastName: '',
           position: '',
-          company: '',
+          businessId: '',
+          customBusiness: '',
           email: '',
           phone: '',
           category: '',
         });
+        setSelectedContactId('');
+        setSearchContactQuery('');
         setErrors({});
         setMessage(null);
         onClose();
       }, 1500);
     } catch (error) {
-      const errorText = error instanceof Error ? error.message : 'Failed to add contact';
+      const errorText = error instanceof Error ? error.message : isEditing ? 'Failed to update contact' : 'Failed to add contact';
       setMessage({ type: 'error', text: errorText });
     } finally {
       setLoading(false);
@@ -181,25 +294,139 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
         firstName: '',
         lastName: '',
         position: '',
-        company: '',
+        businessId: '',
+        customBusiness: '',
         email: '',
         phone: '',
         category: '',
       });
+      setSelectedContactId('');
+      setSearchContactQuery('');
       setErrors({});
       setMessage(null);
       onClose();
     }
   };
 
+  const handleBusinessSelect = (value: string) => {
+    setFormData(prev => ({ ...prev, businessId: value }));
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add External Contact</DialogTitle>
+          <DialogTitle>
+            {isEditing
+              ? 'Edit External Contact'
+              : mode === 'assign'
+              ? 'Assign Contact to Business'
+              : 'Add External Contact'}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+          {/* Mode Toggle (only when adding to business with unattached contacts) */}
+          {isAssigningToBusinessOnly && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">What would you like to do?</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={mode === 'new' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setMode('new');
+                    setSearchContactQuery('');
+                  }}
+                  className="flex-1"
+                  size="sm"
+                >
+                  Create New Contact
+                </Button>
+                <Button
+                  type="button"
+                  variant={mode === 'assign' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setMode('assign');
+                    setSearchContactQuery('');
+                  }}
+                  className="flex-1"
+                  size="sm"
+                >
+                  Assign Existing Contact
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Assign Existing Contact Section */}
+          {mode === 'assign' && (
+            <div className="space-y-2 relative">
+              <Label htmlFor="searchContact" className="text-sm font-medium">
+                Search Contact to Assign *
+              </Label>
+              <Input
+                id="searchContact"
+                placeholder="Search by name or position..."
+                value={searchContactQuery}
+                onChange={(e) => setSearchContactQuery(e.target.value)}
+                disabled={loading}
+                autoComplete="off"
+              />
+
+              {/* Auto-suggest dropdown */}
+              {searchContactQuery && (
+                <div className="absolute top-[70px] left-0 right-0 bg-white border border-border rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                  {unattachedContacts
+                    .filter((contact) => {
+                      const searchLower = searchContactQuery.toLowerCase();
+                      return (
+                        contact.firstName.toLowerCase().includes(searchLower) ||
+                        contact.lastName.toLowerCase().includes(searchLower) ||
+                        contact.position.toLowerCase().includes(searchLower)
+                      );
+                    })
+                    .length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground">
+                      No matching contacts found
+                    </div>
+                  ) : (
+                    unattachedContacts
+                      .filter((contact) => {
+                        const searchLower = searchContactQuery.toLowerCase();
+                        return (
+                          contact.firstName.toLowerCase().includes(searchLower) ||
+                          contact.lastName.toLowerCase().includes(searchLower) ||
+                          contact.position.toLowerCase().includes(searchLower)
+                        );
+                      })
+                      .map((contact) => (
+                        <button
+                          key={contact.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b border-border last:border-b-0"
+                          onClick={() => {
+                            setSelectedContactId(contact.id);
+                            setSearchContactQuery(`${contact.firstName} ${contact.lastName}`);
+                          }}
+                        >
+                          <div className="font-medium text-sm">{contact.firstName} {contact.lastName}</div>
+                          <div className="text-xs text-muted-foreground">{contact.position}</div>
+                        </button>
+                      ))
+                  )}
+                </div>
+              )}
+
+              {selectedContactId && !searchContactQuery && (
+                <p className="text-xs text-green-600">Contact selected</p>
+              )}
+            </div>
+          )}
+
+          {/* Form Fields (only in 'new' mode) */}
+          {mode === 'new' && (
+            <>
           {/* First Name */}
           <div className="space-y-2">
             <Label htmlFor="firstName" className="text-sm font-medium">
@@ -266,20 +493,26 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
             )}
           </div>
 
-          {/* Company */}
-          <div className="space-y-2">
-            <Label htmlFor="company" className="text-sm font-medium">
-              Company
-            </Label>
-            <Input
-              id="company"
-              name="company"
-              value={formData.company}
-              onChange={handleInputChange}
-              placeholder="KONE"
-              disabled={loading}
-            />
-          </div>
+          {/* Business Assignment */}
+          {businesses.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="business" className="text-sm font-medium">
+                Business
+              </Label>
+              <Select value={formData.businessId} onValueChange={handleBusinessSelect}>
+                <SelectTrigger disabled={loading}>
+                  <SelectValue placeholder="Select a business..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {businesses.map((business) => (
+                    <SelectItem key={business.id} value={business.id}>
+                      {business.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Email */}
           <div className="space-y-2">
@@ -352,6 +585,8 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
               </p>
             )}
           </div>
+            </>
+          )}
 
           {/* Message */}
           {message && (
@@ -378,7 +613,17 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
           </Button>
           <Button onClick={handleSubmit} disabled={loading} className="gap-2">
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {loading ? 'Adding...' : 'Add Contact'}
+            {loading
+              ? isEditing
+                ? 'Updating...'
+                : mode === 'assign'
+                ? 'Assigning...'
+                : 'Adding...'
+              : isEditing
+              ? 'Update Contact'
+              : mode === 'assign'
+              ? 'Assign Contact'
+              : 'Add Contact'}
           </Button>
         </DialogFooter>
       </DialogContent>

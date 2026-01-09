@@ -3,7 +3,7 @@
  * Uses a cache-based system where profiles start blank and are populated by user edits
  */
 
-import { UserProfile, ExternalContact, DirectoryContact } from '@/types/data';
+import { UserProfile, ExternalContact, DirectoryContact, Business } from '@/types/data';
 
 /**
  * Cache for external contacts in dev mode
@@ -198,4 +198,165 @@ export function updateMockProfile(email: string, updates: Partial<UserProfile>):
  */
 export function getMockCategories(): string[] {
   return ['LML Lift Consultants', 'Client', 'Contractor'];
+}
+
+/**
+ * Cache for businesses in dev mode
+ * Uses localStorage to persist businesses across logout/login
+ */
+const BUSINESSES_CACHE_KEY = 'liftwatch_businesses';
+
+function getBusinessesCache(): Business[] {
+  try {
+    console.log('[mockContactData] getBusinessesCache - key:', BUSINESSES_CACHE_KEY);
+    const cached = localStorage.getItem(BUSINESSES_CACHE_KEY);
+    const parsed = cached ? JSON.parse(cached) : [];
+    console.log('[mockContactData] getBusinessesCache - parsed value:', parsed.length, 'businesses');
+    return parsed;
+  } catch (err) {
+    console.error('[mockContactData] Error reading businesses cache from localStorage:', err);
+    return [];
+  }
+}
+
+function saveBusinessesCache(businesses: Business[]) {
+  try {
+    console.log('[mockContactData] saveBusinessesCache - saving:', businesses.length, 'businesses');
+    localStorage.setItem(BUSINESSES_CACHE_KEY, JSON.stringify(businesses));
+  } catch (err) {
+    console.error('[mockContactData] Error saving businesses cache to localStorage:', err);
+  }
+}
+
+/**
+ * Get all businesses
+ */
+export function getBusinesses(): Business[] {
+  const businesses = getBusinessesCache();
+  console.log('[mockContactData] getBusinesses - Returning:', businesses.length, 'businesses');
+  return businesses;
+}
+
+/**
+ * Get a specific business by ID
+ */
+export function getBusinessById(id: string): Business | null {
+  const businesses = getBusinessesCache();
+  return businesses.find(b => b.id === id) || null;
+}
+
+/**
+ * Add a new business
+ */
+export function addBusiness(business: Omit<Business, 'id' | 'createdAt' | 'updatedAt'>): Business {
+  const newBusiness: Business = {
+    ...business,
+    id: `biz_${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const businesses = getBusinessesCache();
+  businesses.push(newBusiness);
+  saveBusinessesCache(businesses);
+  console.log('[mockContactData] addBusiness - Created business:', newBusiness.id);
+
+  return newBusiness;
+}
+
+/**
+ * Update an existing business
+ */
+export function updateBusiness(id: string, updates: Partial<Business>): Business | null {
+  const businesses = getBusinessesCache();
+  const index = businesses.findIndex(b => b.id === id);
+
+  if (index === -1) return null;
+
+  const updated = {
+    ...businesses[index],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
+  businesses[index] = updated;
+  saveBusinessesCache(businesses);
+  console.log('[mockContactData] updateBusiness - Updated business:', id);
+
+  return updated;
+}
+
+/**
+ * Delete a business
+ */
+export function deleteBusiness(id: string): boolean {
+  const businesses = getBusinessesCache();
+  const filtered = businesses.filter(b => b.id !== id);
+
+  if (filtered.length === businesses.length) {
+    console.log('[mockContactData] deleteBusiness - Business not found:', id);
+    return false;
+  }
+
+  saveBusinessesCache(filtered);
+  console.log('[mockContactData] deleteBusiness - Deleted business:', id);
+  return true;
+}
+
+/**
+ * Migration function: Convert existing external contacts by company field to business hierarchy
+ * Groups contacts by company and creates business records for each unique company
+ */
+export function migrateExternalContactsToBusiness(): { created: number; migrated: number } {
+  const contacts = getExternalContactsCache();
+  const businesses = getBusinessesCache();
+
+  // Group contacts by company field
+  const companiesMap = new Map<string, ExternalContact[]>();
+  contacts.forEach(contact => {
+    if (contact.company) {
+      if (!companiesMap.has(contact.company)) {
+        companiesMap.set(contact.company, []);
+      }
+      companiesMap.get(contact.company)!.push(contact);
+    }
+  });
+
+  let created = 0;
+  let migrated = 0;
+
+  // Create business for each unique company
+  const baseTimestamp = Date.now();
+  companiesMap.forEach((contactsList, companyName, index) => {
+    const existingBusiness = businesses.find(b => b.name.toLowerCase() === companyName.toLowerCase());
+
+    const businessId = existingBusiness?.id || `biz_${baseTimestamp}_${created}_${Math.random().toString(36).substr(2, 9)}`;
+
+    if (!existingBusiness) {
+      const newBusiness: Business = {
+        id: businessId,
+        name: companyName,
+        createdBy: 'system-migration',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      businesses.push(newBusiness);
+      created++;
+    }
+
+    // Link contacts to business
+    contactsList.forEach(contact => {
+      if (!contact.businessId) {
+        contact.businessId = businessId;
+        migrated++;
+      }
+    });
+  });
+
+  saveBusinessesCache(businesses);
+  saveExternalContactsCache(contacts);
+
+  console.log('[mockContactData] migrateExternalContactsToBusiness - Created:', created, 'businesses, Migrated:', migrated, 'contacts');
+
+  return { created, migrated };
 }

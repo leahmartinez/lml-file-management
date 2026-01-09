@@ -3,7 +3,7 @@
  * Dropdown for selecting users to mention in comments
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, X } from 'lucide-react';
@@ -32,6 +32,8 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
   onSelectUser,
   onClose,
 }) => {
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   // Filter users based on search text
   const filteredUsers = useMemo(() => {
     if (!searchText.trim()) return availableUsers;
@@ -49,14 +51,27 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed z-50 bg-popover border border-border rounded-lg shadow-md p-0 w-80">
+    <div
+      ref={dropdownRef}
+      className="rounded-lg shadow-lg p-0 w-80 z-50"
+      style={{
+        backgroundColor: '#ffffff',
+        border: '1px solid #e5e7eb',
+      }}
+    >
       {/* Header */}
-      <div className="border-b border-border p-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Mention a person</h3>
+      <div
+        className="px-4 py-3 flex items-center justify-between"
+        style={{
+          borderBottom: '1px solid #e5e7eb',
+          backgroundColor: '#f9fafb',
+        }}
+      >
+        <h3 className="text-sm font-semibold" style={{ color: '#111827' }}>Mention a person</h3>
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 w-6 p-0"
+          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
           onClick={onClose}
           title="Close"
         >
@@ -65,14 +80,23 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
       </div>
 
       {/* Search Input */}
-      <div className="p-3 border-b border-border">
+      <div
+        className="px-4 py-3"
+        style={{
+          borderBottom: '1px solid #e5e7eb',
+        }}
+      >
         <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4" style={{ color: '#9ca3af' }} />
           <Input
             placeholder="Search by name or email..."
             value={searchText}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-8 h-8 text-sm"
+            style={{
+              backgroundColor: '#ffffff',
+              borderColor: '#e5e7eb',
+            }}
             autoFocus
           />
         </div>
@@ -81,7 +105,7 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
       {/* User List */}
       <div className="max-h-60 overflow-y-auto">
         {filteredUsers.length > 0 ? (
-          <div className="space-y-1 p-2">
+          <div className="space-y-0.5 p-2">
             {filteredUsers.map((user) => (
               <button
                 key={user.email}
@@ -90,15 +114,32 @@ export const MentionAutocomplete: React.FC<MentionAutocompleteProps> = ({
                   onClose();
                   onSearchChange('');
                 }}
-                className="w-full text-left px-3 py-2 rounded-md hover:bg-accent transition-colors text-sm"
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '0.625rem 0.75rem',
+                  borderRadius: '0.375rem',
+                  transition: 'background-color 150ms ease',
+                  backgroundColor: '#ffffff',
+                  color: '#111827',
+                  border: 'none',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                }}
+                onMouseOver={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#f3f4f6';
+                }}
+                onMouseOut={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#ffffff';
+                }}
               >
-                <div className="font-medium">{user.name}</div>
-                <div className="text-xs text-muted-foreground">{user.email}</div>
+                <div style={{ fontWeight: '500', fontSize: '0.875rem', color: '#111827' }}>{user.name}</div>
+                <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{user.email}</div>
               </button>
             ))}
           </div>
         ) : (
-          <div className="p-4 text-center text-sm text-muted-foreground">
+          <div className="p-4 text-center text-sm" style={{ color: '#6b7280' }}>
             {searchText ? 'No users found' : 'No users available'}
           </div>
         )}

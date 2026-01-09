@@ -17,7 +17,8 @@
       "Bash(func azure functionapp publish:*)",
       "Bash(npm run build:dev:*)",
       "Bash(npm run dev:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

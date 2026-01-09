@@ -4,8 +4,8 @@
  * Used for viewing detailed contact profiles
  */
 
-import React from 'react';
-import { DirectoryContact } from '@/types/data';
+import React, { useState, useEffect } from 'react';
+import { DirectoryContact, Business } from '@/types/data';
 import {
   Dialog,
   DialogContent,
@@ -14,13 +14,21 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Mail, Phone, Building, MapPin, ExternalLink } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Mail, Phone, Building, MapPin, Edit2, Trash2, Search, ArrowLeft } from 'lucide-react';
 
 interface ContactDetailModalProps {
   contact: DirectoryContact | null;
   isOpen: boolean;
   onClose: () => void;
   onEdit?: (contact: DirectoryContact) => void;
+  onDelete?: (contact: DirectoryContact) => void;
+  canDelete?: boolean;
+  businesses?: Business[];
+  onUpdateBusiness?: (contactId: string, businessId: string | undefined) => Promise<void>;
+  onViewBusiness?: (business: Business) => void;
+  onBack?: () => void;
 }
 
 export const ContactDetailModal: React.FC<ContactDetailModalProps> = ({
@@ -28,7 +36,25 @@ export const ContactDetailModal: React.FC<ContactDetailModalProps> = ({
   isOpen,
   onClose,
   onEdit,
+  onDelete,
+  canDelete = false,
+  businesses = [],
+  onUpdateBusiness,
+  onViewBusiness,
+  onBack,
 }) => {
+  const [businessSearch, setBusinessSearch] = useState('');
+  const [showBusinessDropdown, setShowBusinessDropdown] = useState(false);
+  const [updatingBusiness, setUpdatingBusiness] = useState(false);
+  const [pendingBusinessId, setPendingBusinessId] = useState<string | null>(null);
+
+  // Clear pendingBusinessId when contact's businessId has been updated by parent
+  useEffect(() => {
+    if (contact && pendingBusinessId && (contact as any).businessId === pendingBusinessId) {
+      setPendingBusinessId(null);
+    }
+  }, [contact, pendingBusinessId]);
+
   if (!contact) {
     return null;
   }
@@ -36,11 +62,78 @@ export const ContactDetailModal: React.FC<ContactDetailModalProps> = ({
   const fullName = `${contact.firstName} ${contact.lastName}`;
   const initials = `${contact.firstName.charAt(0)}${contact.lastName.charAt(0)}`.toUpperCase();
 
+  // Use pendingBusinessId if set (optimistic UI), otherwise use actual contact businessId
+  const displayedBusinessId = pendingBusinessId || (contact as any).businessId;
+  const displayedBusiness = displayedBusinessId && businesses.length > 0
+    ? businesses.find(b => b.id === displayedBusinessId)
+    : null;
+  const affiliatedBusiness = (contact as any).businessId && businesses.length > 0
+    ? businesses.find(b => b.id === (contact as any).businessId)
+    : null;
+
+  const filteredBusinesses = businessSearch.trim()
+    ? businesses.filter(b =>
+        b.name.toLowerCase().includes(businessSearch.toLowerCase())
+      )
+    : businesses;
+
+  const handleSelectBusiness = async (businessId: string) => {
+    if (!onUpdateBusiness) return;
+    setPendingBusinessId(businessId); // Optimistic UI - show change immediately
+    setUpdatingBusiness(true);
+    try {
+      await onUpdateBusiness(contact.id, businessId);
+      setBusinessSearch('');
+      setShowBusinessDropdown(false);
+    } catch (error) {
+      console.error('Error updating business:', error);
+      setPendingBusinessId(null); // Revert on error
+    } finally {
+      setUpdatingBusiness(false);
+    }
+  };
+
+  const handleRemoveBusiness = async () => {
+    if (!onUpdateBusiness) return;
+    setPendingBusinessId(null); // Optimistic UI - show removal immediately
+    setUpdatingBusiness(true);
+    try {
+      await onUpdateBusiness(contact.id, undefined);
+      setBusinessSearch('');
+    } catch (error) {
+      console.error('Error removing business:', error);
+      // On error, restore the previous business if we had one
+      setPendingBusinessId((contact as any).businessId || null);
+    } finally {
+      setUpdatingBusiness(false);
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        setBusinessSearch('');
+        setShowBusinessDropdown(false);
+        setPendingBusinessId(null);
+      }
+      onClose();
+    }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Contact Details</DialogTitle>
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                className="h-8 w-8 p-0"
+                title="Back"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <DialogTitle>Contact Details</DialogTitle>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto">
@@ -152,16 +245,105 @@ export const ContactDetailModal: React.FC<ContactDetailModalProps> = ({
             </div>
           )}
 
-          {/* Edit button for external contacts (admin only) */}
-          {contact.type === 'external' && onEdit && (
+          {/* Business for external contacts */}
+          {contact.type === 'external' && businesses.length > 0 && onUpdateBusiness && (
             <div className="border-t pt-4">
-              <Button
-                onClick={() => onEdit(contact)}
-                className="w-full gap-2"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Edit Contact
-              </Button>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Business</Label>
+                  {displayedBusiness && (
+                    <button
+                      onClick={handleRemoveBusiness}
+                      disabled={updatingBusiness}
+                      className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                {displayedBusiness ? (
+                  <button
+                    onClick={() => onViewBusiness?.(displayedBusiness)}
+                    className="w-full text-left p-3 bg-blue-50 rounded-md border border-blue-200 hover:bg-blue-100 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-blue-600 hover:underline">{displayedBusiness.name}</p>
+                    {displayedBusiness.city && (
+                      <p className="text-xs text-muted-foreground">{displayedBusiness.city}</p>
+                    )}
+                  </button>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Not affiliated with any business</p>
+                )}
+
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <Input
+                        placeholder="Search businesses..."
+                        value={businessSearch}
+                        onChange={(e) => {
+                          setBusinessSearch(e.target.value);
+                          setShowBusinessDropdown(true);
+                        }}
+                        onFocus={() => setShowBusinessDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowBusinessDropdown(false), 200)}
+                        disabled={updatingBusiness}
+                        className="text-sm"
+                      />
+                      {businessSearch && showBusinessDropdown && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-border rounded-md shadow-lg z-50 mt-1 max-h-96 overflow-y-auto">
+                          {filteredBusinesses.length === 0 ? (
+                            <div className="p-3 text-sm text-muted-foreground">
+                              No businesses found
+                            </div>
+                          ) : (
+                            filteredBusinesses.map((business) => (
+                              <button
+                                key={business.id}
+                                type="button"
+                                onClick={() => handleSelectBusiness(business.id)}
+                                disabled={updatingBusiness}
+                                className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b border-border last:border-b-0 disabled:opacity-50"
+                              >
+                                <div className="font-medium text-sm">{business.name}</div>
+                                {business.city && (
+                                  <div className="text-xs text-muted-foreground">{business.city}</div>
+                                )}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons for external contacts (admin only) */}
+          {contact.type === 'external' && (onEdit || (canDelete && onDelete)) && (
+            <div className="border-t pt-4 flex gap-2">
+              {onEdit && (
+                <Button
+                  onClick={() => onEdit(contact)}
+                  className="flex-1 gap-2"
+                >
+                  <Edit2 className="h-4 w-4" />
+                  Edit Contact
+                </Button>
+              )}
+              {canDelete && onDelete && (
+                <Button
+                  onClick={() => onDelete(contact)}
+                  variant="destructive"
+                  className="flex-1 gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              )}
             </div>
           )}
         </div>
