@@ -254,20 +254,23 @@ export const useProjectManagement = () => {
     return true;
   }, [customProjects, deletedProjectCodes]);
 
-  // Clean up stale deletion records for projects that no longer exist in sourceProjects
-  // This prevents old deleted projects from accumulating in localStorage
+  // Clean up stale deletion records on initialization
+  // This removes old deleted projects from localStorage that no longer exist in sourceProjects
   useEffect(() => {
     const validProjectCodes = new Set(sourceProjects.map(p => p.projectCode));
-    const staleDeletions = Array.from(deletedProjectCodes).filter(code => !validProjectCodes.has(code));
+    const currentDeletions = Array.from(deletedProjectCodes);
+    const cleanedDeletions = currentDeletions.filter(code => validProjectCodes.has(code));
 
-    if (staleDeletions.length > 0) {
-      const updated = new Set(
-        Array.from(deletedProjectCodes).filter(code => validProjectCodes.has(code))
-      );
+    // Only update if we found stale records to remove
+    if (cleanedDeletions.length < currentDeletions.length) {
+      const updated = new Set(cleanedDeletions);
       setDeletedProjectCodes(updated);
       localStorage.setItem('deletedProjects', JSON.stringify(Array.from(updated)));
+      console.log(
+        `[useProjectManagement] Cleaned up ${currentDeletions.length - cleanedDeletions.length} stale deletion records`
+      );
     }
-  }, [sourceProjects, deletedProjectCodes]);
+  }, [sourceProjects]);
 
   // Memoize merged projects so downstream useMemo dependencies work correctly
   // and deleted projects are immediately filtered out
