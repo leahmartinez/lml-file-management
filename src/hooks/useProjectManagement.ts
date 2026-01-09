@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Project, ProjectStage, ProjectStageStatus } from '@/types/data';
 import { useProjects } from './useData';
 import { toast } from '@/hooks/use-toast';
@@ -254,8 +254,12 @@ export const useProjectManagement = () => {
     return true;
   }, [customProjects, deletedProjectCodes]);
 
+  // Memoize merged projects so downstream useMemo dependencies work correctly
+  // and deleted projects are immediately filtered out
+  const mergedProjects = useMemo(() => getMergedProjects(), [getMergedProjects]);
+
   return {
-    projects: getMergedProjects(),
+    projects: mergedProjects,
     addProject,
     updateProject,
     deleteProject,
