@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, FileText, FileSpreadsheet, FilePresentation } from 'lucide-react';
+import { Loader2, FileText, FileSpreadsheet } from 'lucide-react';
 
 type CreationMode = 'blank' | 'template' | 'project';
 type FileType = 'docx' | 'xlsx' | 'pptx';
@@ -148,7 +148,7 @@ export const CreateFileDialog: React.FC<CreateFileDialogProps> = ({
                   </SelectItem>
                   <SelectItem value="pptx">
                     <div className="flex items-center gap-2">
-                      <FilePresentation className="h-4 w-4 text-orange-500" />
+                      <FileSpreadsheet className="h-4 w-4 text-orange-500" />
                       PowerPoint Presentation
                     </div>
                   </SelectItem>
