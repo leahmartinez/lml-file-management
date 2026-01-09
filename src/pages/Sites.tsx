@@ -420,10 +420,10 @@ const SitesPage = () => {
     if (selectedStage) {
       setSelectedStage(null);
     } else if (selectedProject) {
-      // If user came from Dashboard (has query params), navigate back to Dashboard
-      const fromDashboard = searchParams.get('projectCode');
-      if (fromDashboard) {
-        navigate('/dashboard');
+      // Use browser back button to return to previous page (Dashboard, My Work, etc)
+      // Only fallback to clearing selection if there's no history
+      if (window.history.length > 1) {
+        navigate(-1);
       } else {
         setSelectedProject(null);
       }
