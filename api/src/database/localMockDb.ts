@@ -4,11 +4,14 @@
  * Only for local development
  */
 
-import { UserEntity } from "./tableStorage";
+import { UserEntity, ProjectEntity, SiteEntity, StageEntity } from "./tableStorage";
 import bcrypt from 'bcryptjs';
 
-// In-memory user store
+// In-memory stores
 let users: Map<string, UserEntity> = new Map();
+let projects: Map<string, ProjectEntity> = new Map(); // key: projectCode
+let sites: Map<string, SiteEntity> = new Map(); // key: siteId
+let stages: Map<string, StageEntity> = new Map(); // key: stageId
 
 /**
  * Initialize local database with demo users
@@ -176,32 +179,86 @@ export async function deleteUserLocal(email: string): Promise<void> {
 }
 
 /**
- * Clear all users (for testing)
+ * Clear all data (for testing)
  */
 export function clearLocalDatabase(): void {
   users.clear();
+  projects.clear();
+  sites.clear();
+  stages.clear();
 }
 
 /**
  * Delete a project and all its stages (permanent deletion)
  */
 export async function deleteProjectLocal(projectCode: string): Promise<void> {
-  // In a real database, this would cascade delete all stages with this projectCode
-  console.log(`[localMockDb] Deleting project ${projectCode} and all its stages`);
-  // Since we're using in-memory mock, this is just a placeholder
-  // In actual implementation, we would delete all stages in the database where projectCode matches
+  try {
+    console.log(`[localMockDb] Deleting project ${projectCode} and all its stages`);
+
+    // Delete all stages for this project
+    const stagesToDelete: string[] = [];
+    for (const [stageId, stage] of stages.entries()) {
+      if (stage.projectCode === projectCode) {
+        stagesToDelete.push(stageId);
+      }
+    }
+
+    stagesToDelete.forEach(stageId => {
+      stages.delete(stageId);
+      console.log(`[localMockDb] Deleted stage ${stageId}`);
+    });
+
+    // Delete the project itself
+    projects.delete(projectCode);
+    console.log(`[localMockDb] Deleted project ${projectCode}`);
+  } catch (error) {
+    console.error(`[localMockDb] Error deleting project ${projectCode}:`, error);
+    throw error;
+  }
 }
 
 /**
  * Delete a site and all its projects (permanent deletion - cascades)
  */
 export async function deleteSiteLocal(siteId: string): Promise<void> {
-  // In a real database, this would:
-  // 1. Delete the site record
-  // 2. Cascade delete all projects where siteId matches
-  // 3. Cascade delete all stages in those projects
-  console.log(`[localMockDb] Deleting site ${siteId} and all its projects/stages`);
-  // Since we're using in-memory mock, this is just a placeholder
-  // In actual implementation, this would cascade through the entire hierarchy
+  try {
+    console.log(`[localMockDb] Deleting site ${siteId} and all its projects/stages`);
+
+    // Step 1: Get the site to find all projects
+    const site = sites.get(siteId);
+    if (!site) {
+      throw new Error(`Site ${siteId} not found`);
+    }
+
+    // Step 2: Parse project codes from the site
+    const projectCodes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
+
+    // Step 3: Delete all projects and their stages
+    for (const projectCode of projectCodes) {
+      // Delete all stages for this project
+      const stagesToDelete: string[] = [];
+      for (const [stageId, stage] of stages.entries()) {
+        if (stage.projectCode === projectCode) {
+          stagesToDelete.push(stageId);
+        }
+      }
+
+      stagesToDelete.forEach(stageId => {
+        stages.delete(stageId);
+        console.log(`[localMockDb] Deleted stage ${stageId} from project ${projectCode}`);
+      });
+
+      // Delete the project
+      projects.delete(projectCode);
+      console.log(`[localMockDb] Deleted project ${projectCode}`);
+    }
+
+    // Step 4: Delete the site itself
+    sites.delete(siteId);
+    console.log(`[localMockDb] Deleted site ${siteId}`);
+  } catch (error) {
+    console.error(`[localMockDb] Error deleting site ${siteId}:`, error);
+    throw error;
+  }
 }
 

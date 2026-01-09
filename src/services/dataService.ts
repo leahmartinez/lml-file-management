@@ -250,11 +250,23 @@ function transformToAssets(rawData: any[]): Asset[] {
 export const dataService = {
   /**
    * Fetch all sites
+   * Filters out any sites that have been deleted
    */
   async fetchSites(): Promise<Site[]> {
+    // Get list of deleted site codes (for local dev mock data)
+    const deletedSites = (() => {
+      try {
+        const stored = localStorage.getItem('_deletedSiteCodes');
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    })();
+
     // Use mock data in local development mode
     if (useMockData()) {
-      return mockSites;
+      // Filter out deleted sites from mock data
+      return mockSites.filter(s => !deletedSites.includes(s.building));
     }
 
     const rawData = await fetchData<any>({
@@ -267,11 +279,23 @@ export const dataService = {
   /**
    * Fetch all projects
    * Projects are extracted from the same sites_data.csv file or use mock data
+   * Filters out any projects that have been deleted
    */
   async fetchProjects(): Promise<Project[]> {
+    // Get list of deleted project codes (for local dev mock data)
+    const deletedProjects = (() => {
+      try {
+        const stored = localStorage.getItem('_deletedProjectCodes');
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    })();
+
     // Use mock data in local development mode
     if (useMockData()) {
-      return mockProjects;
+      // Filter out deleted projects from mock data
+      return mockProjects.filter(p => !deletedProjects.includes(p.projectCode));
     }
 
     const rawData = await fetchData<any>({

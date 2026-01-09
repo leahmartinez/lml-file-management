@@ -240,6 +240,20 @@ export const useProjectManagement = () => {
         throw new Error(error.message || 'Failed to delete project');
       }
 
+      // Track deleted project codes in localStorage (for mock data filtering in local dev mode)
+      const deleted = (() => {
+        try {
+          const stored = localStorage.getItem('_deletedProjectCodes');
+          return stored ? JSON.parse(stored) : [];
+        } catch (e) {
+          return [];
+        }
+      })();
+      if (!deleted.includes(projectCode)) {
+        deleted.push(projectCode);
+        localStorage.setItem('_deletedProjectCodes', JSON.stringify(deleted));
+      }
+
       // Remove from custom projects if it exists there
       const customUpdated = customProjects.filter(p => p.projectCode !== projectCode);
       if (customUpdated.length !== customProjects.length) {
