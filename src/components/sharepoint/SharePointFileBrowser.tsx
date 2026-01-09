@@ -19,7 +19,6 @@ import {
   Trash2,
   FileText,
   FileSpreadsheet,
-  FilePresentation,
   File,
   Loader2,
   AlertCircle,
@@ -49,7 +48,7 @@ const getFileIcon = (fileName: string) => {
       return <FileSpreadsheet className="h-4 w-4 text-green-500" />;
     case 'pptx':
     case 'ppt':
-      return <FilePresentation className="h-4 w-4 text-orange-500" />;
+      return <File className="h-4 w-4 text-orange-500" />;
     case 'pdf':
       return <File className="h-4 w-4 text-red-500" />;
     default:

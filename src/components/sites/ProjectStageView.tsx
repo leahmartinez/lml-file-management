@@ -1,6 +1,7 @@
 /**
  * Project Stage View - Full screen view for managing a specific stage
  * Allows editing stage description, managing files, and changing status
+ * Integrates SharePoint file management with Office Online viewers
  */
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -12,6 +13,7 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContactDetailModal } from "@/components/ContactDetailModal";
 import {
   Select,
@@ -28,8 +30,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, Trash2, Download, Edit2, Check, X, Upload } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Download, Edit2, Check, X, Upload, ExternalLink, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useSharePointAuth } from "@/hooks/useSharePointAuth";
+import { useSharePointFiles } from "@/hooks/useSharePointFiles";
+import { SharePointFileBrowser } from "@/components/sharepoint/SharePointFileBrowser";
+import { CreateFileDialog } from "@/components/sharepoint/CreateFileDialog";
+import { graphService } from "@/services/graphService";
 
 const STAGE_STATUSES: ProjectStageStatus[] = [
   "Not Started",
@@ -77,6 +84,28 @@ export const ProjectStageView = ({
   onAssignConsultants,
 }: ProjectStageViewProps) => {
   const { toast } = useToast();
+  const { isAuthenticated, login } = useSharePointAuth();
+
+  // SharePoint folder path for this stage
+  const sharePointFolderPath = `${import.meta.env.VITE_SHAREPOINT_PROJECTS_PATH || '/Projects'}/${projectCode}/${stage.name}`;
+
+  // SharePoint file management
+  const {
+    files: sharePointFiles,
+    isLoading: sharePointLoading,
+    error: sharePointError,
+    fetchFiles: fetchSharePointFiles,
+    deleteFile: deleteSharePointFile,
+  } = useSharePointFiles({
+    folderPath: sharePointFolderPath,
+    autoFetch: isAuthenticated,
+  });
+
+  // SharePoint folder initialization
+  const [folderInitializing, setFolderInitializing] = useState(false);
+  const [createFileDialogOpen, setCreateFileDialogOpen] = useState(false);
+  const [fileTab, setFileTab] = useState<'sharepoint' | 'uploaded'>('sharepoint');
+
   const [consultantSearchQuery, setConsultantSearchQuery] = useState("");
   const [showConsultantDropdown, setShowConsultantDropdown] = useState(false);
   const [selectedConsultants, setSelectedConsultants] = useState<string[]>(stageConsultants);
@@ -87,6 +116,39 @@ export const ProjectStageView = ({
   useEffect(() => {
     setSelectedConsultants(stageConsultants);
   }, [stageConsultants]);
+
+  // Initialize SharePoint folder structure on component mount
+  useEffect(() => {
+    const initializeFolder = async () => {
+      if (!isAuthenticated) return;
+
+      try {
+        setFolderInitializing(true);
+        await graphService.initialize(import.meta.env.VITE_SHAREPOINT_SITE_URL);
+        await graphService.ensureProjectFolder(projectCode, stage.name);
+
+        // Fetch files after folder is created
+        await fetchSharePointFiles(sharePointFolderPath);
+
+        toast({
+          title: "Success",
+          description: "SharePoint folder initialized",
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize folder';
+        console.error('Folder initialization error:', errorMessage);
+        toast({
+          title: "Error",
+          description: "Failed to initialize SharePoint folder",
+          variant: "destructive",
+        });
+      } finally {
+        setFolderInitializing(false);
+      }
+    };
+
+    initializeFolder();
+  }, [isAuthenticated, projectCode, stage.name, sharePointFolderPath, fetchSharePointFiles, toast]);
 
   // Filter consultants based on search query
   const filteredConsultants = useMemo(() => {
@@ -558,18 +620,61 @@ export const ProjectStageView = ({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Files</CardTitle>
-            {canUpload && !isAddingFile && (
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => fileInputRef.current?.click()} className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  Upload Files
+            <div className="flex gap-2">
+              {/* SharePoint Auth/Login Button */}
+              {!isAuthenticated && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={login}
+                  className="gap-2"
+                >
+                  Sign in to SharePoint
                 </Button>
-                <Button size="sm" onClick={() => setIsAddingFile(true)} className="gap-2">
+              )}
+
+              {/* Open in SharePoint Button */}
+              {isAuthenticated && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const sharePointUrl = `${import.meta.env.VITE_SHAREPOINT_SITE_URL}/${projectCode}/${stage.name}`;
+                    window.open(sharePointUrl, '_blank');
+                  }}
+                  className="gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Open in SharePoint
+                </Button>
+              )}
+
+              {/* Create New File Button */}
+              {isAuthenticated && (
+                <Button
+                  size="sm"
+                  onClick={() => setCreateFileDialogOpen(true)}
+                  className="gap-2"
+                >
                   <Plus className="h-4 w-4" />
-                  Add Link
+                  Create New
                 </Button>
-              </div>
-            )}
+              )}
+
+              {/* Upload/Add Link Buttons (for uploaded files tab) */}
+              {canUpload && !isAddingFile && (
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => fileInputRef.current?.click()} className="gap-2">
+                    <Upload className="h-4 w-4" />
+                    Upload Files
+                  </Button>
+                  <Button size="sm" onClick={() => setIsAddingFile(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Link
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -582,121 +687,166 @@ export const ProjectStageView = ({
             onChange={handleFileInputChange}
           />
 
-          {/* Drag and Drop Zone */}
-          {canUpload && (
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                isDragging
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-muted-foreground/25 bg-muted/25"
-              }`}
-            >
-              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm font-medium">Drag and drop files here</p>
-              <p className="text-xs text-muted-foreground">or click "Upload Files" button</p>
+          {/* Folder Initialization Indicator */}
+          {isAuthenticated && folderInitializing && (
+            <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <p className="text-sm text-blue-600">Initializing SharePoint folder...</p>
             </div>
           )}
 
-          {isAddingFile && (
-            <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-              <div>
-                <Label htmlFor="fileName" className="text-sm">
-                  File Name *
-                </Label>
-                <Input
-                  id="fileName"
-                  placeholder="e.g., Feasibility_Study.pdf"
-                  value={newFileName}
-                  onChange={(e) => setNewFileName(e.target.value)}
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label htmlFor="fileUrl" className="text-sm">
-                  File URL or SharePoint Link *
-                </Label>
-                <Input
-                  id="fileUrl"
-                  placeholder="https://..."
-                  value={newFileUrl}
-                  onChange={(e) => setNewFileUrl(e.target.value)}
-                  className="mt-2"
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Can be a direct file link or SharePoint document URL
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleAddFile}>
-                  <Check className="h-4 w-4 mr-2" />
-                  Add File
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setIsAddingFile(false);
-                    setNewFileName("");
-                    setNewFileUrl("");
+          {/* Tabs for SharePoint vs Uploaded Files */}
+          <Tabs value={fileTab} onValueChange={(value) => setFileTab(value as 'sharepoint' | 'uploaded')}>
+            <TabsList>
+              <TabsTrigger value="sharepoint">SharePoint Files</TabsTrigger>
+              <TabsTrigger value="uploaded">Uploaded Files</TabsTrigger>
+            </TabsList>
+
+            {/* SharePoint Files Tab */}
+            <TabsContent value="sharepoint" className="space-y-4">
+              {!isAuthenticated ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">
+                    Sign in to SharePoint to view and manage files
+                  </p>
+                  <Button onClick={login}>Sign in to SharePoint</Button>
+                </div>
+              ) : (
+                <SharePointFileBrowser
+                  files={sharePointFiles}
+                  isLoading={sharePointLoading}
+                  error={sharePointError}
+                  onOpenFile={(file) => {
+                    // Open file in new tab
+                    window.open(file.webUrl, '_blank');
                   }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
+                  onDeleteFile={async (itemId) => {
+                    await deleteSharePointFile(itemId);
+                  }}
+                  onDownloadFile={(file) => {
+                    window.open(file.webUrl, '_blank');
+                  }}
+                />
+              )}
+            </TabsContent>
 
-          {files.length > 0 ? (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>File Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Uploaded</TableHead>
-                    <TableHead className="w-20">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {files.map((file) => (
-                    <TableRow key={file.id}>
-                      <TableCell className="font-medium">{file.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {file.documentType === "sharepoint"
-                          ? "SharePoint"
-                          : file.documentType === "uploaded"
-                          ? "Uploaded"
-                          : "External Link"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(file.dateUploaded).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="flex gap-2">
-                        {file.url && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              if (file.url?.startsWith("http")) {
-                                window.open(file.url, "_blank");
-                              }
-                            }}
-                            className="px-2"
-                          >
-                            <Download className="h-3 w-3" />
-                          </Button>
-                        )}
-                        {canUpload && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteFile(file.id)}
-                            className="px-2"
-                          >
-                            <Trash2 className="h-3 w-3 text-red-600" />
+            {/* Uploaded Files Tab */}
+            <TabsContent value="uploaded" className="space-y-4">
+              {/* Drag and Drop Zone */}
+              {canUpload && (
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                    isDragging
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-muted-foreground/25 bg-muted/25"
+                  }`}
+                >
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">Drag and drop files here</p>
+                  <p className="text-xs text-muted-foreground">or click "Upload Files" button</p>
+                </div>
+              )}
+
+              {isAddingFile && (
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                  <div>
+                    <Label htmlFor="fileName" className="text-sm">
+                      File Name *
+                    </Label>
+                    <Input
+                      id="fileName"
+                      placeholder="e.g., Feasibility_Study.pdf"
+                      value={newFileName}
+                      onChange={(e) => setNewFileName(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="fileUrl" className="text-sm">
+                      File URL or SharePoint Link *
+                    </Label>
+                    <Input
+                      id="fileUrl"
+                      placeholder="https://..."
+                      value={newFileUrl}
+                      onChange={(e) => setNewFileUrl(e.target.value)}
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Can be a direct file link or SharePoint document URL
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleAddFile}>
+                      <Check className="h-4 w-4 mr-2" />
+                      Add File
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setIsAddingFile(false);
+                        setNewFileName("");
+                        setNewFileUrl("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {files.length > 0 ? (
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>File Name</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Uploaded</TableHead>
+                        <TableHead className="w-20">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {files.map((file) => (
+                        <TableRow key={file.id}>
+                          <TableCell className="font-medium">{file.name}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {file.documentType === "sharepoint"
+                              ? "SharePoint"
+                              : file.documentType === "uploaded"
+                              ? "Uploaded"
+                              : "External Link"}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {new Date(file.dateUploaded).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="flex gap-2">
+                            {file.url && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  if (file.url?.startsWith("http")) {
+                                    window.open(file.url, "_blank");
+                                  }
+                                }}
+                                className="px-2"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            )}
+                            {canUpload && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteFile(file.id)}
+                                className="px-2"
+                              >
+                                <Trash2 className="h-3 w-3 text-red-600" />
                           </Button>
                         )}
                       </TableCell>
@@ -704,14 +854,38 @@ export const ProjectStageView = ({
                   ))}
                 </TableBody>
               </Table>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-4">
-              {canUpload ? "No files added yet" : "No files for this stage"}
-            </p>
-          )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground py-4">
+                  {canUpload ? "No files added yet" : "No files for this stage"}
+                </p>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
+
+      {/* Create File Dialog */}
+      <CreateFileDialog
+        isOpen={createFileDialogOpen}
+        onClose={() => setCreateFileDialogOpen(false)}
+        onCreateBlank={async (fileName, fileType) => {
+          try {
+            await graphService.createBlankFile(sharePointFolderPath, fileName, fileType);
+            await fetchSharePointFiles(sharePointFolderPath);
+            toast({
+              title: "Success",
+              description: `${fileName} created successfully`,
+            });
+          } catch (error) {
+            toast({
+              title: "Error",
+              description: "Failed to create file",
+              variant: "destructive",
+            });
+          }
+        }}
+      />
 
       <ContactDetailModal
         isOpen={contactDetailOpen}
