@@ -70,12 +70,13 @@ export interface Unit {
 /**
  * Project File - File attached to a project stage
  * Files are organized by stage, not at project root
+ * Supports uploaded files, SharePoint files, and external links
  */
 export interface ProjectFile {
   id: string;
   name: string;
   url?: string; // For uploaded files (Data URL or Blob URL)
-  sharePointUrl?: string; // For SharePoint live documents
+  sharePointUrl?: string; // For SharePoint live documents - web URL
   documentType: 'sharepoint' | 'uploaded' | 'external_link';
   stageId: string; // Links to ProjectStage
   projectCode: string; // Links to Project
@@ -87,6 +88,14 @@ export interface ProjectFile {
   description?: string; // Optional file description
   isFolder?: boolean; // For folder structure support
   parentId?: string; // For hierarchical folders
+
+  // SharePoint specific fields
+  sharePointItemId?: string; // Graph API item ID for SharePoint files
+  sharePointDriveId?: string; // Drive ID for Graph API operations
+  lastModified?: string; // SharePoint last modified timestamp
+  lastModifiedBy?: string; // SharePoint user who last modified
+  webUrl?: string; // Direct link to open in SharePoint
+  embedUrl?: string; // Embed URL for iframe viewer
 }
 
 /**
@@ -212,6 +221,7 @@ export interface ExternalContact {
   lastName: string;
   position: string;
   company?: string;
+  businessId?: string; // Links to Business entity (optional, for new hierarchical view)
   email?: string;
   phone?: string;
   officePhone?: string;
@@ -219,6 +229,28 @@ export interface ExternalContact {
   createdBy: string; // Email of admin/consultant who added
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Business - A company/organization in the system
+ * Businesses are editable entities that external contacts are linked to
+ */
+export interface Business {
+  id: string; // Unique ID (e.g., 'biz_1234567890')
+  name: string; // Business name (required)
+  description?: string; // Business description
+  address?: string; // Street address
+  city?: string; // City
+  postcode?: string; // Postal code
+  state?: ProjectState; // Australian state
+  website?: string; // Business website URL
+  phone?: string; // Main business phone
+  email?: string; // Business contact email
+  category?: string; // Business category (e.g., "Supplier", "Client", "Contractor")
+  logo?: string; // Business logo URL
+  createdBy: string; // User email who created
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
 }
 
 /**
@@ -238,6 +270,7 @@ export interface DirectoryContact {
   photo?: string;
   department?: string;
   bio?: string;
+  businessId?: string; // Links to Business entity (for external contacts)
   userEmail?: string; // Only for type 'user'
 }
 

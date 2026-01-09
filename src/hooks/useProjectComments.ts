@@ -98,7 +98,7 @@ export const useProjectComments = (projectCode: string) => {
     });
   }, [comments, projectCode, toast]);
 
-  const updateComment = useCallback((commentId: string, newText: string) => {
+  const updateComment = useCallback((commentId: string, newText: string, newHtml?: string) => {
     if (!newText.trim()) {
       toast({
         title: "Error",
@@ -108,8 +108,17 @@ export const useProjectComments = (projectCode: string) => {
       return;
     }
 
+    // Extract mentioned user emails from the new HTML if provided
+    const mentionedUsers = newHtml ? parseMentionedUsers(newHtml) : [];
+    const mentionedUserEmails = mentionedUsers.map(u => u.email);
+
     const updated = comments.map(c =>
-      c.id === commentId ? { ...c, comment: newText.trim() } : c
+      c.id === commentId ? {
+        ...c,
+        comment: newText.trim(),
+        commentHtml: newHtml || undefined, // Update HTML if provided
+        mentionedUserEmails: mentionedUserEmails.length > 0 ? mentionedUserEmails : undefined,
+      } : c
     );
     setComments(updated);
     localStorage.setItem(`projectComments_${projectCode}`, JSON.stringify(updated));

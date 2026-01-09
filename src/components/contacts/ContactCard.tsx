@@ -5,11 +5,11 @@
  */
 
 import React from 'react';
-import { DirectoryContact } from '@/types/data';
+import { DirectoryContact, Business } from '@/types/data';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Mail, Phone, MapPin, Building, ExternalLink, Loader2, Trash2 } from 'lucide-react';
+import { Mail, Phone, MapPin, Building, ExternalLink, Loader2 } from 'lucide-react';
 
 interface ContactCardProps {
   contact: DirectoryContact;
@@ -18,6 +18,8 @@ interface ContactCardProps {
   canDelete?: boolean;
   compact?: boolean;
   isLoading?: boolean;
+  businesses?: Business[];
+  onViewBusiness?: (business: Business) => void;
 }
 
 export const ContactCard: React.FC<ContactCardProps> = ({
@@ -27,6 +29,8 @@ export const ContactCard: React.FC<ContactCardProps> = ({
   canDelete = false,
   compact = false,
   isLoading = false,
+  businesses = [],
+  onViewBusiness,
 }) => {
   const fullName = `${contact.firstName} ${contact.lastName}`;
 
@@ -36,10 +40,18 @@ export const ContactCard: React.FC<ContactCardProps> = ({
   // Only show delete button for external contacts when user has permission
   const showDeleteButton = canDelete && contact.type === 'external' && onDelete;
 
+  // Get the business this contact is affiliated with
+  const affiliatedBusiness = (contact as any).businessId && businesses.length > 0
+    ? businesses.find(b => b.id === (contact as any).businessId)
+    : null;
+
   if (compact) {
     // Compact card for list view
     return (
-      <Card className={`hover:shadow-md transition-shadow cursor-pointer h-full relative ${isLoading ? 'opacity-60' : ''}`}>
+      <Card
+        className={`hover:shadow-md transition-shadow cursor-pointer h-full relative group ${isLoading ? 'opacity-60' : ''}`}
+        onClick={() => onViewDetails?.(contact)}
+      >
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/50">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -73,41 +85,34 @@ export const ContactCard: React.FC<ContactCardProps> = ({
                 {contact.site && (
                   <p className="text-xs text-muted-foreground truncate">{contact.site}</p>
                 )}
-              </div>
-
-              <div className="flex items-start gap-2">
-                {/* Category badge */}
-                {contact.category && (
-                  <Badge
-                    variant={
-                      contact.category === 'LML Lift Consultants'
-                        ? 'default'
-                        : contact.category === 'Client'
-                          ? 'secondary'
-                          : 'outline'
-                    }
-                    className="text-xs flex-shrink-0"
-                  >
-                    {contact.category}
-                  </Badge>
-                )}
-
-                {/* Delete button */}
-                {showDeleteButton && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                {affiliatedBusiness && (
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onDelete(contact);
+                      onViewBusiness?.(affiliatedBusiness);
                     }}
-                    className="h-6 w-6 p-0 hover:bg-red-50"
-                    title="Delete contact"
+                    className="text-xs text-blue-600 hover:underline truncate block"
                   >
-                    <Trash2 className="h-3 w-3 text-red-600" />
-                  </Button>
+                    {affiliatedBusiness.name}
+                  </button>
                 )}
               </div>
+
+              {/* Category badge */}
+              {contact.category && (
+                <Badge
+                  variant={
+                    contact.category === 'LML Lift Consultants'
+                      ? 'default'
+                      : contact.category === 'Client'
+                        ? 'secondary'
+                        : 'outline'
+                  }
+                  className="text-xs flex-shrink-0"
+                >
+                  {contact.category}
+                </Badge>
+              )}
             </div>
 
             {/* Contact info summary */}
@@ -117,6 +122,7 @@ export const ContactCard: React.FC<ContactCardProps> = ({
                   <Mail className="h-3 w-3 flex-shrink-0" />
                   <a
                     href={`mailto:${contact.email}`}
+                    onClick={(e) => e.stopPropagation()}
                     className="truncate text-blue-600 hover:underline"
                   >
                     {contact.email}
@@ -126,24 +132,16 @@ export const ContactCard: React.FC<ContactCardProps> = ({
               {contact.phone && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Phone className="h-3 w-3 flex-shrink-0" />
-                  <a href={`tel:${contact.phone}`} className="text-blue-600 hover:underline">
+                  <a
+                    href={`tel:${contact.phone}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-blue-600 hover:underline"
+                  >
                     {contact.phone}
                   </a>
                 </div>
               )}
             </div>
-
-            {/* Details button */}
-            {onViewDetails && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onViewDetails(contact)}
-                className="w-full justify-center"
-              >
-                View Details
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -191,6 +189,18 @@ export const ContactCard: React.FC<ContactCardProps> = ({
                   <MapPin className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">{contact.site}</span>
                 </div>
+              )}
+              {affiliatedBusiness && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewBusiness?.(affiliatedBusiness);
+                  }}
+                  className="text-sm text-blue-600 hover:underline mt-1 flex items-center gap-2"
+                >
+                  <Building className="h-4 w-4" />
+                  {affiliatedBusiness.name}
+                </button>
               )}
             </div>
           </div>
