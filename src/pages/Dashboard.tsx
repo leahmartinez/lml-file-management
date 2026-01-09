@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { useDashboardData, DashboardRow } from '@/hooks/useDashboardData';
@@ -9,7 +10,7 @@ import { DashboardTable } from '@/components/dashboard/DashboardTable';
 import { EditJWSummaryModal } from '@/components/dashboard/EditJWSummaryModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Copy, LayoutGrid } from 'lucide-react';
+import { Download, Copy, LayoutGrid, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,8 +23,9 @@ import { ProjectType } from '@/types/data';
 const STATES = ['Victoria', 'NSW', 'South Australia', 'Queensland'];
 
 const Dashboard = () => {
+  const queryClient = useQueryClient();
   const { rows: allRows = [], loading } = useDashboardData();
-  const { projects = [], updateProject } = useProjectManagement();
+  const { projects = [], updateProject, refetch } = useProjectManagement();
   const { activeView, setView } = useDashboardView();
   const [selectedState, setSelectedState] = useState('Victoria');
   const [filteredRows, setFilteredRows] = useState<DashboardRow[]>([]);
@@ -31,6 +33,7 @@ const Dashboard = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [editJWSummaryOpen, setEditJWSummaryOpen] = useState(false);
   const [selectedProjectForEdit, setSelectedProjectForEdit] = useState<any>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Filter rows by selected state - memoized to prevent infinite loop in DashboardFilters
   const stateFilteredRows = useMemo(
@@ -104,6 +107,26 @@ const Dashboard = () => {
     copyToClipboard(rowsToCopy);
     alert(`Copied ${rowsToCopy.length} row(s) to clipboard`);
   };
+
+  const handleRefreshData = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      // Invalidate all relevant query caches to force fresh fetch
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
+      await queryClient.invalidateQueries({ queryKey: ['sites'] });
+      await queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      await queryClient.invalidateQueries({ queryKey: ['assets'] });
+
+      // Also refetch projects
+      refetch?.();
+
+      console.log('[Dashboard] Data refreshed successfully');
+    } catch (error) {
+      console.error('[Dashboard] Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [queryClient, refetch]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -208,6 +231,18 @@ const Dashboard = () => {
                 </div>
 
                 <div className="flex gap-2">
+                  {/* Refresh Data Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshData}
+                    disabled={isRefreshing || loading}
+                    title="Refresh data from server"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                  </Button>
+
                   {/* Copy Button */}
                   <Button
                     variant="outline"

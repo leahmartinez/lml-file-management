@@ -20,10 +20,14 @@ export const useStageConsultants = () => {
     const stored = localStorage.getItem('stageConsultantAssignments');
     if (stored) {
       try {
-        setAssignments(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setAssignments(parsed);
+        console.log('[useStageConsultants] Loaded consultant assignments:', Object.keys(parsed).length > 0 ? parsed : 'empty');
       } catch (e) {
         console.error('Error loading stage consultant assignments:', e);
       }
+    } else {
+      console.log('[useStageConsultants] No consultant assignments found in localStorage');
     }
   }, []);
 
