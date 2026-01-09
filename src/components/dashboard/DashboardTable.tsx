@@ -428,7 +428,7 @@ const DashboardTableComponent = ({
               const groupLabel = group.statusLabel || group.stageLabel || group.consultantLabel || `Group ${idx}`;
               return (
                 <TimelineGroup
-                  key={groupLabel}
+                  key={`${groupLabel}-${idx}`}
                   dateKey={groupLabel}
                   dateLabel={groupLabel}
                   rows={group.rows}
