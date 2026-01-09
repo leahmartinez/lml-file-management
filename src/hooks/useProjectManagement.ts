@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Project, ProjectStage, ProjectStageStatus } from '@/types/data';
 import { useProjects } from './useData';
 import { toast } from '@/hooks/use-toast';
@@ -253,6 +253,21 @@ export const useProjectManagement = () => {
     });
     return true;
   }, [customProjects, deletedProjectCodes]);
+
+  // Clean up stale deletion records for projects that no longer exist in sourceProjects
+  // This prevents old deleted projects from accumulating in localStorage
+  useEffect(() => {
+    const validProjectCodes = new Set(sourceProjects.map(p => p.projectCode));
+    const staleDeletions = Array.from(deletedProjectCodes).filter(code => !validProjectCodes.has(code));
+
+    if (staleDeletions.length > 0) {
+      const updated = new Set(
+        Array.from(deletedProjectCodes).filter(code => validProjectCodes.has(code))
+      );
+      setDeletedProjectCodes(updated);
+      localStorage.setItem('deletedProjects', JSON.stringify(Array.from(updated)));
+    }
+  }, [sourceProjects, deletedProjectCodes]);
 
   // Memoize merged projects so downstream useMemo dependencies work correctly
   // and deleted projects are immediately filtered out
