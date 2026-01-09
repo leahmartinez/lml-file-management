@@ -182,3 +182,26 @@ export function clearLocalDatabase(): void {
   users.clear();
 }
 
+/**
+ * Delete a project and all its stages (permanent deletion)
+ */
+export async function deleteProjectLocal(projectCode: string): Promise<void> {
+  // In a real database, this would cascade delete all stages with this projectCode
+  console.log(`[localMockDb] Deleting project ${projectCode} and all its stages`);
+  // Since we're using in-memory mock, this is just a placeholder
+  // In actual implementation, we would delete all stages in the database where projectCode matches
+}
+
+/**
+ * Delete a site and all its projects (permanent deletion - cascades)
+ */
+export async function deleteSiteLocal(siteId: string): Promise<void> {
+  // In a real database, this would:
+  // 1. Delete the site record
+  // 2. Cascade delete all projects where siteId matches
+  // 3. Cascade delete all stages in those projects
+  console.log(`[localMockDb] Deleting site ${siteId} and all its projects/stages`);
+  // Since we're using in-memory mock, this is just a placeholder
+  // In actual implementation, this would cascade through the entire hierarchy
+}
+

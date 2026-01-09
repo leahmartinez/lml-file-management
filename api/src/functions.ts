@@ -15,6 +15,8 @@ import { usersApproveHandler } from "./handlers/users-approve";
 import { usersSuspendHandler } from "./handlers/users-suspend";
 import { usersDeleteHandler } from "./handlers/users-delete";
 import { usersUpdateHandler } from "./handlers/users-update";
+import { projectsDeleteHandler } from "./handlers/projects-delete";
+import { sitesDeleteHandler } from "./handlers/sites-delete";
 
 // Register health check first to test if app is loading
 app.http("health", {
@@ -112,6 +114,18 @@ app.http("users-update", {
   methods: ["PUT", "OPTIONS"],
   route: "users/update",
   handler: usersUpdateHandler,
+});
+
+app.http("projects-delete", {
+  methods: ["DELETE", "OPTIONS"],
+  route: "projects/delete",
+  handler: projectsDeleteHandler,
+});
+
+app.http("sites-delete", {
+  methods: ["DELETE", "OPTIONS"],
+  route: "sites/delete",
+  handler: sitesDeleteHandler,
 });
 
 export { app };

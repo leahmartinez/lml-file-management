@@ -11,6 +11,7 @@ import { PDFPreviewModal } from "@/components/PDFPreviewModal";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { CommentDetailModal } from "@/components/CommentDetailModal";
 import { ContactDetailModal } from "@/components/ContactDetailModal";
+import { DeleteConfirmationDialog } from "@/components/dialogs/DeleteConfirmationDialog";
 import { useMasterData } from "@/hooks/useMasterData";
 import { useProjects } from "@/hooks/useData";
 import { useSiteManagement } from "@/hooks/useSiteManagement";
@@ -241,6 +242,10 @@ const SitesPage = () => {
   const [replyHtml, setReplyHtml] = useState("");
   const [replyEditorKey, setReplyEditorKey] = useState(0); // Force clear reply editor
   const [collapsedComments, setCollapsedComments] = useState<Set<string>>(new Set());
+
+  // Delete confirmation dialog state
+  const [deleteSiteDialogOpen, setDeleteSiteDialogOpen] = useState(false);
+  const [isDeletingSite, setIsDeletingSite] = useState(false);
 
   // Sync form data when selectedSite changes
   useEffect(() => {
@@ -541,6 +546,23 @@ const SitesPage = () => {
     );
   }
 
+  const handleConfirmDeleteSite = async () => {
+    if (selectedSite) {
+      setIsDeletingSite(true);
+      try {
+        deleteSite(selectedSite.building);
+        setSelectedSite(null);
+        setDeleteSiteDialogOpen(false);
+      } finally {
+        setIsDeletingSite(false);
+      }
+    }
+  };
+
+  const handleCancelDeleteSite = () => {
+    setDeleteSiteDialogOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -629,12 +651,7 @@ const SitesPage = () => {
                     )}
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        if (window.confirm(`Are you sure you want to delete site "${selectedSite.building}"? This cannot be undone.`)) {
-                          deleteSite(selectedSite.building);
-                          setSelectedSite(null);
-                        }
-                      }}
+                      onClick={() => setDeleteSiteDialogOpen(true)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
@@ -2155,6 +2172,17 @@ const SitesPage = () => {
           onSave={handleSaveSite}
         />
       </Suspense>
+
+      {/* Delete Site Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={deleteSiteDialogOpen}
+        title="Delete Site"
+        description="This will permanently delete the site and all its projects and stages. This action cannot be undone."
+        itemName={selectedSite?.building}
+        isLoading={isDeletingSite}
+        onConfirm={handleConfirmDeleteSite}
+        onCancel={handleCancelDeleteSite}
+      />
     </div>
   );
 };

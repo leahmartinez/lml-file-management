@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Upload, Download, Trash2, Building2, Edit } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ProjectDetailModal } from '@/components/sites/ProjectDetailModal';
+import { DeleteConfirmationDialog } from '@/components/dialogs/DeleteConfirmationDialog';
 import { POFile, ProjectStatus } from '@/types/data';
 
 const PROJECT_STATUSES: ProjectStatus[] = [
@@ -25,6 +26,8 @@ export default function ProjectDetail() {
   const { data: sites = [] } = useSites();
   const [poFiles, setPoFiles] = useState<POFile[]>([]);
   const [projectDetailModalOpen, setProjectDetailModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Find the project by code
   const project = projects.find((p) => p.projectCode === projectCode);
@@ -79,11 +82,24 @@ export default function ProjectDetail() {
   };
 
   const handleDeleteProject = () => {
-    if (project && window.confirm(`Are you sure you want to delete project "${project.projectCode}"? This cannot be undone.`)) {
-      if (deleteProject(project.projectCode)) {
-        navigate('/dashboard');
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (project) {
+      setIsDeleting(true);
+      try {
+        if (deleteProject(project.projectCode)) {
+          navigate('/dashboard');
+        }
+      } finally {
+        setIsDeleting(false);
       }
     }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
   };
 
   const handleProjectUpdate = (updatedCode: string, updatedProject: any) => {
@@ -461,6 +477,17 @@ export default function ProjectDetail() {
           onDeletePOFile={(fileId) => {
             handleDeletePOFile(fileId);
           }}
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <DeleteConfirmationDialog
+          isOpen={deleteDialogOpen}
+          title="Delete Project"
+          description="This will permanently delete the project and all its stages. This action cannot be undone."
+          itemName={project?.projectCode}
+          isLoading={isDeleting}
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
         />
       </main>
     </div>
