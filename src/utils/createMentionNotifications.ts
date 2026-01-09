@@ -8,8 +8,9 @@ import { UserNotification } from '@/hooks/useNotifications';
 /**
  * Create and store notifications for mentioned users
  * Each mentioned user gets a notification stored in their own localStorage
+ * Includes self-mentions (user mentioning themselves)
  *
- * @param mentionedUsers - Array of {name, email} for mentioned users
+ * @param mentionedUsers - Array of {name, email} for mentioned users (includes self)
  * @param mentioner - {email, name} of the user who created the comment
  * @param projectCode - Code of the project where mention occurred
  * @param commentId - ID of the comment containing the mention
@@ -22,10 +23,8 @@ export const createMentionNotifications = (
   commentId: string,
   message: string
 ): void => {
-  // Filter out the mentioner (don't notify yourself)
-  const usersToNotify = mentionedUsers.filter(u => u.email !== mentioner.email);
-
-  usersToNotify.forEach(mentionedUser => {
+  // Include all mentioned users, including self-mentions
+  mentionedUsers.forEach(mentionedUser => {
     try {
       // Create the notification object
       const notification: UserNotification = {
@@ -68,7 +67,7 @@ export const createMentionNotifications = (
  * Create a batch of mention notifications with custom logic
  * Useful when you need to create notifications in reply threads
  *
- * @param mentionedUsers - Array of mentioned users
+ * @param mentionedUsers - Array of mentioned users (includes self-mentions)
  * @param mentioner - User creating the mention
  * @param projectCode - Project code
  * @param commentId - Comment ID
@@ -82,13 +81,17 @@ export const createReplyMentionNotifications = (
   commentId: string,
   parentCommentId: string | undefined
 ): number => {
-  const usersToNotify = mentionedUsers.filter(u => u.email !== mentioner.email);
+  // Include all mentioned users, including self-mentions
   const mentionType = parentCommentId ? 'reply' : 'comment';
 
-  const message = `${mentioner.name} mentioned you in a ${mentionType} on ${projectCode}`;
-
-  usersToNotify.forEach(mentionedUser => {
+  mentionedUsers.forEach(mentionedUser => {
     try {
+      // Create different message for self-mentions
+      const isSelfMention = mentionedUser.email === mentioner.email;
+      const message = isSelfMention
+        ? `You mentioned yourself in a ${mentionType} on ${projectCode}`
+        : `${mentioner.name} mentioned you in a ${mentionType} on ${projectCode}`;
+
       const notification: UserNotification = {
         id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId: mentionedUser.email,
@@ -120,5 +123,5 @@ export const createReplyMentionNotifications = (
     }
   });
 
-  return usersToNotify.length;
+  return mentionedUsers.length;
 };
