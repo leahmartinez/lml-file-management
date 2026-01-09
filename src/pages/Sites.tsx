@@ -110,21 +110,36 @@ const SitesPage = () => {
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
-  // Handle URL query parameters for auto-selecting site and project from Dashboard
+  // Handle URL query parameters for auto-selecting site and project from Dashboard or Notifications
   useEffect(() => {
     const building = searchParams.get('building');
     const projectCode = searchParams.get('projectCode');
+    const project = searchParams.get('project');
 
-    if (building && projectCode && sitesData && projectsData) {
-      // Find and select the site
-      const site = sitesData.find((s) => s.building === building);
-      if (site) {
-        setSelectedSite(site);
+    if (sitesData && projectsData) {
+      // Case 1: Both building and projectCode provided (from Dashboard)
+      if (building && projectCode) {
+        const site = sitesData.find((s) => s.building === building);
+        if (site) {
+          setSelectedSite(site);
 
-        // Find and select the project
-        const project = projectsData.find((p) => p.projectCode === projectCode && p.building === building);
-        if (project) {
-          setSelectedProject(project);
+          const selectedProj = projectsData.find((p) => p.projectCode === projectCode && p.building === building);
+          if (selectedProj) {
+            setSelectedProject(selectedProj);
+          }
+        }
+      }
+      // Case 2: Only project code provided (from Notification link)
+      else if (project && !projectCode) {
+        // Find the project by code only
+        const selectedProj = projectsData.find((p) => p.projectCode === project);
+        if (selectedProj) {
+          // Get the building from the found project
+          const site = sitesData.find((s) => s.building === selectedProj.building);
+          if (site) {
+            setSelectedSite(site);
+            setSelectedProject(selectedProj);
+          }
         }
       }
     }
@@ -137,8 +152,12 @@ const SitesPage = () => {
     if (hash && hash.startsWith('#comment_')) {
       const commentId = hash.replace('#comment_', '');
 
-      // Use a small delay to ensure the DOM is ready
-      const timer = setTimeout(() => {
+      // Use a larger delay to ensure the project loads and comments render
+      // Retry multiple times in case comments are still loading
+      let attempts = 0;
+      const maxAttempts = 20;
+
+      const tryScroll = () => {
         const commentElement = document.getElementById(commentId);
         if (commentElement) {
           // Scroll to the comment
@@ -152,12 +171,19 @@ const SitesPage = () => {
           setTimeout(() => {
             commentElement.style.backgroundColor = '';
           }, 3000);
+        } else if (attempts < maxAttempts) {
+          // Comment not found yet, try again in 200ms
+          attempts++;
+          setTimeout(tryScroll, 200);
         }
-      }, 100);
+      };
+
+      // Start trying to scroll after initial delay
+      const timer = setTimeout(tryScroll, 300);
 
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [selectedProject]);
 
   const [selectedStage, setSelectedStage] = useState<any>(null);
   const { updateStageStatus } = useStageManagement(selectedProject?.projectCode || "");
