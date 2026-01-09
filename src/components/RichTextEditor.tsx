@@ -442,10 +442,10 @@ const RichTextEditorContent = (props: RichTextEditorProps) => {
           const allElements = tempDiv.querySelectorAll('*');
 
           allElements.forEach((el) => {
-            const text = el.textContent || '';
+            const elementText = el.textContent || '';
             // If element contains @ pattern and doesn't have mention class, add it
             if (
-              text.includes('@') &&
+              elementText.includes('@') &&
               !el.classList.contains('mention') &&
               (el.tagName === 'SPAN' || el.tagName === 'EM' || el.tagName === 'STRONG')
             ) {
@@ -454,7 +454,7 @@ const RichTextEditorContent = (props: RichTextEditorProps) => {
               if (el.childNodes.length === 0) {
                 textRatio = 1; // Pure text node
               } else {
-                const textLength = text.length;
+                const textLength = elementText.length;
                 let directTextLength = 0;
                 for (const child of el.childNodes) {
                   if (child.nodeType === 3) {
@@ -471,13 +471,33 @@ const RichTextEditorContent = (props: RichTextEditorProps) => {
             }
           });
 
+          // Extract mention elements and add data-email attributes
+          const mentionElements = tempDiv.querySelectorAll('.mention');
+          mentionElements.forEach((el) => {
+            const mentionText = (el.textContent || '').replace('@', '').trim();
+
+            // If no email attribute exists, try to find the email from availableUsers
+            if (!el.hasAttribute('data-email') && mentionText && props.availableUsers) {
+              const user = props.availableUsers.find(
+                (u) =>
+                  u.name === mentionText ||
+                  u.email === mentionText ||
+                  `${u.firstName} ${u.lastName}`.trim() === mentionText
+              );
+
+              if (user?.email) {
+                el.setAttribute('data-email', user.email);
+              }
+            }
+          });
+
           html = tempDiv.innerHTML;
         }
 
         props.onChange(html, text);
       });
     },
-    [props.onChange]
+    [props.onChange, props.availableUsers]
   );
 
   const handleMentionClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
