@@ -4,6 +4,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,7 @@ export const UserPortalNotifications: React.FC<UserPortalNotificationsProps> = (
   onMarkAllAsRead,
   onDelete,
 }) => {
+  const navigate = useNavigate();
   const [filterTab, setFilterTab] = useState<FilterTab>('all');
 
   const filteredNotifications = useMemo(() => {
@@ -39,6 +41,15 @@ export const UserPortalNotifications: React.FC<UserPortalNotificationsProps> = (
         return notifications;
     }
   }, [notifications, filterTab]);
+
+  const handleNotificationClick = (notification: UserNotification) => {
+    // Navigate to Sites page with project code and comment ID
+    // The Sites page will handle scrolling to the comment
+    navigate(`/sites?project=${notification.projectCode}#comment_${notification.commentId}`);
+
+    // Mark as read when clicking
+    onMarkAsRead(notification.id);
+  };
 
   return (
     <Card>
@@ -100,10 +111,11 @@ export const UserPortalNotifications: React.FC<UserPortalNotificationsProps> = (
               filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-3 rounded-lg border transition-colors ${
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`p-3 rounded-lg border transition-all cursor-pointer hover:shadow-md ${
                     notification.isRead
-                      ? 'bg-background border-border/50'
-                      : 'bg-blue-50/50 border-blue-200/50'
+                      ? 'bg-background border-border/50 hover:bg-muted/30'
+                      : 'bg-blue-50/50 border-blue-200/50 hover:bg-blue-100/50'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -140,7 +152,10 @@ export const UserPortalNotifications: React.FC<UserPortalNotificationsProps> = (
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0"
-                          onClick={() => onMarkAsRead(notification.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMarkAsRead(notification.id);
+                          }}
                           title="Mark as read"
                         >
                           <CheckCircle className="h-4 w-4" />
@@ -150,7 +165,10 @@ export const UserPortalNotifications: React.FC<UserPortalNotificationsProps> = (
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        onClick={() => onDelete(notification.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(notification.id);
+                        }}
                         title="Delete"
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />

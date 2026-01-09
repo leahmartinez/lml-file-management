@@ -129,6 +129,36 @@ const SitesPage = () => {
       }
     }
   }, [searchParams, sitesData, projectsData]);
+
+  // Handle scrolling to comment when clicked from notification
+  useEffect(() => {
+    // Check if there's a hash with comment ID
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#comment_')) {
+      const commentId = hash.replace('#comment_', '');
+
+      // Use a small delay to ensure the DOM is ready
+      const timer = setTimeout(() => {
+        const commentElement = document.getElementById(commentId);
+        if (commentElement) {
+          // Scroll to the comment
+          commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // Highlight the comment temporarily
+          commentElement.style.backgroundColor = '#fef3c7';
+          commentElement.style.transition = 'background-color 0.3s ease';
+
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            commentElement.style.backgroundColor = '';
+          }, 3000);
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   const [selectedStage, setSelectedStage] = useState<any>(null);
   const { updateStageStatus } = useStageManagement(selectedProject?.projectCode || "");
   const { units: siteUnits, addUnit: addSiteUnit, deleteUnit: deleteSiteUnit } = useSiteUnits(selectedSite?.building || "");
@@ -982,7 +1012,7 @@ const SitesPage = () => {
                   <div className="flex-1 space-y-4 overflow-y-auto max-h-[600px]">
                     {comments.filter(c => !c.parentId).length > 0 ? (
                       comments.filter(c => !c.parentId).map((comment) => (
-                        <div key={comment.id} className="bg-white dark:bg-slate-950 rounded-lg border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+                        <div key={comment.id} id={comment.id} className="bg-white dark:bg-slate-950 rounded-lg border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
                           <div className="p-4 pb-3 hover:bg-accent/5 rounded-t-lg transition-colors" onClick={() => {
                             setSelectedCommentDetail(comment);
                             setCommentDetailOpen(true);
@@ -1224,7 +1254,7 @@ const SitesPage = () => {
                                     .filter(c => c.parentId === comment.id)
                                     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
                                     .map((reply) => (
-                                      <div key={reply.id} className="ml-6 pl-4 border-l-2 border-muted bg-accent/5 rounded p-2">
+                                      <div key={reply.id} id={reply.id} className="ml-6 pl-4 border-l-2 border-muted bg-accent/5 rounded p-2">
                                         <div className="flex items-start gap-2 mb-1">
                                           {/* Reply Avatar */}
                                           <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs font-semibold">
