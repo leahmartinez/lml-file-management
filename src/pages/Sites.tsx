@@ -32,6 +32,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { useToast } from "@/components/ui/use-toast";
 import { MentionableUser } from "@/components/MentionAutocomplete";
 import { parseMentionedUsers } from "@/utils/parseMentions";
+import { createReplyMentionNotifications } from "@/utils/createMentionNotifications";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Building2, FolderKanban, MapPin, Plus, Edit, Search, Trash2, Edit2, Check, X, ChevronDown, ChevronUp, FileUp, Download, Grid, List as ListIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -930,9 +931,8 @@ const SitesPage = () => {
                               ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
                               : '';
 
-                            // Parse mentions from HTML and create notifications
+                            // Parse mentions from HTML
                             const mentionedUsers = newCommentHtml ? parseMentionedUsers(newCommentHtml) : [];
-                            const mentionedEmails = mentionedUsers.map(u => u.email);
 
                             // Add comment with mention data
                             const newCommentObj = addComment(newComment, {
@@ -942,25 +942,20 @@ const SitesPage = () => {
                             }, undefined, newCommentHtml);
 
                             // Create notifications for mentioned users
-                            if (newCommentObj && mentionedEmails.length > 0 && selectedProject) {
-                              mentionedEmails.forEach(mentionedEmail => {
-                                // Don't send notification to self
-                                if (mentionedEmail !== user.email) {
-                                  const message = `${userName || user.email} mentioned you in ${selectedProject.projectCode}`;
-                                  addNotification(
-                                    selectedProject.projectCode,
-                                    newCommentObj.id,
-                                    {
-                                      email: user.email,
-                                      name: userName || user.email,
-                                    },
-                                    message
-                                  );
-                                }
-                              });
+                            if (newCommentObj && mentionedUsers.length > 0 && selectedProject) {
+                              const notifiedCount = createReplyMentionNotifications(
+                                mentionedUsers,
+                                {
+                                  email: user.email,
+                                  name: userName || user.email,
+                                },
+                                selectedProject.projectCode,
+                                newCommentObj.id,
+                                undefined // No parent ID for main comments
+                              );
                               toast({
                                 title: "Success",
-                                description: `Comment posted and ${mentionedEmails.filter(e => e !== user.email).length} user(s) notified`,
+                                description: `Comment posted and ${notifiedCount} user(s) notified`,
                                 duration: 3000,
                               });
                             } else if (newCommentObj) {
@@ -1156,11 +1151,30 @@ const SitesPage = () => {
                                       const userName = profile
                                         ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
                                         : '';
-                                      addComment(replyText, {
+
+                                      // Parse mentions from HTML
+                                      const mentionedUsers = replyHtml ? parseMentionedUsers(replyHtml) : [];
+
+                                      const newReplyObj = addComment(replyText, {
                                         id: user.email,
                                         name: userName || user.email,
                                         email: user.email,
                                       }, comment.id, replyHtml);
+
+                                      // Create notifications for mentioned users in replies
+                                      if (newReplyObj && mentionedUsers.length > 0 && selectedProject) {
+                                        createReplyMentionNotifications(
+                                          mentionedUsers,
+                                          {
+                                            email: user.email,
+                                            name: userName || user.email,
+                                          },
+                                          selectedProject.projectCode,
+                                          newReplyObj.id,
+                                          comment.id // Parent comment ID for replies
+                                        );
+                                      }
+
                                       setReplyText("");
                                       setReplyHtml("");
                                       setReplyingToCommentId(null);
