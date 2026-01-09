@@ -18,7 +18,8 @@
       "Bash(npm run build:dev:*)",
       "Bash(npm run dev:*)",
       "Bash(git commit:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(dir \"C:\\\\Users\\\\leahmartinez\\\\lml-file-management\\\\api\\\\src\\\\handlers\")"
     ],
     "deny": [],
     "ask": []

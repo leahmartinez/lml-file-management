@@ -38,6 +38,53 @@ export interface UserEntity extends TableEntity {
   passwordResetExpiry?: string; // expiry time for reset token
 }
 
+// Site entity structure
+export interface SiteEntity extends TableEntity {
+  partitionKey: string; // "SITE"
+  rowKey: string; // siteId (unique identifier)
+  siteId: string;
+  building: string;
+  address: string;
+  city: string;
+  state: string;
+  postcode: string;
+  createdAt: string;
+  createdBy?: string;
+  projectCodes: string; // JSON stringified array of project codes
+}
+
+// Project entity structure
+export interface ProjectEntity extends TableEntity {
+  partitionKey: string; // "PROJECT"
+  rowKey: string; // projectCode
+  projectCode: string;
+  siteId: string; // Reference to SiteEntity
+  building: string;
+  state: string;
+  status: string;
+  invoiceStatus?: string;
+  orderDate?: string;
+  description?: string;
+  projectType?: string;
+  customProjectType?: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
+// Stage entity structure
+export interface StageEntity extends TableEntity {
+  partitionKey: string; // projectCode (for efficient querying)
+  rowKey: string; // stageId (unique identifier)
+  stageId: string;
+  projectCode: string; // Reference to ProjectEntity
+  name: string;
+  status: string;
+  price?: number;
+  description?: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
 // Initialize table client
 let usersTable: TableClient | null = null;
 
@@ -224,14 +271,14 @@ export async function seedInitialUsers(): Promise<void> {
     // Local database auto-seeds in initializeLocalDatabase
     return;
   }
-  
+
   const users = await getAllUsers();
-  
+
   if (users.length === 0) {
     console.log('No users found, seeding initial admin...');
     const bcrypt = require('bcryptjs');
     const adminPasswordHash = await bcrypt.hash('password', 10);
-    
+
     await createUser({
       email: 'leah@lmllift.com',
       passwordHash: adminPasswordHash,
@@ -241,6 +288,90 @@ export async function seedInitialUsers(): Promise<void> {
     });
 
     console.log('Initial admin user created: leah@lmllift.com / password');
+  }
+}
+
+/**
+ * Delete a project and all its stages (permanent deletion)
+ */
+export async function deleteProject(projectCode: string): Promise<void> {
+  if (IS_LOCAL) {
+    return localDb.deleteProjectLocal(projectCode);
+  }
+
+  try {
+    console.log(`[tableStorage] Deleting project ${projectCode} and all its stages`);
+    const table = getUsersTable(); // Get the table client
+
+    // Delete all stages for this project
+    // In Azure Table Storage, stages are partitioned by projectCode
+    const stagesQuery = table.listEntities<StageEntity>({
+      queryOptions: { filter: `PartitionKey eq '${projectCode}'` }
+    });
+
+    for await (const stage of stagesQuery) {
+      await table.deleteEntity(stage.partitionKey, stage.rowKey);
+      console.log(`[tableStorage] Deleted stage ${stage.stageId}`);
+    }
+
+    // Delete the project itself
+    await table.deleteEntity('PROJECT', projectCode);
+    console.log(`[tableStorage] Deleted project ${projectCode}`);
+  } catch (error) {
+    console.error(`Error deleting project ${projectCode}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a site and all its projects (permanent deletion - cascades)
+ */
+export async function deleteSite(siteId: string): Promise<void> {
+  if (IS_LOCAL) {
+    return localDb.deleteSiteLocal(siteId);
+  }
+
+  try {
+    console.log(`[tableStorage] Deleting site ${siteId} and all its projects/stages`);
+    const table = getUsersTable();
+
+    // Step 1: Get the site to find all projects
+    let site: SiteEntity | null = null;
+    try {
+      site = await table.getEntity<SiteEntity>('SITE', siteId);
+    } catch (error: any) {
+      if (error.statusCode === 404) {
+        throw new Error(`Site ${siteId} not found`);
+      }
+      throw error;
+    }
+
+    // Step 2: Parse project codes from the site
+    const projectCodes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
+
+    // Step 3: Delete all projects and their stages
+    for (const projectCode of projectCodes) {
+      // Delete all stages for this project
+      const stagesQuery = table.listEntities<StageEntity>({
+        queryOptions: { filter: `PartitionKey eq '${projectCode}'` }
+      });
+
+      for await (const stage of stagesQuery) {
+        await table.deleteEntity(stage.partitionKey, stage.rowKey);
+        console.log(`[tableStorage] Deleted stage ${stage.stageId} from project ${projectCode}`);
+      }
+
+      // Delete the project
+      await table.deleteEntity('PROJECT', projectCode);
+      console.log(`[tableStorage] Deleted project ${projectCode}`);
+    }
+
+    // Step 4: Delete the site itself
+    await table.deleteEntity('SITE', siteId);
+    console.log(`[tableStorage] Deleted site ${siteId}`);
+  } catch (error) {
+    console.error(`Error deleting site ${siteId}:`, error);
+    throw error;
   }
 }
 
