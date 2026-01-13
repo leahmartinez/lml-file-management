@@ -20,14 +20,22 @@ import {
 import { exportToCSV, exportToExcel, copyToClipboard } from '@/utils/exportToCSV';
 import { ProjectType } from '@/types/data';
 
-const STATES = ['Victoria', 'NSW', 'South Australia', 'Queensland'];
-
 const Dashboard = () => {
   const queryClient = useQueryClient();
   const { rows: allRows = [], loading } = useDashboardData();
   const { projects = [], updateProject, refetch, deleteProject } = useProjectManagement();
   const { activeView, setView } = useDashboardView();
-  const [selectedState, setSelectedState] = useState('Victoria');
+
+  // Dynamically get all unique states from the data instead of hardcoding
+  const availableStates = useMemo(() => {
+    const states = new Set(allRows.map(row => row.state).filter(Boolean));
+    return Array.from(states).sort();
+  }, [allRows]);
+
+  // Set initial state to first available state, or empty string if no data
+  const [selectedState, setSelectedState] = useState(() => {
+    return availableStates.length > 0 ? availableStates[0] : '';
+  });
   const [filteredRows, setFilteredRows] = useState<DashboardRow[]>([]);
   const [selectedRows, setSelectedRows] = useState<DashboardRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -46,6 +54,13 @@ const Dashboard = () => {
 
   // Calculate unique project count from further filtered rows
   const filteredProjects = new Set(filteredRows.map((row) => row.projectCode)).size;
+
+  // Update selectedState if it's no longer in availableStates (e.g., when data reloads)
+  useEffect(() => {
+    if (availableStates.length > 0 && !availableStates.includes(selectedState)) {
+      setSelectedState(availableStates[0]);
+    }
+  }, [availableStates]);
 
   // Sync filteredRows when state-filtered rows change
   useEffect(() => {
@@ -150,22 +165,28 @@ const Dashboard = () => {
 
           {/* State Tabs */}
           <div className="flex gap-2 mb-8 border-b">
-            {STATES.map((state) => (
-              <button
-                key={state}
-                onClick={() => setSelectedState(state)}
-                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
-                  selectedState === state
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {state}
-                <span className="ml-2 text-xs font-semibold">
-                  ({new Set(allRows.filter(r => r.state === state).map(r => r.projectCode)).size})
-                </span>
-              </button>
-            ))}
+            {availableStates.length > 0 ? (
+              availableStates.map((state) => (
+                <button
+                  key={state}
+                  onClick={() => setSelectedState(state)}
+                  className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                    selectedState === state
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {state}
+                  <span className="ml-2 text-xs font-semibold">
+                    ({new Set(allRows.filter(r => r.state === state).map(r => r.projectCode)).size})
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="px-4 py-3 text-muted-foreground">
+                {loading ? 'Loading data...' : 'No projects found'}
+              </div>
+            )}
           </div>
         </div>
 
