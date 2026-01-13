@@ -106,8 +106,8 @@ const DashboardTableRowComponent: React.FC<DashboardTableRowProps> = ({
         return <span className="text-right block">{formatCurrency(row.value)}</span>;
 
       case 'stageConsultants':
-        // Render stage consultants - this would come from row.stage.consultants or similar
-        return row.stage?.consultants?.map((c: any) => c.name).join(', ') || '-';
+        // Render stage consultants from consultant assignments
+        return row.stageConsultantNames || '-';
 
       default:
         return '-';
