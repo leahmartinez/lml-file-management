@@ -1,14 +1,18 @@
 /**
  * Data Service Layer
  *
- * Abstracts data fetching from CSV, API, or Mock data.
- * Supports local development without backend/API.
+ * Abstracts data fetching from CSV or API data sources.
+ * Local development uses CSV files - NO hardcoded test data is displayed.
+ *
+ * IMPORTANT: Mock data is only used during testing (when vitest runs).
+ * In local development (.env.local), VITE_USE_MOCK_DATA=false ensures
+ * all data comes from CSV files only.
  */
 
 import Papa from 'papaparse';
 import { DataSourceConfig, Asset, Site, Project, Contact, DataHierarchy } from '@/types/data';
 import { dataSourceConfig } from '@/config/dataSource';
-import { mockSites, mockProjects } from '@/test/mockData';
+import { mockSites, mockProjects } from '@/test/mockData'; // Only for tests
 
 /**
  * Parse CSV file and return data
@@ -249,11 +253,13 @@ function transformToAssets(rawData: any[]): Asset[] {
  */
 export const dataService = {
   /**
-   * Fetch all sites
-   * Filters out any sites that have been deleted
+   * Fetch all sites from CSV or API
+   *
+   * NOTE: Mock data is ONLY used during testing.
+   * In local development/production, all data comes from CSV files or API.
    */
   async fetchSites(): Promise<Site[]> {
-    // Get list of deleted site codes (for local dev mock data)
+    // Get list of deleted site codes
     const deletedSites = (() => {
       try {
         const stored = localStorage.getItem('_deletedSiteCodes');
@@ -263,12 +269,13 @@ export const dataService = {
       }
     })();
 
-    // Use mock data in local development mode
+    // ONLY use mock data during testing (VITE_USE_MOCK_DATA controlled by vitest.config.ts)
     if (useMockData()) {
-      // Filter out deleted sites from mock data
+      console.warn('[DataService] Using mock site data - this should only happen during tests');
       return mockSites.filter(s => !deletedSites.includes(s.building));
     }
 
+    // All data in development/production comes from CSV or API
     const rawData = await fetchData<any>({
       csvPath: dataSourceConfig.csvPaths?.sites,
       apiEndpoint: dataSourceConfig.endpoints?.sites,
@@ -277,12 +284,13 @@ export const dataService = {
   },
 
   /**
-   * Fetch all projects
-   * Projects are extracted from the same sites_data.csv file or use mock data
-   * Filters out any projects that have been deleted
+   * Fetch all projects from CSV or API
+   *
+   * NOTE: Mock data is ONLY used during testing.
+   * In local development/production, all data comes from CSV files or API.
    */
   async fetchProjects(): Promise<Project[]> {
-    // Get list of deleted project codes (for local dev mock data)
+    // Get list of deleted project codes
     const deletedProjects = (() => {
       try {
         const stored = localStorage.getItem('_deletedProjectCodes');
@@ -292,12 +300,13 @@ export const dataService = {
       }
     })();
 
-    // Use mock data in local development mode
+    // ONLY use mock data during testing (VITE_USE_MOCK_DATA controlled by vitest.config.ts)
     if (useMockData()) {
-      // Filter out deleted projects from mock data
+      console.warn('[DataService] Using mock project data - this should only happen during tests');
       return mockProjects.filter(p => !deletedProjects.includes(p.projectCode));
     }
 
+    // All data in development/production comes from CSV or API
     const rawData = await fetchData<any>({
       csvPath: dataSourceConfig.csvPaths?.sites, // Use sites CSV as projects are in the same file
       apiEndpoint: dataSourceConfig.endpoints?.projects,
