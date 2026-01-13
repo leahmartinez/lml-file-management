@@ -6,33 +6,45 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Briefcase, Calendar, Filter, Search, Eye } from "lucide-react";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-  PaginationEllipsis,
-} from "@/components/ui/pagination";
-
-import { mockProjects } from "@/test/mockData";
+import { Filter, Search, Eye, List, Grid3x3, Edit2, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import type { Project, ProjectState, ProjectStatus } from "@/types/data";
+import { useProjectManagement } from "@/hooks/useProjectManagement";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import type { Project } from "@/types/data";
+
+// State abbreviation mapping
+const STATE_ABBREVIATIONS: Record<string, string> = {
+  'Victoria': 'VIC',
+  'New South Wales': 'NSW',
+  'Queensland': 'QLD',
+  'South Australia': 'SA',
+  'Western Australia': 'WA',
+  'Northern Territory': 'NT',
+  'Tasmania': 'TAS',
+  'ACT': 'ACT',
+  'Australian Capital Territory': 'ACT',
+  'New Zealand': 'NZ',
+};
+
+const getStateAbbreviation = (state: string): string => {
+  return STATE_ABBREVIATIONS[state] || state;
+};
 
 const Portfolio = () => {
   const { user } = useAuth();
+  const { projects = [], deleteProject } = useProjectManagement();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterState, setFilterState] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-
-  // Pagination state
-  const ITEMS_PER_PAGE = 9; // 3 columns x 3 rows
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const ITEMS_PER_PAGE = viewMode === 'grid' ? 9 : 20;
 
   // Debounce search input
   useEffect(() => {
@@ -45,25 +57,20 @@ const Portfolio = () => {
     setCurrentPage(1);
   }, [debouncedSearch, filterState, filterStatus]);
 
-  // Memoize filter dropdown options
-  const stateOptions = useMemo(() =>
-    [...new Set(mockProjects.map(project => project.state))],
-    []
-  );
+  // Get unique states from actual data
+  const stateOptions = useMemo(() => {
+    const states = new Set(projects.map(p => p.state).filter(Boolean));
+    return Array.from(states).sort();
+  }, [projects]);
 
-  const statusOptions = useMemo(() =>
-    [...new Set(mockProjects.map(project => project.status))],
-    []
-  );
+  // Get unique statuses from actual data
+  const statusOptions = useMemo(() => {
+    const statuses = new Set(projects.map(p => p.status).filter(Boolean));
+    return Array.from(statuses).sort();
+  }, [projects]);
 
+  // Filter and search projects
   const filteredProjects = useMemo(() => {
-    let projects = mockProjects;
-
-    // Filter by user's site assignments if site_manager
-    if (user?.role === "site_manager" && user.sites.length > 0) {
-      projects = projects.filter(project => user.sites.includes(project.building));
-    }
-
     return projects.filter(project => {
       const matchesSearch =
         project.projectCode.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -75,15 +82,15 @@ const Portfolio = () => {
 
       return matchesSearch && matchesState && matchesStatus;
     });
-  }, [debouncedSearch, filterState, filterStatus, user]);
+  }, [projects, debouncedSearch, filterState, filterStatus]);
 
-  // Calculate pagination
+  // Pagination
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedProjects = filteredProjects.slice(startIndex, endIndex);
 
-  // Generate page numbers for pagination UI
+  // Get page numbers for pagination
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
@@ -103,7 +110,7 @@ const Portfolio = () => {
     return pages;
   };
 
-  const getStatusColor = (status: ProjectStatus) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "Active":
         return "bg-green-50 text-green-700 border-green-200";
@@ -118,25 +125,26 @@ const Portfolio = () => {
     }
   };
 
-  const getStateColor = (state: ProjectState) => {
-    const colors: Record<ProjectState, string> = {
-      Victoria: "bg-blue-50 text-blue-700 border-blue-200",
-      NSW: "bg-red-50 text-red-700 border-red-200",
-      "South Australia": "bg-orange-50 text-orange-700 border-orange-200",
-      Queensland: "bg-teal-50 text-teal-700 border-teal-200",
-    };
-    return colors[state];
+  const handleDeleteClick = (project: Project) => {
+    setProjectToDelete(project);
+    setDeleteConfirmOpen(true);
   };
 
-  const handleViewDetails = (project: Project) => {
-    setSelectedProject(project);
-    setDialogOpen(true);
+  const handleConfirmDelete = async () => {
+    if (!projectToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteProject(projectToDelete.projectCode);
+      setDeleteConfirmOpen(false);
+      setProjectToDelete(null);
+    } catch (error) {
+      console.error("Error deleting project:", error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setSelectedProject(null);
-  };
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="min-h-screen bg-background">
@@ -150,10 +158,29 @@ const Portfolio = () => {
             <h1 className="text-2xl font-bold text-foreground">Projects Portfolio</h1>
             <p className="text-muted-foreground">Comprehensive view of all consulting projects</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <Badge variant="outline" className="text-sm">
-              {filteredProjects.length} of {mockProjects.length} projects
+              {filteredProjects.length} of {projects.length} projects
             </Badge>
+            {/* View Toggle */}
+            <div className="flex gap-2 border rounded-lg p-1">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                title="Grid view"
+              >
+                <Grid3x3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                title="List view"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -183,7 +210,9 @@ const Portfolio = () => {
                 <SelectContent>
                   <SelectItem value="all">All States</SelectItem>
                   {stateOptions.map(state => (
-                    <SelectItem key={state} value={state}>{state}</SelectItem>
+                    <SelectItem key={state} value={state}>
+                      {getStateAbbreviation(state)} - {state}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -217,178 +246,232 @@ const Portfolio = () => {
           Showing {filteredProjects.length === 0 ? 0 : startIndex + 1}–{Math.min(endIndex, filteredProjects.length)} of {filteredProjects.length} results
         </div>
 
-        {/* Projects Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {paginatedProjects.map((project) => (
-            <Card key={project.projectCode} className="hover:shadow-lg transition-shadow flex flex-col">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{project.projectCode}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{project.building}</p>
+        {/* Grid View */}
+        {viewMode === 'grid' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedProjects.map((project) => (
+              <Card key={project.projectCode} className="hover:shadow-lg transition-shadow flex flex-col">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{project.projectCode}</CardTitle>
+                      <p className="text-sm text-muted-foreground">{project.building}</p>
+                    </div>
+                    <Badge variant="outline" className={getStatusColor(project.status)}>
+                      {project.status}
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className={getStatusColor(project.status)}>
-                    {project.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4 flex-1 flex flex-col">
-                {/* Description */}
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {project.description || "No description provided"}
-                </p>
+                </CardHeader>
+                <CardContent className="space-y-4 flex-1 flex flex-col">
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {project.description || "No description provided"}
+                  </p>
 
-                {/* State Badge */}
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={getStateColor(project.state)}>
-                    {project.state}
-                  </Badge>
-                </div>
-
-                {/* Project Info */}
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Stages:</span>
-                    <span className="font-medium">{project.stages.length}/5</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Notes:</span>
-                    <span className="font-medium">{project.notes.length}</span>
-                  </div>
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground text-xs">
-                      Updated {new Date(project.updatedAt).toLocaleDateString()}
-                    </span>
+                    <Badge variant="outline">
+                      {getStateAbbreviation(project.state)}
+                    </Badge>
                   </div>
-                </div>
 
-                {/* Actions */}
-                <div className="pt-4 mt-auto">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleViewDetails(project)}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Project Details
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Stages:</span>
+                      <span className="font-medium">{project.stages?.length || 0}/5</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Value:</span>
+                      <span className="font-medium">${project.projectValue?.toLocaleString() || '0'}</span>
+                    </div>
+                  </div>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && paginatedProjects.length > 0 && (
-          <div className="flex justify-center mt-8">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                  />
-                </PaginationItem>
-
-                {getPageNumbers()[0] > 1 && (
-                  <>
-                    <PaginationItem>
-                      <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">
-                        1
-                      </PaginationLink>
-                    </PaginationItem>
-                    {getPageNumbers()[0] > 2 && (
-                      <PaginationItem>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    )}
-                  </>
-                )}
-
-                {getPageNumbers().map((page) => (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      onClick={() => setCurrentPage(page)}
-                      isActive={page === currentPage}
-                      className="cursor-pointer"
+                  <div className="pt-4 mt-auto flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
                     >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-
-                {getPageNumbers()[getPageNumbers().length - 1] < totalPages && (
-                  <>
-                    {getPageNumbers()[getPageNumbers().length - 1] < totalPages - 1 && (
-                      <PaginationItem>
-                        <PaginationEllipsis />
-                      </PaginationItem>
+                      <Eye className="h-4 w-4 mr-2" />
+                      View
+                    </Button>
+                    {isAdmin && (
+                      <>
+                        <Button variant="outline" size="sm">
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteClick(project)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
-                    <PaginationItem>
-                      <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">
-                        {totalPages}
-                      </PaginationLink>
-                    </PaginationItem>
-                  </>
-                )}
-
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
 
-        {filteredProjects.length === 0 && (
+        {/* List View */}
+        {viewMode === 'list' && (
           <Card>
-            <CardContent className="text-center py-12">
-              <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No projects found</h3>
-              <p className="text-muted-foreground">Try adjusting your filters to see more results.</p>
-            </CardContent>
+            <div className="w-full overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Building</TableHead>
+                    <TableHead>State</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Value</TableHead>
+                    <TableHead>Stages</TableHead>
+                    {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedProjects.map((project) => (
+                    <TableRow key={project.projectCode}>
+                      <TableCell className="font-medium">{project.projectCode}</TableCell>
+                      <TableCell>{project.building}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{getStateAbbreviation(project.state)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={getStatusColor(project.status)}>
+                          {project.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>${project.projectValue?.toLocaleString() || '0'}</TableCell>
+                      <TableCell>{project.stages?.length || 0}/5</TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="View project"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Edit project"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(project)}
+                              className="text-red-600 hover:text-red-700"
+                              title="Delete project"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </Card>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && paginatedProjects.length > 0 && (
+          <div className="flex justify-center mt-8">
+            <div className="flex gap-2 border rounded-lg p-2">
+              {currentPage > 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                >
+                  Previous
+                </Button>
+              )}
+
+              {getPageNumbers()[0] > 1 && (
+                <>
+                  <Button
+                    variant={currentPage === 1 ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                  >
+                    1
+                  </Button>
+                  {getPageNumbers()[0] > 2 && <span className="px-2 py-1">...</span>}
+                </>
+              )}
+
+              {getPageNumbers().map(page => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </Button>
+              ))}
+
+              {getPageNumbers()[getPageNumbers().length - 1] < totalPages && (
+                <>
+                  {getPageNumbers()[getPageNumbers().length - 1] < totalPages - 1 && (
+                    <span className="px-2 py-1">...</span>
+                  )}
+                  <Button
+                    variant={currentPage === totalPages ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                  >
+                    {totalPages}
+                  </Button>
+                </>
+              )}
+
+              {currentPage < totalPages && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                >
+                  Next
+                </Button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Project Detail Modal - TODO: Create ProjectDetailModal component */}
-      {/* For now, just showing that we'll implement this later */}
-      {selectedProject && dialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl max-h-[80vh] overflow-auto">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div>
-                <CardTitle>{selectedProject.projectCode}</CardTitle>
-                <p className="text-sm text-muted-foreground">{selectedProject.building}</p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCloseDialog}
-              >
-                ✕
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground">{selectedProject.description}</p>
-              <p className="text-sm">
-                <strong>Status:</strong> {selectedProject.status}
-              </p>
-              <p className="text-sm">
-                <strong>State:</strong> {selectedProject.state}
-              </p>
-              <p className="text-sm">
-                <strong>Created:</strong> {new Date(selectedProject.createdAt).toLocaleDateString()}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete project{' '}
+              <strong>{projectToDelete?.projectCode}</strong> ({projectToDelete?.building})? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-4 justify-end">
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

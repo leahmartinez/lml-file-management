@@ -11,6 +11,7 @@ export default defineConfig({
     css: true,
     env: {
       VITE_USE_MOCK_DATA: 'false',
+      VITE_USE_MOCK_AUTH: 'false',
     },
     coverage: {
       provider: 'v8',

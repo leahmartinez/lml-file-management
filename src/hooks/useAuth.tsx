@@ -19,9 +19,10 @@ const MOCK_USERS: Record<string, { password: string; role: User['role']; sites: 
 
 /**
  * Check if we're using mock authentication (local development mode)
+ * Separate from VITE_USE_MOCK_DATA to allow mock auth with real CSV data
  */
 function useMockAuth(): boolean {
-  return import.meta.env.VITE_USE_MOCK_DATA === 'true';
+  return import.meta.env.VITE_USE_MOCK_AUTH === 'true';
 }
 
 // Updated User interface to match API (uses email instead of username)

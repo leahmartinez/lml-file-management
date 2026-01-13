@@ -591,7 +591,8 @@ const SitesPage = () => {
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back
                 </Button>
-                {isConsultant && (
+                {/* Only show site edit/delete buttons when NOT viewing a project */}
+                {isConsultant && !selectedProject && (
                   <>
                     <Button
                       size="sm"
