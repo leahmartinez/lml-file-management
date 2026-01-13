@@ -18,10 +18,14 @@ vi.mock('@/services/apiService', () => ({
 describe('useAuth', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     // Set default mock implementations
+    (authApi.logout as any).mockImplementation(() => {
+      localStorage.removeItem('jwt_token');
+    });
+    (authApi.login as any).mockRejectedValue(new Error('Login not mocked'));
     (authApi.getProfile as any).mockRejectedValue(new Error('No token'));
-    (usersApi.getAllUsers as any).mockImplementation(async () => []);
+    (usersApi.getAllUsers as any).mockRejectedValue(new Error('Users not mocked'));
   });
 
   afterEach(() => {

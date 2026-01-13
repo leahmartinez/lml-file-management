@@ -18,7 +18,16 @@ vi.mock('@/services/apiService', () => ({
 describe('Server-Side Authentication Security Tests', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+
+    // Setup default mock implementations for all tests
+    (authApi.logout as any).mockImplementation(() => {
+      localStorage.removeItem('jwt_token');
+    });
+
+    (authApi.login as any).mockImplementation(() => Promise.reject(new Error('Login not mocked')));
+    (authApi.getProfile as any).mockImplementation(() => Promise.reject(new Error('Profile not mocked')));
+    (usersApi.getAllUsers as any).mockImplementation(() => Promise.reject(new Error('Users not mocked')));
   });
 
   afterEach(() => {
@@ -339,8 +348,9 @@ describe('Server-Side Authentication Security Tests', () => {
 
       // Simulate existing JWT token
       localStorage.setItem('jwt_token', 'existing.jwt.token');
-      (authApi.getProfile as any).mockResolvedValueOnce(mockUser);
-      (usersApi.getAllUsers as any).mockResolvedValueOnce([]);
+      // Set up all mocks for this test
+      (authApi.getProfile as any).mockImplementationOnce(() => Promise.resolve(mockUser));
+      (usersApi.getAllUsers as any).mockImplementationOnce(() => Promise.resolve([]));
 
       const { result } = renderHook(() => useAuth(), {
         wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,
@@ -353,17 +363,24 @@ describe('Server-Side Authentication Security Tests', () => {
 
     it('should clear invalid tokens on mount', async () => {
       localStorage.setItem('jwt_token', 'invalid.jwt.token');
-      (authApi.getProfile as any).mockRejectedValueOnce(new Error('Invalid token'));
+      // Set getProfile to reject
+      (authApi.getProfile as any).mockImplementationOnce(() =>
+        Promise.reject(new Error('Invalid token'))
+      );
+      // Ensure logout actually removes the token
+      (authApi.logout as any).mockImplementationOnce(() => {
+        localStorage.removeItem('jwt_token');
+      });
 
       const { result } = renderHook(() => useAuth(), {
         wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,
       });
 
+      // Should have no user and should have cleared the token
       await waitFor(() => {
         expect(result.current.user).toBeNull();
+        expect(localStorage.getItem('jwt_token')).toBeNull();
       });
-
-      expect(localStorage.getItem('jwt_token')).toBeNull();
     });
   });
 });
