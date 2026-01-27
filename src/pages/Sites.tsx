@@ -1026,7 +1026,7 @@ const SitesPage = () => {
             <div>
               <Card className="h-full flex flex-col">
                 <CardHeader>
-                  <CardTitle className="text-lg">Project Updates & Notes</CardTitle>
+                  <CardTitle className="text-lg">Communication</CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col">
                   {/* Comment Input */}
@@ -1718,10 +1718,10 @@ const SitesPage = () => {
                   </CardContent>
                 </Card>
 
-              {/* Description Card */}
+              {/* Access Details Card */}
               <Card className="border-none shadow-sm">
                 <CardHeader className="pb-4 px-6">
-                  <CardTitle className="text-lg font-semibold">Description</CardTitle>
+                  <CardTitle className="text-lg font-semibold">Access Details</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0 px-6">
                   {isEditingSiteDetails && isConsultant ? (
