@@ -59,6 +59,7 @@ export const EditExternalContactModal: React.FC<EditExternalContactModalProps> =
         email: contact.email,
         phone: contact.phone,
         category: contact.category,
+        photo: contact.photo,
       });
       setErrors({});
       setMessage(null);
@@ -127,6 +128,45 @@ export const EditExternalContactModal: React.FC<EditExternalContactModalProps> =
         delete newErrors.category;
         return newErrors;
       });
+    }
+  };
+
+  /**
+   * Handle photo upload
+   */
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setErrors((prev) => ({ ...prev, photo: 'Please select a valid image file' }));
+        return;
+      }
+
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        setErrors((prev) => ({ ...prev, photo: 'Image size must be less than 2MB' }));
+        return;
+      }
+
+      // Read file as Data URL
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        setFormData((prev) => ({
+          ...prev,
+          photo: dataUrl,
+        }));
+        // Clear photo error if exists
+        if (errors.photo) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            delete newErrors.photo;
+            return newErrors;
+          });
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -338,6 +378,60 @@ export const EditExternalContactModal: React.FC<EditExternalContactModalProps> =
                 {errors.category}
               </p>
             )}
+          </div>
+
+          {/* Profile Photo */}
+          <div className="space-y-2">
+            <Label htmlFor="photo" className="text-sm font-medium">
+              Profile Photo
+            </Label>
+            <div className="flex items-center gap-4">
+              {formData.photo && (
+                <div className="relative">
+                  <img
+                    src={formData.photo}
+                    alt="Profile preview"
+                    className="h-16 w-16 rounded-full object-cover border-2 border-border"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, photo: '' }))}
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    disabled={loading || deleting}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-3 w-3"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              <Input
+                id="photo"
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                className={errors.photo ? 'border-red-500' : ''}
+                disabled={loading || deleting}
+              />
+            </div>
+            {errors.photo && (
+              <p className="text-sm text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-4 w-4" />
+                {errors.photo}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Upload an image (max 2MB). Recommended: square image, at least 200x200px.
+            </p>
           </div>
 
           {/* Message */}
