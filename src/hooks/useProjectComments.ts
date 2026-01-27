@@ -88,6 +88,25 @@ export const useProjectComments = (projectCode: string) => {
   }, [comments, projectCode, toast]);
 
   const deleteComment = useCallback((commentId: string) => {
+    // Find the comment to check its age
+    const comment = comments.find(c => c.id === commentId);
+
+    if (comment) {
+      // Check if comment is older than 30 days
+      const createdDate = new Date(comment.createdAt);
+      const now = new Date();
+      const daysDiff = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysDiff > 30) {
+        toast({
+          title: "Cannot delete",
+          description: "Comments older than 30 days cannot be deleted",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const updated = comments.filter(c => c.id !== commentId);
     setComments(updated);
     localStorage.setItem(`projectComments_${projectCode}`, JSON.stringify(updated));
@@ -129,10 +148,36 @@ export const useProjectComments = (projectCode: string) => {
     });
   }, [comments, projectCode, toast]);
 
+  // Check if a comment can be deleted (within 30 days of creation)
+  const canDeleteComment = useCallback((commentId: string): boolean => {
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return false;
+
+    const createdDate = new Date(comment.createdAt);
+    const now = new Date();
+    const daysDiff = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    return daysDiff <= 30;
+  }, [comments]);
+
+  // Get days remaining until comment can no longer be deleted
+  const getDaysUntilLocked = useCallback((commentId: string): number | null => {
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return null;
+
+    const createdDate = new Date(comment.createdAt);
+    const now = new Date();
+    const daysDiff = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    return Math.max(0, 30 - daysDiff);
+  }, [comments]);
+
   return {
     comments,
     addComment,
     deleteComment,
     updateComment,
+    canDeleteComment,
+    getDaysUntilLocked,
   };
 };
