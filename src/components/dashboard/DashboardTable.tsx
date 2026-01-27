@@ -139,7 +139,7 @@ const DashboardTableComponent = ({
       // Group by stage consultants
       const groups = new Map<string, DashboardRow[]>();
       sortedRows.forEach((row) => {
-        const consultants = row.stage?.consultants?.map((c: any) => c.name).join(', ') || 'Unassigned';
+        const consultants = row.stageConsultantNames || 'Unassigned';
         if (!groups.has(consultants)) {
           groups.set(consultants, []);
         }

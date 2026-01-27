@@ -26,10 +26,18 @@ const Dashboard = () => {
   const { projects = [], updateProject, refetch, deleteProject } = useProjectManagement();
   const { activeView, setView } = useDashboardView();
 
-  // Dynamically get all unique states from the data instead of hardcoding
+  // Dynamically get all unique states from the data with custom ordering
   const availableStates = useMemo(() => {
     const states = new Set(allRows.map(row => row.state).filter(Boolean));
-    return Array.from(states).sort();
+    const stateArray = Array.from(states);
+
+    // Priority order: Victoria, NSW, Queensland, South Australia, then rest alphabetically
+    const priorityOrder = ['Victoria', 'NSW', 'Queensland', 'South Australia'];
+
+    const priorityStates = priorityOrder.filter(state => stateArray.includes(state));
+    const otherStates = stateArray.filter(state => !priorityOrder.includes(state)).sort();
+
+    return [...priorityStates, ...otherStates];
   }, [allRows]);
 
   // Set initial state to first available state, or empty string if no data

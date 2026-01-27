@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { useProjectManagement } from '@/hooks/useProjectManagement';
@@ -22,12 +22,34 @@ const PROJECT_STATUSES: ProjectStatus[] = [
 export default function ProjectDetail() {
   const { projectCode } = useParams<{ projectCode: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { projects, deleteProject, updateProject } = useProjectManagement();
   const { data: sites = [] } = useSites();
   const [poFiles, setPoFiles] = useState<POFile[]>([]);
   const [projectDetailModalOpen, setProjectDetailModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Determine where to go back to
+  const getBackPath = () => {
+    // Check if we have state from navigation (referrer info)
+    const state = location.state as { from?: string } | undefined;
+    if (state?.from) {
+      return state.from;
+    }
+
+    // Check referrer or default to dashboard
+    const referrer = document.referrer;
+    if (referrer && referrer.includes('/sites')) {
+      return '/sites';
+    }
+    if (referrer && referrer.includes('/my-work')) {
+      return '/my-work';
+    }
+
+    // Default fallback
+    return '/dashboard';
+  };
 
   // Find the project by code
   const project = projects.find((p) => p.projectCode === projectCode);
@@ -139,14 +161,7 @@ export default function ProjectDetail() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => {
-            // Use browser back button if possible, otherwise go to dashboard
-            if (window.history.length > 1) {
-              navigate(-1);
-            } else {
-              navigate('/dashboard');
-            }
-          }}
+          onClick={() => navigate(getBackPath())}
           className="mb-6"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -162,7 +177,12 @@ export default function ProjectDetail() {
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4" />
-                    <span>{site?.building || project.building}</span>
+                    <button
+                      onClick={() => navigate(`/sites?building=${encodeURIComponent(site?.building || project.building)}`)}
+                      className="text-foreground hover:text-primary underline-offset-4 hover:underline font-medium transition-colors"
+                    >
+                      {site?.building || project.building}
+                    </button>
                   </div>
                   <Badge variant={project.status === 'Active' ? 'default' : 'secondary'}>
                     {project.status}
