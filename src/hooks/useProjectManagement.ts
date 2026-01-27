@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Project, ProjectStage, ProjectStageStatus } from '@/types/data';
 import { useProjects } from './useData';
 import { toast } from '@/hooks/use-toast';
@@ -289,6 +289,50 @@ export const useProjectManagement = () => {
       console.log('[useProjectManagement] Cleaned up legacy soft-delete tracking');
     }
   }, []);
+
+  // Clean up customProjects that don't exist in sourceProjects
+  // This removes stale mock projects when using real CSV data
+  // Use a ref to track if we've already cleaned up to prevent infinite loops
+  const cleanupDoneRef = useRef(false);
+
+  useEffect(() => {
+    if (sourceProjects.length === 0 || cleanupDoneRef.current) return;
+
+    const sourceProjectCodes = new Set(sourceProjects.map(p => p.projectCode));
+
+    // Read latest customProjects from localStorage (don't rely on state which may be stale)
+    const storedCustomProjects = (() => {
+      try {
+        const stored = localStorage.getItem('customProjects');
+        if (!stored) return [];
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed.filter((p): p is Project => p !== null && p !== undefined && !!p.projectCode) : [];
+      } catch (e) {
+        return [];
+      }
+    })();
+
+    const cleanedCustomProjects = storedCustomProjects.filter(p => {
+      // Keep only projects that:
+      // 1. Exist in the source (CSV), OR
+      // 2. Start with 'NEW_' prefix (user-created new projects)
+      const isSourceProject = sourceProjectCodes.has(p.projectCode);
+      const isNewProject = p.projectCode.startsWith('NEW_');
+      return isSourceProject || isNewProject;
+    });
+
+    // If we filtered anything out, update both state and localStorage
+    if (cleanedCustomProjects.length !== storedCustomProjects.length) {
+      setCustomProjects(cleanedCustomProjects);
+      localStorage.setItem('customProjects', JSON.stringify(cleanedCustomProjects));
+      console.log(
+        `[useProjectManagement] Cleaned up ${storedCustomProjects.length - cleanedCustomProjects.length} stale customProjects. ` +
+        `Source has ${sourceProjects.length} projects, customProjects now has ${cleanedCustomProjects.length}`
+      );
+    }
+
+    cleanupDoneRef.current = true;
+  }, [sourceProjects]);
 
   // Memoize merged projects so downstream useMemo dependencies work correctly
   // and deleted projects are immediately filtered out

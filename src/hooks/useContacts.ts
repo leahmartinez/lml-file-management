@@ -126,7 +126,7 @@ export function useContacts() {
           officePhone: contact.officePhone,
           category: contact.category,
           businessId: contact.businessId,
-          photo: undefined,
+          photo: contact.photo, // Include photo from external contact
           department: undefined,
           bio: undefined,
           userEmail: undefined,
