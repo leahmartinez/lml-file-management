@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AddressAutocomplete, AddressComponents } from '@/components/ui/AddressAutocomplete';
 import { AlertCircle, CheckCircle, Loader2, Trash2 } from 'lucide-react';
 
 interface BusinessManagementModalProps {
@@ -164,6 +165,46 @@ export const BusinessManagementModal: React.FC<BusinessManagementModalProps> = (
         delete newErrors[field];
         return newErrors;
       });
+    }
+  };
+
+  /**
+   * Handle address autocomplete change
+   */
+  const handleAddressChange = (newAddress: string, placeDetails?: AddressComponents) => {
+    setFormData((prev) => ({
+      ...prev,
+      address: newAddress,
+    }));
+
+    if (placeDetails) {
+      // Auto-fill city, state, and postcode from Google Places data
+      const updates: any = {};
+      if (placeDetails.locality) {
+        updates.city = placeDetails.locality;
+      }
+      if (placeDetails.administrativeArea) {
+        // Map abbreviations to full state names
+        const stateMapping: Record<string, string> = {
+          'NSW': 'NSW',
+          'VIC': 'Victoria',
+          'QLD': 'Queensland',
+          'SA': 'South Australia',
+          'WA': 'Western Australia',
+          'TAS': 'Tasmania',
+          'ACT': 'ACT',
+          'NT': 'Northern Territory',
+        };
+        updates.state = stateMapping[placeDetails.administrativeArea] || placeDetails.administrativeArea;
+      }
+      if (placeDetails.postalCode) {
+        updates.postcode = placeDetails.postalCode;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        ...updates,
+      }));
     }
   };
 
@@ -340,12 +381,12 @@ export const BusinessManagementModal: React.FC<BusinessManagementModalProps> = (
 
               <div>
                 <Label htmlFor="address">Street Address</Label>
-                <Input
+                <AddressAutocomplete
                   id="address"
-                  name="address"
                   value={formData.address}
-                  onChange={handleInputChange}
-                  placeholder="Street address"
+                  onChange={handleAddressChange}
+                  placeholder="Start typing an address..."
+                  countryRestrict="au"
                   disabled={loading}
                 />
               </div>
