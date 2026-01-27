@@ -108,7 +108,14 @@ export function useDashboardData() {
           ? stageConsultantEmails
             .map((email) => {
               const contact = contactsByEmail.get(email);
-              return contact ? `${contact.firstName} ${contact.lastName}` : email;
+              if (contact && contact.firstName && contact.lastName) {
+                return `${contact.firstName} ${contact.lastName}`;
+              } else if (contact && contact.firstName) {
+                return contact.firstName;
+              } else {
+                // Fallback to first part of email if no name is set
+                return email.split('@')[0];
+              }
             })
             .join(', ')
           : undefined;

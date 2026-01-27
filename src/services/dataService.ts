@@ -10,7 +10,7 @@
  */
 
 import Papa from 'papaparse';
-import { DataSourceConfig, Asset, Site, Project, Contact, DataHierarchy } from '@/types/data';
+import { DataSourceConfig, Asset, Site, Project, Contact, DataHierarchy, ProjectStage, ProjectStageName, ProjectStageStatus, ProjectState } from '@/types/data';
 import { dataSourceConfig } from '@/config/dataSource';
 import { mockSites, mockProjects } from '@/test/mockData'; // Only for tests
 
@@ -169,11 +169,65 @@ function transformToSites(rawData: any[]): Site[] {
 
 /**
  * Transform raw CSV/API data into structured Project objects
- * Handles multiple stages per project (grouped by projectCode)
- * Projects have: projectCode (PWXXX), building, description, stage
+ * Creates 5 fixed stages per project (Feasibility, Technical Specification, Tender, Contract Draft, Project Management)
+ * Projects have: projectCode (PWXXX), building, state, description
  */
 function transformToProjects(rawData: any[]): Project[] {
   const projectsMap = new Map<string, Project>();
+
+  // Fixed 5 stage definitions (all projects have the same stages)
+  const createFixedStages = (projectCode: string): ProjectStage[] => {
+    const stageNames: Array<{ name: ProjectStageName; order: number }> = [
+      { name: 'Feasibility', order: 1 },
+      { name: 'Technical Specification', order: 2 },
+      { name: 'Tender', order: 3 },
+      { name: 'Contract Draft', order: 4 },
+      { name: 'Project Management', order: 5 },
+    ];
+
+    return stageNames.map((stage) => ({
+      id: `${projectCode}-stage-${stage.order}`,
+      name: stage.name,
+      projectCode,
+      files: [],
+      order: stage.order,
+      description: '',
+      status: 'Not Started' as ProjectStageStatus,
+      price: 0,
+      createdAt: new Date().toISOString(),
+    }));
+  };
+
+  // Map CSV state names to ProjectState type
+  const mapStateFromCSV = (csvState: string): ProjectState => {
+    if (!csvState) return 'Victoria'; // Default fallback
+    const state = csvState.trim();
+
+    // Direct matches (prefer full state names from CSV)
+    switch (state) {
+      case 'Victoria':
+        return 'Victoria';
+      case 'New South Wales':
+        return 'NSW';
+      case 'Queensland':
+        return 'Queensland';
+      case 'South Australia':
+        return 'South Australia';
+      case 'Western Australia':
+        return 'Western Australia';
+      case 'Northern Territory':
+        return 'Northern Territory';
+      case 'Tasmania':
+        return 'Tasmania';
+      case 'ACT':
+        return 'ACT';
+      case 'New Zealand':
+        return 'New Zealand';
+      default:
+        // Fallback: assume it's already in correct format
+        return (state as ProjectState) || 'Victoria';
+    }
+  };
 
   rawData.forEach((item) => {
     // Required fields: projectCode, building
@@ -181,34 +235,25 @@ function transformToProjects(rawData: any[]): Project[] {
 
     const projectCode = item.projectCode.trim();
     const building = item.building.trim();
-    
+
+    // Create project only once per projectCode (don't process duplicates)
     if (!projectsMap.has(projectCode)) {
-      // Create new project
+      const now = new Date().toISOString();
+
       projectsMap.set(projectCode, {
         projectCode,
         building,
+        state: mapStateFromCSV(item.state),
         description: item.description || item['Project Description'] || item.name || '',
-        stages: [],
+        status: 'Active', // Default status
+        stages: createFixedStages(projectCode),
+        notes: [],
+        contacts: [],
+        createdAt: now,
+        updatedAt: now,
         assets: [],
         files: [],
       });
-    }
-
-    // Add stage if it exists
-    const project = projectsMap.get(projectCode)!;
-    const stageValue = item.stage || item.Stage;
-    
-    if (stageValue) {
-      // Check if stage already exists
-      const stageExists = project.stages?.some(s => s.stage === stageValue);
-      if (!stageExists) {
-        project.stages = project.stages || [];
-        project.stages.push({
-          stage: stageValue,
-          description: item.stageDescription,
-          status: item.stageStatus || 'Not Started',
-        });
-      }
     }
   });
 
@@ -311,7 +356,9 @@ export const dataService = {
       csvPath: dataSourceConfig.csvPaths?.sites, // Use sites CSV as projects are in the same file
       apiEndpoint: dataSourceConfig.endpoints?.projects,
     });
-    return transformToProjects(rawData);
+
+    const projects = transformToProjects(rawData);
+    return projects;
   },
 
   /**

@@ -8,9 +8,18 @@
  */
 
 /**
- * Project State - Australian states where projects are located
+ * Project State - Australian states and territories where projects are located
  */
-export type ProjectState = 'Victoria' | 'NSW' | 'South Australia' | 'Queensland';
+export type ProjectState =
+  | 'Victoria'
+  | 'NSW'
+  | 'South Australia'
+  | 'Queensland'
+  | 'Western Australia'
+  | 'Northern Territory'
+  | 'Tasmania'
+  | 'ACT'
+  | 'New Zealand';
 
 /**
  * Project Status - Current status of a project
@@ -226,6 +235,7 @@ export interface ExternalContact {
   phone?: string;
   officePhone?: string;
   category?: 'LML Lift Consultants' | 'Client' | 'Contractor'; // Contact category
+  photo?: string; // Profile photo URL/data
   createdBy: string; // Email of admin/consultant who added
   createdAt: string;
   updatedAt: string;

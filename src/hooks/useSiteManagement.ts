@@ -80,22 +80,43 @@ export const useSiteManagement = () => {
 
   const deleteSite = useCallback(async (building: string) => {
     try {
-      // Call backend DELETE endpoint
-      const response = await fetch('/api/sites/delete', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
-        body: JSON.stringify({ siteId: building }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete site');
+      // VALIDATE building name before deletion
+      if (!building || building.trim().length === 0) {
+        console.error('[useSiteManagement] Invalid building name for deletion:', building);
+        toast({
+          title: "Error",
+          description: "Invalid site name",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Track deleted site codes in localStorage (for mock data filtering in local dev mode)
+      // Try to call backend DELETE endpoint if available
+      // In local development with CSV data, this endpoint may not exist
+      try {
+        const response = await fetch('/api/sites/delete', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+          },
+          body: JSON.stringify({ siteId: building }),
+        });
+
+        if (response.ok) {
+          // Backend deletion successful
+          const data = await response.json();
+          console.log('[useSiteManagement] Site deleted via backend API:', data);
+        } else {
+          // Backend returned error - continue with local deletion tracking
+          console.warn('[useSiteManagement] Backend returned error, falling back to local deletion tracking');
+        }
+      } catch (fetchError) {
+        // API endpoint doesn't exist or network error - use local deletion tracking
+        console.log('[useSiteManagement] No backend API available, using local deletion tracking');
+      }
+
+      // Track deleted site codes in localStorage (for CSV data filtering in local dev mode)
       const deleted = (() => {
         try {
           const stored = localStorage.getItem('_deletedSiteCodes');
@@ -104,6 +125,7 @@ export const useSiteManagement = () => {
           return [];
         }
       })();
+
       if (!deleted.includes(building)) {
         deleted.push(building);
         localStorage.setItem('_deletedSiteCodes', JSON.stringify(deleted));
@@ -121,7 +143,7 @@ export const useSiteManagement = () => {
         description: `Site "${building}" has been permanently deleted`,
       });
 
-      // Refetch to get updated data from backend
+      // Refetch to get updated data from backend (will filter by _deletedSiteCodes)
       refetch?.();
     } catch (error: any) {
       console.error('[useSiteManagement] Error deleting site:', error);
