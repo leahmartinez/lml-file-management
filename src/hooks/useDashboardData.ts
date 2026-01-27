@@ -39,6 +39,7 @@ export interface DashboardRow {
   stagePrice?: number; // Individual stage price (not project total)
   stageConsultantEmails?: string[]; // Consultant emails assigned to this stage
   stageConsultantNames?: string; // Display string of consultant names
+  plannedSiteVisitDate?: string; // When consultant plans to visit site
 
   // For sorting/display purposes
   description?: string; // Stage name for display
@@ -172,6 +173,7 @@ export function useDashboardData() {
           stagePrice: stage.price,
           stageConsultantEmails,
           stageConsultantNames,
+          plannedSiteVisitDate: stage.plannedSiteVisitDate,
 
           // For sorting/display
           description: stage.name, // Stage name for display

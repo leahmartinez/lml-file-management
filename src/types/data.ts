@@ -122,6 +122,7 @@ export interface ProjectStage {
   price?: number; // Price/cost for this stage
   projectType?: ProjectType; // JW Summary - stage-level type (overrides project type)
   customProjectType?: string; // Custom type when projectType === 'Other'
+  plannedSiteVisitDate?: string; // ISO date string - when consultant plans to visit site
   createdAt: string; // ISO date string
   updatedAt?: string; // ISO date string
 }
