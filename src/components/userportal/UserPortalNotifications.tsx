@@ -52,7 +52,7 @@ export const UserPortalNotifications: React.FC<UserPortalNotificationsProps> = (
   };
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Bell className="h-5 w-5" />
@@ -75,8 +75,8 @@ export const UserPortalNotifications: React.FC<UserPortalNotificationsProps> = (
         )}
       </CardHeader>
 
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="flex-1 min-h-0 flex flex-col">
+        <div className="space-y-4 flex-1 min-h-0 flex flex-col">
           {/* Filter Tabs */}
           <div className="flex gap-2 border-b border-border pb-3">
             <Button
@@ -106,7 +106,7 @@ export const UserPortalNotifications: React.FC<UserPortalNotificationsProps> = (
           </div>
 
           {/* Notifications List */}
-          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          <div className="space-y-2 flex-1 overflow-y-auto">
             {filteredNotifications.length > 0 ? (
               filteredNotifications.map((notification) => (
                 <div

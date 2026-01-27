@@ -12,6 +12,7 @@ import { useUserPortal } from '@/hooks/useUserPortal';
 import { useNotifications } from '@/hooks/useNotifications';
 import { UserPortalProfileCard } from '@/components/userportal/UserPortalProfileCard';
 import { AssignedWorkTable } from '@/components/userportal/AssignedWorkTable';
+import { AssignedWorkMap } from '@/components/userportal/AssignedWorkMap';
 import { UserPortalNotifications } from '@/components/userportal/UserPortalNotifications';
 import { EditProfileModal } from '@/components/profile/EditProfileModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,7 +46,7 @@ const UserPortal = () => {
       <Header />
       <Navigation />
 
-      <main className="flex flex-col">
+      <main className="flex flex-col h-screen">
         {/* Page Header */}
         <div className="py-6 px-4">
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -57,10 +58,10 @@ const UserPortal = () => {
           </p>
         </div>
 
-        {/* Two Column Layout: Profile and Assigned Work */}
-        <div className="flex gap-6 px-4 flex-1 min-h-0">
+        {/* Three Column Layout: Profile, Work (Map + Table), and Notifications */}
+        <div className="flex gap-6 px-4 pb-4 flex-1 min-h-0">
           {/* Left Column: Profile Card */}
-          <div className="w-96 flex-shrink-0 overflow-y-auto">
+          <div className="w-[420px] flex-shrink-0 flex flex-col">
             <UserPortalProfileCard
               profile={userProfile}
               email={user?.email || ''}
@@ -69,27 +70,35 @@ const UserPortal = () => {
             />
           </div>
 
-          {/* Right Column: Assigned Work and Notifications */}
-          <div className="flex-1 min-w-0 overflow-y-auto">
-            <div className="space-y-4 h-full">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Assigned Work</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AssignedWorkTable rows={assignedStages} loading={portalLoading || profileLoading} />
-                </CardContent>
-              </Card>
+          {/* Middle Column: Assigned Work with Map and Table */}
+          <div className="flex-1 min-w-0 flex flex-col">
+            <Card className="flex-1 min-h-0 flex flex-col">
+              <CardHeader>
+                <CardTitle>Assigned Work</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0 flex gap-4 p-4">
+                {/* Map View - Narrower */}
+                <div className="w-1/4 min-w-[280px]">
+                  <AssignedWorkMap rows={assignedStages} />
+                </div>
 
-              {/* Notifications Section */}
-              <UserPortalNotifications
-                notifications={notifications}
-                unreadCount={unreadCount}
-                onMarkAsRead={markAsRead}
-                onMarkAllAsRead={markAllAsRead}
-                onDelete={deleteNotification}
-              />
-            </div>
+                {/* Table View */}
+                <div className="flex-1 min-w-0">
+                  <AssignedWorkTable rows={assignedStages} loading={portalLoading || profileLoading} compact />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column: Notifications - Wider */}
+          <div className="w-[480px] flex-shrink-0 flex flex-col">
+            <UserPortalNotifications
+              notifications={notifications}
+              unreadCount={unreadCount}
+              onMarkAsRead={markAsRead}
+              onMarkAllAsRead={markAllAsRead}
+              onDelete={deleteNotification}
+            />
           </div>
         </div>
       </main>
