@@ -141,6 +141,37 @@ export const useProjectManagement = () => {
     });
   }, [customProjects, sourceProjects]);
 
+  // Update stage planned site visit date
+  const updateStageSiteVisitDate = useCallback((projectCode: string, stageId: string, newDate: string) => {
+    const project = sourceProjects.find(p => p.projectCode === projectCode);
+    if (!project) return;
+
+    const updated: Project = {
+      ...project,
+      stages: project.stages.map(stage =>
+        stage.id === stageId ? { ...stage, plannedSiteVisitDate: newDate || undefined } : stage
+      ),
+    };
+
+    const existingCustom = customProjects.find(p => p.projectCode === projectCode);
+    if (existingCustom) {
+      const updated_list = customProjects.map(p =>
+        p.projectCode === projectCode ? updated : p
+      );
+      setCustomProjects(updated_list);
+      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+    } else {
+      const updated_list = [...customProjects, updated];
+      setCustomProjects(updated_list);
+      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+    }
+
+    toast({
+      title: "Success",
+      description: newDate ? "Site visit date updated" : "Site visit date cleared",
+    });
+  }, [customProjects, sourceProjects]);
+
   // Get merged projects (source projects with custom overrides)
   const getMergedProjects = useCallback((): Project[] => {
     const merged: Project[] = [];
@@ -347,6 +378,7 @@ export const useProjectManagement = () => {
     updateProjectDescription,
     updateProjectStatus,
     updateStageStatus,
+    updateStageSiteVisitDate,
     refetch,
   };
 };

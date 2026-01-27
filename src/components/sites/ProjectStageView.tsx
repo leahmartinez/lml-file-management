@@ -30,7 +30,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, Trash2, Download, Edit2, Check, X, Upload, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Download, Edit2, Check, X, Upload, ExternalLink, Loader2, Calendar } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
 import { useSharePointAuth } from "@/hooks/useSharePointAuth";
 import { useSharePointFiles } from "@/hooks/useSharePointFiles";
@@ -177,6 +180,10 @@ export const ProjectStageView = ({
     stage.status || "Not Started"
   );
   const [isDragging, setIsDragging] = useState(false);
+  const [plannedSiteVisitDate, setPlannedSiteVisitDate] = useState<Date | undefined>(
+    stage.plannedSiteVisitDate ? new Date(stage.plannedSiteVisitDate) : undefined
+  );
+  const [siteVisitCalendarOpen, setSiteVisitCalendarOpen] = useState(false);
 
   useEffect(() => {
     setEditDescValue(stage.description || "");
@@ -223,6 +230,20 @@ export const ProjectStageView = ({
     toast({
       title: "Success",
       description: `Stage status changed to ${newStatus}`,
+    });
+  };
+
+  const handleSiteVisitDateChange = (date: Date | undefined) => {
+    setPlannedSiteVisitDate(date);
+    const updated: ProjectStage = {
+      ...stage,
+      plannedSiteVisitDate: date ? date.toISOString() : undefined,
+    };
+    onStageUpdate?.(updated);
+    setSiteVisitCalendarOpen(false);
+    toast({
+      title: "Success",
+      description: date ? `Site visit scheduled for ${format(date, 'PP')}` : "Site visit date cleared",
     });
   };
 
@@ -504,6 +525,46 @@ export const ProjectStageView = ({
                   ))}
                 </SelectContent>
               </Select>
+            </CardContent>
+          </Card>
+
+          {/* Site Visit Date Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Planned Site Visit</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Popover open={siteVisitCalendarOpen} onOpenChange={setSiteVisitCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {plannedSiteVisitDate ? format(plannedSiteVisitDate, 'PPP') : 'Select date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={plannedSiteVisitDate}
+                    onSelect={handleSiteVisitDateChange}
+                    initialFocus
+                  />
+                  {plannedSiteVisitDate && (
+                    <div className="p-2 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs text-destructive"
+                        onClick={() => handleSiteVisitDateChange(undefined)}
+                      >
+                        Clear date
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
             </CardContent>
           </Card>
 

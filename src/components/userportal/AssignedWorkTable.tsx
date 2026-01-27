@@ -11,8 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Eye, MapPin, CheckCircle } from 'lucide-react';
+import { Eye, MapPin, CheckCircle, Calendar } from 'lucide-react';
 import { formatDate } from '@/components/dashboard/utils/formatters';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 
 interface AssignedWorkTableProps {
   rows: UserAssignedWork[];
@@ -22,8 +24,9 @@ interface AssignedWorkTableProps {
 
 export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = (props) => {
   const navigate = useNavigate();
-  const { updateStageStatus } = useProjectManagement();
+  const { updateStageStatus, updateStageSiteVisitDate } = useProjectManagement();
   const [searchText, setSearchText] = useState('');
+  const [openCalendarId, setOpenCalendarId] = useState<string | null>(null);
 
   const rows = props.rows;
   const loading = props.loading || false;
@@ -90,6 +93,7 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = (props) => {
               <TableHead className="border-b border-r border-border/30">Stage</TableHead>
               <TableHead className="border-b border-r border-border/30 w-36">Status</TableHead>
               <TableHead className="border-b border-r border-border/30">Address</TableHead>
+              <TableHead className="border-b border-r border-border/30 w-32">Site Visit</TableHead>
               <TableHead className="border-b border-r border-border/30 w-32">Assigned Date</TableHead>
               <TableHead className="border-b border-border/30 w-32 text-center">Actions</TableHead>
             </TableRow>
@@ -98,7 +102,7 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = (props) => {
           <TableBody>
             {filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No matching results
                 </TableCell>
               </TableRow>
@@ -135,6 +139,48 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = (props) => {
                         {row.address || `${row.suburb}, ${row.state}`}
                       </span>
                     </div>
+                  </TableCell>
+                  <TableCell className="border-r border-border/30 text-sm" onClick={(e) => e.stopPropagation()}>
+                    <Popover open={openCalendarId === row.stageId} onOpenChange={(open) => setOpenCalendarId(open ? row.stageId : null)}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs gap-1 w-full justify-start font-normal"
+                        >
+                          <Calendar className="h-3 w-3" />
+                          {row.plannedSiteVisitDate ? formatDate(row.plannedSiteVisitDate) : 'Set date'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={row.plannedSiteVisitDate ? new Date(row.plannedSiteVisitDate) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              updateStageSiteVisitDate(row.projectCode, row.stageId, date.toISOString());
+                            }
+                            setOpenCalendarId(null);
+                          }}
+                          initialFocus
+                        />
+                        {row.plannedSiteVisitDate && (
+                          <div className="p-2 border-t">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full text-xs text-destructive"
+                              onClick={() => {
+                                updateStageSiteVisitDate(row.projectCode, row.stageId, '');
+                                setOpenCalendarId(null);
+                              }}
+                            >
+                              Clear date
+                            </Button>
+                          </div>
+                        )}
+                      </PopoverContent>
+                    </Popover>
                   </TableCell>
                   <TableCell className="border-r border-border/30 text-sm">
                     {row.assignmentDate ? formatDate(row.assignmentDate) : 'Recently assigned'}
