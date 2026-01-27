@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, Suspense, lazy } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Navigation } from "@/components/Navigation";
 import SiteCard from "@/components/site-files/SiteCard";
@@ -34,6 +34,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { MentionableUser } from "@/components/MentionAutocomplete";
 import { parseMentionedUsers } from "@/utils/parseMentions";
 import { createReplyMentionNotifications } from "@/utils/createMentionNotifications";
+import { AddressAutocomplete, AddressComponents } from "@/components/ui/AddressAutocomplete";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Building2, FolderKanban, MapPin, Plus, Edit, Search, Trash2, Edit2, Check, X, ChevronDown, ChevronUp, FileUp, Download, Grid, List as ListIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -83,6 +84,7 @@ const getInitials = (firstName: string, lastName: string, email?: string): strin
 
 const SitesPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const masterData = useMasterData();
@@ -423,16 +425,20 @@ const SitesPage = () => {
 
   const handleBackClick = () => {
     if (selectedStage) {
+      // Stage -> Project (clear stage, keep project selected)
       setSelectedStage(null);
     } else if (selectedProject) {
-      // Use browser back button to return to previous page (Dashboard, My Work, etc)
-      // Only fallback to clearing selection if there's no history
-      if (window.history.length > 1) {
-        navigate(-1);
+      // Check if we came from My Work or another page
+      const state = location.state as { from?: string } | undefined;
+      if (state?.from === '/my-work') {
+        // Navigate back to My Work
+        navigate('/my-work');
       } else {
+        // Project -> Site (clear project, keep site selected)
         setSelectedProject(null);
       }
-    } else {
+    } else if (selectedSite) {
+      // Site -> Sites List (clear site)
       setSelectedSite(null);
     }
   };
@@ -561,6 +567,40 @@ const SitesPage = () => {
 
   const handleCancelDeleteSite = () => {
     setDeleteSiteDialogOpen(false);
+  };
+
+  /**
+   * Handle address autocomplete change for inline site editing
+   */
+  const handleSiteAddressChange = (newAddress: string, placeDetails?: AddressComponents) => {
+    setEditSiteFormData((prev) => ({
+      ...prev,
+      address: newAddress,
+    }));
+
+    if (placeDetails) {
+      // Auto-fill state from Google Places data
+      const updates: any = {};
+      if (placeDetails.administrativeArea) {
+        // Map abbreviations to full state names
+        const stateMapping: Record<string, string> = {
+          'NSW': 'New South Wales',
+          'VIC': 'Victoria',
+          'QLD': 'Queensland',
+          'SA': 'South Australia',
+          'WA': 'Western Australia',
+          'TAS': 'Tasmania',
+          'ACT': 'ACT',
+          'NT': 'Northern Territory',
+        };
+        updates.state = stateMapping[placeDetails.administrativeArea] || placeDetails.administrativeArea;
+      }
+
+      setEditSiteFormData((prev) => ({
+        ...prev,
+        ...updates,
+      }));
+    }
   };
 
   return (
@@ -755,7 +795,12 @@ const SitesPage = () => {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4" />
-                          <span>{selectedSite.building}</span>
+                          <button
+                            onClick={() => setSelectedProject(null)}
+                            className="text-foreground hover:text-primary underline-offset-4 hover:underline font-medium transition-colors"
+                          >
+                            {selectedSite.building}
+                          </button>
                         </div>
                         {selectedProject.status && (
                           <Badge variant="outline">{selectedProject.status}</Badge>
@@ -1548,12 +1593,16 @@ const SitesPage = () => {
                       <div className="col-span-2">
                         <Label className="text-xs font-semibold text-muted-foreground mb-2 block">Address</Label>
                         {isEditingSiteDetails && isConsultant ? (
-                          <Input
-                            value={editSiteFormData.address}
-                            onChange={(e) => setEditSiteFormData({ ...editSiteFormData, address: e.target.value })}
-                            placeholder="Enter address..."
-                            className="h-9"
-                          />
+                          <div className="space-y-1">
+                            <AddressAutocomplete
+                              id="site-address-inline"
+                              value={editSiteFormData.address}
+                              onChange={handleSiteAddressChange}
+                              placeholder="Start typing an address..."
+                              countryRestrict="au"
+                              className="h-9"
+                            />
+                          </div>
                         ) : (
                           <p className="text-sm text-foreground">{selectedSite?.address || <span className="text-muted-foreground italic">No address set</span>}</p>
                         )}

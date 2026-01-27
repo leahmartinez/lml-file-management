@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AddressAutocomplete, AddressComponents } from '@/components/ui/AddressAutocomplete';
 import { toast } from '@/hooks/use-toast';
 import { Site } from '@/types/data';
 
@@ -32,6 +33,35 @@ const AddSiteModal: React.FC<AddSiteModalProps> = ({ open, onClose, onSave }) =>
   const [city, setCity] = useState('');
   const [postcode, setPostcode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAddressChange = (newAddress: string, placeDetails?: AddressComponents) => {
+    setAddress(newAddress);
+
+    if (placeDetails) {
+      // Auto-fill city, state, and postcode from Google Places data
+      if (placeDetails.locality) {
+        setCity(placeDetails.locality);
+      }
+      if (placeDetails.administrativeArea) {
+        // Map abbreviations to full state names
+        const stateMapping: Record<string, string> = {
+          'NSW': 'New South Wales',
+          'VIC': 'Victoria',
+          'QLD': 'Queensland',
+          'SA': 'South Australia',
+          'WA': 'Western Australia',
+          'TAS': 'Tasmania',
+          'ACT': 'ACT',
+          'NT': 'Northern Territory',
+        };
+        const mappedState = stateMapping[placeDetails.administrativeArea] || placeDetails.administrativeArea;
+        setState(mappedState);
+      }
+      if (placeDetails.postalCode) {
+        setPostcode(placeDetails.postalCode);
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,12 +150,13 @@ const AddSiteModal: React.FC<AddSiteModalProps> = ({ open, onClose, onSave }) =>
 
             <div>
               <Label htmlFor="address">Address *</Label>
-              <Input
+              <AddressAutocomplete
                 id="address"
                 value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="e.g., 123 High Street, Sydney NSW 2000"
+                onChange={handleAddressChange}
+                placeholder="Start typing an address..."
                 required
+                countryRestrict="au"
               />
             </div>
 
