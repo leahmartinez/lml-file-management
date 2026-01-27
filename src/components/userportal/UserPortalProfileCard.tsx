@@ -23,7 +23,7 @@ export const UserPortalProfileCard: React.FC<UserPortalProfileCardProps> = ({
   onEditProfile,
 }) => {
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
           <CardTitle>My Profile</CardTitle>
@@ -38,86 +38,80 @@ export const UserPortalProfileCard: React.FC<UserPortalProfileCardProps> = ({
           Edit Profile
         </Button>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Profile Photo */}
-          <div className="flex flex-col items-center justify-center">
-            <div className="h-32 w-32 rounded-full bg-muted flex items-center justify-center mb-4">
-              {profile?.photo ? (
-                <img
-                  src={profile.photo}
-                  alt={profile?.firstName}
-                  className="h-32 w-32 rounded-full object-cover"
-                />
-              ) : (
-                <div className="text-4xl font-bold text-muted-foreground">
-                  {profile?.firstName?.charAt(0)}{profile?.lastName?.charAt(0)}
-                </div>
-              )}
-            </div>
+      <CardContent className="flex-1 overflow-y-auto">
+        {/* Profile Photo - Centered at top */}
+        <div className="flex flex-col items-center mb-6">
+          <div className="h-24 w-24 rounded-full bg-muted flex items-center justify-center mb-3">
+            {profile?.photo ? (
+              <img
+                src={profile.photo}
+                alt={profile?.firstName}
+                className="h-24 w-24 rounded-full object-cover"
+              />
+            ) : (
+              <div className="text-3xl font-bold text-muted-foreground">
+                {profile?.firstName?.charAt(0)}{profile?.lastName?.charAt(0)}
+              </div>
+            )}
           </div>
-
-          {/* Profile Information */}
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Name</p>
-              <p className="text-lg font-semibold">
-                {profile?.firstName} {profile?.lastName}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Email</p>
-              <p className="text-sm">{email}</p>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Position</p>
-              <p className="text-sm">{profile?.position || 'Not specified'}</p>
-            </div>
-
-            {profile?.phone && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                <p className="text-sm">{profile.phone}</p>
-              </div>
-            )}
-
-            {profile?.officePhone && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Office Phone</p>
-                <p className="text-sm">{profile.officePhone}</p>
-              </div>
-            )}
-
-            {profile?.department && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Department</p>
-                <p className="text-sm">{profile.department}</p>
-              </div>
-            )}
-
-            {profile?.category && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Category</p>
-                <p className="text-sm">{profile.category}</p>
-              </div>
-            )}
-
-            <div className="pt-4 border-t">
-              <p className="text-sm font-medium text-muted-foreground">Work Assigned</p>
-              <p className="text-2xl font-bold">{totalAssigned}</p>
-              <p className="text-xs text-muted-foreground">stages assigned to you</p>
-            </div>
-          </div>
+          <h2 className="text-xl font-bold">
+            {profile?.firstName} {profile?.lastName}
+          </h2>
+          <p className="text-sm text-muted-foreground">{profile?.position || 'Not specified'}</p>
         </div>
 
+        {/* Profile Information - Streamlined single column */}
+        <div className="space-y-3">
+          <div className="flex justify-between items-center py-2 border-b">
+            <span className="text-sm font-medium text-muted-foreground">Email</span>
+            <span className="text-sm font-medium">{email}</span>
+          </div>
+
+          {profile?.phone && (
+            <div className="flex justify-between items-center py-2 border-b">
+              <span className="text-sm font-medium text-muted-foreground">Phone</span>
+              <span className="text-sm font-medium">{profile.phone}</span>
+            </div>
+          )}
+
+          {profile?.officePhone && (
+            <div className="flex justify-between items-center py-2 border-b">
+              <span className="text-sm font-medium text-muted-foreground">Office Phone</span>
+              <span className="text-sm font-medium">{profile.officePhone}</span>
+            </div>
+          )}
+
+          {profile?.department && (
+            <div className="flex justify-between items-center py-2 border-b">
+              <span className="text-sm font-medium text-muted-foreground">Department</span>
+              <span className="text-sm font-medium">{profile.department}</span>
+            </div>
+          )}
+
+          {profile?.category && (
+            <div className="flex justify-between items-center py-2 border-b">
+              <span className="text-sm font-medium text-muted-foreground">Category</span>
+              <span className="text-sm font-medium">{profile.category}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Bio section if exists */}
         {profile?.bio && (
-          <div className="mt-6 pt-6 border-t">
+          <div className="mt-4 pt-4 border-t">
             <p className="text-sm font-medium text-muted-foreground mb-2">About</p>
-            <p className="text-sm">{profile.bio}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{profile.bio}</p>
           </div>
         )}
+
+        {/* Work Assigned - Highlighted box */}
+        <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+          <div className="text-center">
+            <p className="text-sm font-medium text-muted-foreground mb-1">Work Assigned</p>
+            <p className="text-3xl font-bold">{totalAssigned}</p>
+            <p className="text-xs text-muted-foreground">stages assigned to you</p>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
