@@ -58,9 +58,9 @@ jobs:
           action: "upload"
           ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
-          app_location: "dist" # Deploy built frontend only
+          app_location: "/" # App source code path
           api_location: "api/dist" # Azure Functions build output (avoid bundling node_modules)
-          output_location: "" # Already in app_location
+          output_location: "dist" # Vite build output
           skip_app_build: true # Build already completed
           skip_api_build: true # API build already completed
           config_file_location: "/" # staticwebapp.config.json lives at repo root
