@@ -112,6 +112,22 @@ const SitesPage = () => {
   // Site and project selection states
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const isConsultant = user?.role === 'admin' || user?.role === 'user';
+  const isSubconsultant = user?.role === 'subconsultant';
+
+  const assignedProjectCodes = useMemo(() => {
+    if (!isSubconsultant || !user?.email) return new Set<string>();
+    const allowed = new Set<string>();
+    projectsData.forEach((project) => {
+      const hasAssignment = project.stages?.some((stage) =>
+        getStageConsultants(stage.id).includes(user.email)
+      );
+      if (hasAssignment) {
+        allowed.add(project.projectCode);
+      }
+    });
+    return allowed;
+  }, [getStageConsultants, isSubconsultant, projectsData, user?.email]);
 
   // Handle URL query parameters for auto-selecting site and project from Dashboard or Notifications
   useEffect(() => {
@@ -122,6 +138,9 @@ const SitesPage = () => {
     if (sitesData && projectsData) {
       // Case 1: Both building and projectCode provided (from Dashboard)
       if (building && projectCode) {
+        if (isSubconsultant && !assignedProjectCodes.has(projectCode)) {
+          return;
+        }
         const site = sitesData.find((s) => s.building === building);
         if (site) {
           setSelectedSite(site);
@@ -137,6 +156,9 @@ const SitesPage = () => {
         // Find the project by code only
         const selectedProj = projectsData.find((p) => p.projectCode === project);
         if (selectedProj) {
+          if (isSubconsultant && !assignedProjectCodes.has(selectedProj.projectCode)) {
+            return;
+          }
           // Get the building from the found project
           const site = sitesData.find((s) => s.building === selectedProj.building);
           if (site) {
@@ -146,7 +168,7 @@ const SitesPage = () => {
         }
       }
     }
-  }, [searchParams, sitesData, projectsData]);
+  }, [searchParams, sitesData, projectsData, isSubconsultant, assignedProjectCodes]);
 
   // Handle scrolling to comment when clicked from notification
   useEffect(() => {
@@ -268,8 +290,6 @@ const SitesPage = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const isConsultant = user?.role === 'admin';
-
   // Filter contacts based on search query - memoized for performance
   const filteredContacts = useMemo(() => {
     if (!contactSearchQuery.trim()) {
@@ -355,6 +375,14 @@ const SitesPage = () => {
     if (user?.role === "site_manager" && user.sites.length > 0) {
       filteredSites = filteredSites.filter(site => user.sites.includes(site.building));
     }
+    if (isSubconsultant && user?.email) {
+      filteredSites = filteredSites.filter(site =>
+        projectsData.some(project =>
+          project.building === site.building &&
+          assignedProjectCodes.has(project.projectCode)
+        )
+      );
+    }
 
     // Apply state filter
     if (filterState !== "all") {
@@ -363,7 +391,10 @@ const SitesPage = () => {
 
     // Enrich sites with projects from projectsData
     const enrichedSites = filteredSites.map(site => {
-      const siteProjects = projectsData.filter(project => project.building === site.building);
+      let siteProjects = projectsData.filter(project => project.building === site.building);
+      if (isSubconsultant && user?.email) {
+        siteProjects = siteProjects.filter(project => assignedProjectCodes.has(project.projectCode));
+      }
       return {
         ...site,
         projects: siteProjects,
@@ -392,7 +423,7 @@ const SitesPage = () => {
     }
 
     return enrichedSites;
-  }, [sitesData, projectsData, filterState, debouncedSearchQuery, user]);
+  }, [sitesData, projectsData, filterState, debouncedSearchQuery, user, isSubconsultant, assignedProjectCodes]);
 
   const handleAddSite = (site: Omit<Site, 'projects' | 'assets'>) => {
     addSite(site);
@@ -796,7 +827,13 @@ const SitesPage = () => {
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4" />
                           <button
-                            onClick={() => setSelectedProject(null)}
+                            onClick={() => {
+                              setSelectedProject(null);
+                              navigate(`/sites?building=${encodeURIComponent(selectedSite.building)}`, {
+                                replace: true,
+                                state: location.state,
+                              });
+                            }}
                             className="text-foreground hover:text-primary underline-offset-4 hover:underline font-medium transition-colors"
                           >
                             {selectedSite.building}

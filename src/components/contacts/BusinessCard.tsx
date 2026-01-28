@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Business } from '@/types/data';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit2, Trash2, ChevronRight, MapPin, Phone, Mail, Users } from 'lucide-react';
 
@@ -27,10 +27,10 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 }) => {
   return (
     <Card
-      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
+      className="hover:shadow-md transition-shadow cursor-pointer group"
       onClick={() => onViewContacts?.(business)}
     >
-      <div className="p-4 h-full flex flex-col bg-gradient-to-br from-primary/5 to-primary/10 border-l-4 border-primary">
+      <CardContent className="p-4 h-full flex flex-col">
         {/* Header with Business Name */}
         <div className="flex-1">
           <div className="flex items-start justify-between gap-2 mb-3">
@@ -50,9 +50,9 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           </div>
 
           {/* Location & Category */}
-          <div className="space-y-1 mb-3">
+          <div className="space-y-1 mb-3 text-muted-foreground">
             {business.city && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs">
                 <MapPin className="h-3 w-3" />
                 <span>
                   {business.city}
@@ -61,7 +61,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
               </div>
             )}
             {business.category && (
-              <div className="inline-block text-xs px-2 py-1 bg-primary/20 text-primary rounded">
+              <div className="inline-block text-xs px-2 py-1 bg-muted text-muted-foreground rounded">
                 {business.category}
               </div>
             )}
@@ -70,8 +70,8 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           {/* Contact Information */}
           <div className="space-y-1">
             {business.phone && (
-              <div className="flex items-center gap-2 text-xs">
-                <Phone className="h-3 w-3 text-muted-foreground" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Phone className="h-3 w-3" />
                 <a
                   href={`tel:${business.phone}`}
                   onClick={(e) => e.stopPropagation()}
@@ -82,8 +82,8 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
               </div>
             )}
             {business.email && (
-              <div className="flex items-center gap-2 text-xs">
-                <Mail className="h-3 w-3 text-muted-foreground" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Mail className="h-3 w-3" />
                 <a
                   href={`mailto:${business.email}`}
                   onClick={(e) => e.stopPropagation()}
@@ -97,8 +97,8 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
         </div>
 
         {/* Contact Count Badge */}
-        <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-primary/10">
-          <div className="flex items-center gap-2 text-xs font-medium text-primary">
+        <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-border/40">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
             <Users className="h-4 w-4" />
             {contactCount} contact{contactCount !== 1 ? 's' : ''}
           </div>
@@ -125,7 +125,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             </Button>
           </div>
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 };

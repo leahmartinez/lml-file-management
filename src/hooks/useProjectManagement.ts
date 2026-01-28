@@ -22,6 +22,17 @@ export const useProjectManagement = () => {
     }
   });
   // No longer tracking soft-deleted projects - all deletions are permanent on backend
+  const persistCustomProjects = useCallback((updated: Project[]) => {
+    setCustomProjects(updated);
+    localStorage.setItem('customProjects', JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('customProjectsUpdated'));
+  }, []);
+  const getProjectForUpdate = useCallback((projectCode: string) => {
+    return (
+      customProjects.find(p => p.projectCode === projectCode) ||
+      sourceProjects.find(p => p.projectCode === projectCode)
+    );
+  }, [customProjects, sourceProjects]);
 
   // Update project code
   const updateProjectCode = useCallback((projectCode: string, newCode: string) => {
@@ -38,19 +49,16 @@ export const useProjectManagement = () => {
       const updated_list = customProjects.map(p =>
         p.projectCode === projectCode ? updated : p
       );
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects(updated_list);
     } else {
-      const updated_list = [...customProjects, updated];
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects([...customProjects, updated]);
     }
 
     toast({
       title: "Success",
       description: `Project code updated to ${newCode}`,
     });
-  }, [customProjects, sourceProjects]);
+  }, [customProjects, sourceProjects, persistCustomProjects]);
 
   // Update project description
   const updateProjectDescription = useCallback((projectCode: string, newDescription: string) => {
@@ -67,19 +75,16 @@ export const useProjectManagement = () => {
       const updated_list = customProjects.map(p =>
         p.projectCode === projectCode ? updated : p
       );
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects(updated_list);
     } else {
-      const updated_list = [...customProjects, updated];
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects([...customProjects, updated]);
     }
 
     toast({
       title: "Success",
       description: "Project description updated",
     });
-  }, [customProjects, sourceProjects]);
+  }, [customProjects, sourceProjects, persistCustomProjects]);
 
   // Update project status
   const updateProjectStatus = useCallback((projectCode: string, newStatus: string) => {
@@ -96,23 +101,20 @@ export const useProjectManagement = () => {
       const updated_list = customProjects.map(p =>
         p.projectCode === projectCode ? updated : p
       );
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects(updated_list);
     } else {
-      const updated_list = [...customProjects, updated];
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects([...customProjects, updated]);
     }
 
     toast({
       title: "Success",
       description: `Project status updated to ${newStatus}`,
     });
-  }, [customProjects, sourceProjects]);
+  }, [customProjects, sourceProjects, persistCustomProjects]);
 
   // Update stage status
   const updateStageStatus = useCallback((projectCode: string, stageId: string, newStatus: ProjectStageStatus) => {
-    const project = sourceProjects.find(p => p.projectCode === projectCode);
+    const project = getProjectForUpdate(projectCode);
     if (!project) return;
 
     const updated: Project = {
@@ -127,23 +129,20 @@ export const useProjectManagement = () => {
       const updated_list = customProjects.map(p =>
         p.projectCode === projectCode ? updated : p
       );
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects(updated_list);
     } else {
-      const updated_list = [...customProjects, updated];
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects([...customProjects, updated]);
     }
 
     toast({
       title: "Success",
       description: `Stage status updated to ${newStatus}`,
     });
-  }, [customProjects, sourceProjects]);
+  }, [customProjects, getProjectForUpdate, persistCustomProjects]);
 
   // Update stage planned site visit date
   const updateStageSiteVisitDate = useCallback((projectCode: string, stageId: string, newDate: string) => {
-    const project = sourceProjects.find(p => p.projectCode === projectCode);
+    const project = getProjectForUpdate(projectCode);
     if (!project) return;
 
     const updated: Project = {
@@ -158,19 +157,16 @@ export const useProjectManagement = () => {
       const updated_list = customProjects.map(p =>
         p.projectCode === projectCode ? updated : p
       );
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects(updated_list);
     } else {
-      const updated_list = [...customProjects, updated];
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects([...customProjects, updated]);
     }
 
     toast({
       title: "Success",
       description: newDate ? "Site visit date updated" : "Site visit date cleared",
     });
-  }, [customProjects, sourceProjects]);
+  }, [customProjects, getProjectForUpdate, persistCustomProjects]);
 
   // Get merged projects (source projects with custom overrides)
   const getMergedProjects = useCallback((): Project[] => {
@@ -215,15 +211,14 @@ export const useProjectManagement = () => {
     }
 
     const updated = [...customProjects, project];
-    setCustomProjects(updated);
-    localStorage.setItem('customProjects', JSON.stringify(updated));
+    persistCustomProjects(updated);
 
     toast({
       title: "Success",
       description: `Project "${project.projectCode}" has been added`,
     });
     return true;
-  }, [customProjects, getMergedProjects]);
+  }, [customProjects, getMergedProjects, persistCustomProjects]);
 
   // Update entire project (useful for stages, files, etc.)
   const updateProject = useCallback((projectCode: string, updatedProject: Project) => {
@@ -232,15 +227,12 @@ export const useProjectManagement = () => {
       const updated_list = customProjects.map(p =>
         p.projectCode === projectCode ? updatedProject : p
       );
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects(updated_list);
     } else {
       // Project doesn't exist in custom, add it
-      const updated_list = [...customProjects, updatedProject];
-      setCustomProjects(updated_list);
-      localStorage.setItem('customProjects', JSON.stringify(updated_list));
+      persistCustomProjects([...customProjects, updatedProject]);
     }
-  }, [customProjects]);
+  }, [customProjects, persistCustomProjects]);
 
   // Delete a project (permanent backend deletion)
   const deleteProject = useCallback(async (projectCode: string) => {
@@ -288,8 +280,7 @@ export const useProjectManagement = () => {
       // Remove from custom projects if it exists there
       const customUpdated = customProjects.filter(p => p.projectCode !== projectCode);
       if (customUpdated.length !== customProjects.length) {
-        setCustomProjects(customUpdated);
-        localStorage.setItem('customProjects', JSON.stringify(customUpdated));
+        persistCustomProjects(customUpdated);
       }
 
       toast({
@@ -309,7 +300,7 @@ export const useProjectManagement = () => {
       });
       return false;
     }
-  }, [customProjects, refetch]);
+  }, [customProjects, refetch, persistCustomProjects]);
 
   // Clean up old deletedProjects from localStorage (for backward compatibility)
   // This can be removed in a future version
@@ -354,8 +345,7 @@ export const useProjectManagement = () => {
 
     // If we filtered anything out, update both state and localStorage
     if (cleanedCustomProjects.length !== storedCustomProjects.length) {
-      setCustomProjects(cleanedCustomProjects);
-      localStorage.setItem('customProjects', JSON.stringify(cleanedCustomProjects));
+      persistCustomProjects(cleanedCustomProjects);
       console.log(
         `[useProjectManagement] Cleaned up ${storedCustomProjects.length - cleanedCustomProjects.length} stale customProjects. ` +
         `Source has ${sourceProjects.length} projects, customProjects now has ${cleanedCustomProjects.length}`
@@ -363,7 +353,25 @@ export const useProjectManagement = () => {
     }
 
     cleanupDoneRef.current = true;
-  }, [sourceProjects]);
+  }, [sourceProjects, persistCustomProjects]);
+
+  useEffect(() => {
+    const handleCustomProjectsUpdate = () => {
+      try {
+        const stored = localStorage.getItem('customProjects');
+        if (!stored) return;
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setCustomProjects(parsed.filter((p): p is Project => p !== null && p !== undefined && !!p.projectCode));
+        }
+      } catch (error) {
+        console.error('[useProjectManagement] Error syncing customProjects from localStorage:', error);
+      }
+    };
+
+    window.addEventListener('customProjectsUpdated', handleCustomProjectsUpdate);
+    return () => window.removeEventListener('customProjectsUpdated', handleCustomProjectsUpdate);
+  }, []);
 
   // Memoize merged projects so downstream useMemo dependencies work correctly
   // and deleted projects are immediately filtered out

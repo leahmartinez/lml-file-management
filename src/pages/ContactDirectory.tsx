@@ -13,7 +13,7 @@ import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Plus, LayoutGrid, Briefcase, User } from 'lucide-react';
+import { Users, Plus, Briefcase, User, Mail, Phone, Eye, Edit2, Trash2, Building, MapPin } from 'lucide-react';
 import { ContactSearchFilter, ContactFiltersState } from '@/components/contacts/ContactSearchFilter';
 import { ContactListView } from '@/components/contacts/ContactListView';
 import { ContactCard } from '@/components/contacts/ContactCard';
@@ -56,7 +56,7 @@ const ContactDirectory: React.FC = () => {
   const [previousView, setPreviousView] = useState<{ type: 'contact' | 'business'; id: string } | null>(null);
 
   // Check if user is admin or consultant (can add external contacts)
-  const canAddContacts = user?.role === 'admin' || user?.role === 'consultant';
+  const canAddContacts = user?.role === 'admin' || user?.role === 'user' || user?.role === 'consultant';
 
   /**
    * Load contacts, categories, and businesses on component mount
@@ -435,79 +435,303 @@ const ContactDirectory: React.FC = () => {
           ) : (
             <>
               {contactViewMode === 'grid' ? (
-                <div className="flex gap-4">
-                  {/* Left Column: Businesses (1/3 width) */}
-                  <div className="w-1/3 space-y-4">
+                <div className="space-y-6">
+                  {/* Businesses Section */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                        <Briefcase className="h-4 w-4" />
+                        Businesses ({filteredBusinesses.length})
+                      </div>
+                    </div>
                     {filteredBusinesses.length === 0 ? (
-                      <div className="text-center py-8 text-sm text-muted-foreground">
+                      <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-lg">
                         No businesses found
                       </div>
                     ) : (
-                      filteredBusinesses.map((business) => (
-                        <BusinessCard
-                          key={business.id}
-                          business={business}
-                          contactCount={getBusinessContacts(business.id).length}
-                          onViewContacts={handleViewBusinessDetails}
-                          onEdit={handleEditBusiness}
-                          onDelete={handleDeleteBusiness}
-                        />
-                      ))
+                      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {filteredBusinesses.map((business) => (
+                          <BusinessCard
+                            key={business.id}
+                            business={business}
+                            contactCount={getBusinessContacts(business.id).length}
+                            onViewContacts={handleViewBusinessDetails}
+                            onEdit={handleEditBusiness}
+                            onDelete={handleDeleteBusiness}
+                          />
+                        ))}
+                      </div>
                     )}
                   </div>
 
-                  {/* Right Columns: Contacts (2/3 width, 2-column grid) */}
-                  <div className="w-2/3 grid grid-cols-2 gap-4">
+                  {/* Individuals Section */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                        <User className="h-4 w-4" />
+                        Individuals ({filteredContacts.length})
+                      </div>
+                    </div>
                     {filteredContacts.length === 0 ? (
-                      <div className="col-span-2 text-center py-8 text-sm text-muted-foreground">
+                      <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-lg">
                         No contacts found
                       </div>
                     ) : (
-                      filteredContacts.map((contact) => (
-                        <ContactCard
-                          key={`contact-${contact.id}`}
-                          contact={contact}
-                          onViewDetails={handleViewDetails}
-                          onDelete={canAddContacts ? handleDeleteContact : undefined}
-                          canDelete={canAddContacts}
-                          compact
-                          isLoading={loadingContactEmail === contact.email}
-                          businesses={businesses}
-                          onViewBusiness={handleViewBusinessDetails}
-                        />
-                      ))
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {filteredContacts.map((contact) => (
+                          <ContactCard
+                            key={`contact-${contact.id}`}
+                            contact={contact}
+                            onViewDetails={handleViewDetails}
+                            onDelete={canAddContacts ? handleDeleteContact : undefined}
+                            canDelete={canAddContacts}
+                            compact
+                            isLoading={loadingContactEmail === contact.email}
+                            businesses={businesses}
+                            onViewBusiness={handleViewBusinessDetails}
+                          />
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {/* List View: Business Cards */}
-                  {filteredBusinesses.map((business) => (
-                    <BusinessCard
-                      key={business.id}
-                      business={business}
-                      contactCount={getBusinessContacts(business.id).length}
-                      onViewContacts={handleViewBusinessDetails}
-                      onEdit={handleEditBusiness}
-                      onDelete={handleDeleteBusiness}
-                    />
-                  ))}
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="border rounded-lg overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/50 border-b border-border/50">
+                            <th className="text-left font-semibold px-4 py-3 border-r border-border/30">Type</th>
+                            <th className="text-left font-semibold px-4 py-3 border-r border-border/30">Name</th>
+                            <th className="text-left font-semibold px-4 py-3 border-r border-border/30">Title / Location</th>
+                            <th className="text-left font-semibold px-4 py-3 border-r border-border/30">Email</th>
+                            <th className="text-left font-semibold px-4 py-3 border-r border-border/30">Phone</th>
+                            <th className="text-left font-semibold px-4 py-3 border-r border-border/30">Category</th>
+                            <th className="text-left font-semibold px-4 py-3 border-r border-border/30">Business</th>
+                            <th className="text-center font-semibold px-4 py-3">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredBusinesses.map((business) => (
+                            <tr
+                              key={`business-${business.id}`}
+                              className="border-b border-border/30 hover:bg-muted/40 cursor-pointer"
+                              onClick={() => handleViewBusinessDetails(business)}
+                            >
+                              <td className="px-4 py-3 border-r border-border/30">
+                                <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                                  <Briefcase className="h-3.5 w-3.5" />
+                                  Business
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 border-r border-border/30">
+                                <div className="font-medium">{business.name}</div>
+                                {business.description && (
+                                  <div className="text-xs text-muted-foreground line-clamp-1">
+                                    {business.description}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 border-r border-border/30 text-muted-foreground">
+                                {business.city ? (
+                                  <div className="inline-flex items-center gap-2">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    <span>
+                                      {business.city}
+                                      {business.state ? `, ${business.state}` : ''}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground/60">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 border-r border-border/30">
+                                {business.email ? (
+                                  <a
+                                    href={`mailto:${business.email}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-primary hover:underline inline-flex items-center gap-1"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" />
+                                    {business.email}
+                                  </a>
+                                ) : (
+                                  <span className="text-muted-foreground/60">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 border-r border-border/30">
+                                {business.phone ? (
+                                  <a
+                                    href={`tel:${business.phone}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-primary hover:underline inline-flex items-center gap-1"
+                                  >
+                                    <Phone className="h-3.5 w-3.5" />
+                                    {business.phone}
+                                  </a>
+                                ) : (
+                                  <span className="text-muted-foreground/60">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 border-r border-border/30">
+                                {business.category ? (
+                                  <span className="text-xs px-2 py-1 rounded bg-primary/15 text-primary">
+                                    {business.category}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground/60">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 border-r border-border/30 text-muted-foreground/60">—</td>
+                              <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                <div className="inline-flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleViewBusinessDetails(business)}
+                                    title="View details"
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  {canAddContacts && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleEditBusiness(business)}
+                                        title="Edit business"
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Edit2 className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDeleteBusiness(business.id)}
+                                        title="Delete business"
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Trash2 className="h-4 w-4 text-red-600" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
 
-                  {/* List View: Contact Cards */}
-                  {filteredContacts.map((contact) => (
-                    <ContactCard
-                      key={`contact-${contact.id}`}
-                      contact={contact}
-                      onViewDetails={handleViewDetails}
-                      onDelete={canAddContacts ? handleDeleteContact : undefined}
-                      canDelete={canAddContacts}
-                      compact
-                      isLoading={loadingContactEmail === contact.email}
-                      businesses={businesses}
-                      onViewBusiness={handleViewBusinessDetails}
-                    />
-                  ))}
-                </div>
+                          {filteredContacts.map((contact) => {
+                            const business = businesses.find(b => b.id === (contact as any).businessId);
+                            const isLoading = loadingContactEmail === contact.email;
+
+                            return (
+                              <tr
+                                key={`contact-${contact.id}`}
+                                className={`border-b border-border/30 hover:bg-muted/40 cursor-pointer ${isLoading ? 'opacity-60' : ''}`}
+                                onClick={() => handleViewDetails(contact)}
+                              >
+                                <td className="px-4 py-3 border-r border-border/30">
+                                  <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                                    <User className="h-3.5 w-3.5" />
+                                    Contact
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 border-r border-border/30">
+                                  <div className="font-medium">{contact.firstName} {contact.lastName}</div>
+                                  {contact.department && (
+                                    <div className="text-xs text-muted-foreground line-clamp-1">{contact.department}</div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 border-r border-border/30 text-muted-foreground">
+                                  {contact.position || <span className="text-muted-foreground/60">—</span>}
+                                </td>
+                                <td className="px-4 py-3 border-r border-border/30">
+                                  {contact.email ? (
+                                    <a
+                                      href={`mailto:${contact.email}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-primary hover:underline inline-flex items-center gap-1"
+                                    >
+                                      <Mail className="h-3.5 w-3.5" />
+                                      {contact.email}
+                                    </a>
+                                  ) : (
+                                    <span className="text-muted-foreground/60">—</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 border-r border-border/30">
+                                  {contact.phone ? (
+                                    <a
+                                      href={`tel:${contact.phone}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-primary hover:underline inline-flex items-center gap-1"
+                                    >
+                                      <Phone className="h-3.5 w-3.5" />
+                                      {contact.phone}
+                                    </a>
+                                  ) : (
+                                    <span className="text-muted-foreground/60">—</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 border-r border-border/30">
+                                  {contact.category ? (
+                                    <span className="text-xs px-2 py-1 rounded bg-primary/15 text-primary">
+                                      {contact.category}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground/60">—</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 border-r border-border/30">
+                                  {business ? (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleViewBusinessDetails(business);
+                                      }}
+                                      className="text-primary hover:underline inline-flex items-center gap-1"
+                                    >
+                                      <Building className="h-3.5 w-3.5" />
+                                      {business.name}
+                                    </button>
+                                  ) : (
+                                    <span className="text-muted-foreground/60">—</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                  <div className="inline-flex items-center gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleViewDetails(contact)}
+                                      title="View details"
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    {canAddContacts && contact.type === 'external' && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDeleteContact(contact)}
+                                        title="Delete"
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Trash2 className="h-4 w-4 text-red-600" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </>
           )}

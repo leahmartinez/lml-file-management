@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Plus, Shield, Edit, Trash2, UserPlus, FileText } from 'lucide-react';
+import { Plus, Shield, Edit, Trash2, UserPlus, FileText, KeyRound } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const Admin = () => {
@@ -27,6 +27,7 @@ const Admin = () => {
   const [isAddTemplateModalOpen, setIsAddTemplateModalOpen] = useState(false);
   const [isEditTemplateModalOpen, setIsEditTemplateModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ProposalTemplate | null>(null);
+  const [tempPasswordInfo, setTempPasswordInfo] = useState<{ email: string; password: string; action: 'created' | 'reset' } | null>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -41,6 +42,33 @@ const Admin = () => {
   });
 
   const isAdmin = user?.role === 'admin';
+  const isMasterAdmin = user?.email?.toLowerCase() === 'leah@lmllift.com';
+  const isLmlEmail = (email: string) => email.trim().toLowerCase().endsWith('@lmllift.com');
+  const getStoredUsers = (): User[] => {
+    try {
+      const stored = localStorage.getItem('mockUsers');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to parse mockUsers:', error);
+    }
+    return allUsers;
+  };
+  const saveUsers = (users: User[]) => {
+    localStorage.setItem('mockUsers', JSON.stringify(users));
+  };
+  const generateTempPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    let result = '';
+    for (let i = 0; i < 10; i += 1) {
+      result += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return result;
+  };
 
   const getRoleBadgeClass = (role: User['role']) => {
     switch (role) {
@@ -48,6 +76,8 @@ const Admin = () => {
         return 'bg-red-100 text-red-700 hover:bg-red-100';
       case 'user':
         return 'bg-blue-100 text-blue-700 hover:bg-blue-100';
+      case 'subconsultant':
+        return 'bg-amber-100 text-amber-700 hover:bg-amber-100';
       default:
         return '';
     }
@@ -59,6 +89,8 @@ const Admin = () => {
         return 'Admin';
       case 'user':
         return 'User';
+      case 'subconsultant':
+        return 'Subconsultant';
       default:
         return role;
     }
@@ -73,10 +105,27 @@ const Admin = () => {
   };
 
   const handleAddUser = () => {
+    if (!isMasterAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "Only the master admin can add users.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!formData.email.trim()) {
       toast({
         title: "Validation Error",
         description: "Email is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!isLmlEmail(formData.email)) {
+      toast({
+        title: "Validation Error",
+        description: "Only @lmllift.com emails can be added as users.",
         variant: "destructive",
       });
       return;
@@ -98,11 +147,13 @@ const Admin = () => {
       sites: formData.sites,
       createdAt: new Date().toISOString(),
       createdBy: user?.email,
+      password: generateTempPassword(),
+      mustChangePassword: true,
     };
 
     // Add user to localStorage (mock implementation)
-    const updatedUsers = [...allUsers, newUser];
-    localStorage.setItem('mockUsers', JSON.stringify(updatedUsers));
+    const updatedUsers = [...getStoredUsers(), newUser];
+    saveUsers(updatedUsers);
 
     // Refresh users list
     refreshUsers();
@@ -111,6 +162,7 @@ const Admin = () => {
       title: "Success",
       description: `User ${formData.email} has been added`,
     });
+    setTempPasswordInfo({ email: newUser.email, password: newUser.password || '', action: 'created' });
 
     resetForm();
     setIsAddModalOpen(false);
@@ -118,15 +170,31 @@ const Admin = () => {
 
   const handleEditUser = () => {
     if (!selectedUser) return;
+    if (!isMasterAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "Only the master admin can update users.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!isLmlEmail(selectedUser.email)) {
+      toast({
+        title: "Validation Error",
+        description: "Only @lmllift.com users can have roles updated.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const updatedUsers = allUsers.map(u =>
+    const updatedUsers = getStoredUsers().map(u =>
       u.email === selectedUser.email
         ? { ...u, role: formData.role, sites: formData.sites }
         : u
     );
 
     // Update in localStorage
-    localStorage.setItem('mockUsers', JSON.stringify(updatedUsers));
+    saveUsers(updatedUsers);
 
     // Refresh users list
     refreshUsers();
@@ -152,6 +220,14 @@ const Admin = () => {
   };
 
   const handleDeleteUser = (userToDelete: User) => {
+    if (!isMasterAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "Only the master admin can delete users.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (userToDelete.email === user?.email) {
       toast({
         title: "Error",
@@ -162,10 +238,10 @@ const Admin = () => {
     }
 
     if (window.confirm(`Are you sure you want to delete user ${userToDelete.email}?`)) {
-      const updatedUsers = allUsers.filter(u => u.email !== userToDelete.email);
+      const updatedUsers = getStoredUsers().filter(u => u.email !== userToDelete.email);
 
       // Update in localStorage
-      localStorage.setItem('mockUsers', JSON.stringify(updatedUsers));
+      saveUsers(updatedUsers);
 
       // Refresh users list
       refreshUsers();
@@ -175,6 +251,30 @@ const Admin = () => {
         description: `User ${userToDelete.email} has been deleted`,
       });
     }
+  };
+
+  const handleResetPassword = (userToReset: User) => {
+    if (!isMasterAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "Only the master admin can reset passwords.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const tempPassword = generateTempPassword();
+    const updatedUsers = getStoredUsers().map((u) =>
+      u.email === userToReset.email
+        ? { ...u, password: tempPassword, mustChangePassword: true }
+        : u
+    );
+    saveUsers(updatedUsers);
+    refreshUsers();
+    toast({
+      title: "Password reset",
+      description: `Temporary password generated for ${userToReset.email}`,
+    });
+    setTempPasswordInfo({ email: userToReset.email, password: tempPassword, action: 'reset' });
   };
 
   const resetTemplateForm = () => {
@@ -307,47 +407,38 @@ const Admin = () => {
 
       <div className="container mx-auto p-6 space-y-6">
         {/* Page Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Shield className="h-8 w-8" />
-              Admin Panel
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Manage users and system settings
-            </p>
-          </div>
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Shield className="h-8 w-8" />
+            Admin Panel
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Manage users and system settings
+          </p>
         </div>
 
         {/* Proposal Templates Section */}
-        <div className="flex items-center justify-between mt-8">
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <FileText className="h-6 w-6" />
-              Proposal Templates
-            </h2>
-            <p className="text-muted-foreground mt-1">
-              Create and manage proposal templates with pre-defined stages
-            </p>
-          </div>
-          <Button onClick={() => setIsAddTemplateModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Template
-          </Button>
-        </div>
-
-        {/* Templates Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Templates ({templates.length})
-            </CardTitle>
+        <Card className="border-l-4 border-primary/70">
+          <CardHeader className="flex flex-row items-start justify-between gap-4 bg-muted/30">
+            <div>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Proposal Templates
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Create and manage proposal templates with pre-defined stages
+              </p>
+            </div>
+            <Button onClick={() => setIsAddTemplateModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Template
+            </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
+            <div className="text-sm font-semibold text-muted-foreground mb-3">
+              Templates ({templates.length})
+            </div>
+
             {templates.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -410,13 +501,30 @@ const Admin = () => {
         </Card>
 
         {/* Users Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Users ({allUsers.length})
-            </CardTitle>
+        <Card className="border-l-4 border-emerald-500/70">
+          <CardHeader className="flex flex-row items-start justify-between gap-4 bg-emerald-50/40">
+            <div>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <UserPlus className="h-5 w-5" />
+                Users ({allUsers.length})
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Manage user access, roles, and site visibility
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button onClick={() => setIsAddModalOpen(true)} disabled={!isMasterAdmin}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+              {!isMasterAdmin && (
+                <p className="text-xs text-muted-foreground">
+                  Only leah@lmllift.com can create or update users.
+                </p>
+              )}
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {allUsers.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <UserPlus className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -469,8 +577,18 @@ const Admin = () => {
                               variant="ghost"
                               onClick={() => openEditModal(u)}
                               title="Edit"
+                              disabled={!isMasterAdmin || !isLmlEmail(u.email)}
                             >
                               <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleResetPassword(u)}
+                              title="Reset password"
+                              disabled={!isMasterAdmin || !isLmlEmail(u.email)}
+                            >
+                              <KeyRound className="h-4 w-4" />
                             </Button>
                             {u.email !== user?.email && (
                               <Button
@@ -478,6 +596,7 @@ const Admin = () => {
                                 variant="ghost"
                                 onClick={() => handleDeleteUser(u)}
                                 title="Delete"
+                                disabled={!isMasterAdmin}
                               >
                                 <Trash2 className="h-4 w-4 text-red-600" />
                               </Button>
@@ -526,12 +645,17 @@ const Admin = () => {
 
             <div>
               <Label htmlFor="role">Role *</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as User['role'] })}>
+              <Select
+                value={formData.role}
+                onValueChange={(value) => setFormData({ ...formData, role: value as User['role'] })}
+                disabled={!isMasterAdmin || !isLmlEmail(formData.email || selectedUser?.email || '')}
+              >
                 <SelectTrigger id="role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="subconsultant">Subconsultant</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
@@ -544,8 +668,14 @@ const Admin = () => {
               <ul className="text-sm text-muted-foreground mt-2 space-y-1">
                 <li>• <strong>User:</strong> Full feature access</li>
                 <li>• <strong>Admin:</strong> Full feature access + user management</li>
+                <li>• <strong>Subconsultant:</strong> Full access, limited to assigned projects</li>
               </ul>
             </div>
+            {!isEditModalOpen && (
+              <div className="text-xs text-muted-foreground">
+                A temporary password will be generated and the user will be prompted to change it on first login.
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -557,9 +687,45 @@ const Admin = () => {
             }}>
               Cancel
             </Button>
-            <Button onClick={isEditModalOpen ? handleEditUser : handleAddUser}>
+            <Button onClick={isEditModalOpen ? handleEditUser : handleAddUser} disabled={!isMasterAdmin}>
               {isEditModalOpen ? 'Update User' : 'Add User'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Temporary Password Dialog */}
+      <Dialog open={!!tempPasswordInfo} onOpenChange={(open) => !open && setTempPasswordInfo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {tempPasswordInfo?.action === 'created' ? 'User Created' : 'Password Reset'}
+            </DialogTitle>
+            <DialogDescription>
+              Share this temporary password securely with the user.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-sm text-muted-foreground">
+              User: <strong>{tempPasswordInfo?.email}</strong>
+            </div>
+            <div className="rounded-md border bg-muted/30 px-3 py-2 font-mono text-sm">
+              {tempPasswordInfo?.password}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (tempPasswordInfo?.password) {
+                  await navigator.clipboard.writeText(tempPasswordInfo.password);
+                  toast({ title: 'Copied', description: 'Temporary password copied to clipboard.' });
+                }
+              }}
+            >
+              Copy Password
+            </Button>
+            <Button onClick={() => setTempPasswordInfo(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
