@@ -16,10 +16,7 @@
       "Bash(az functionapp config appsettings list:*)",
       "Bash(func azure functionapp publish:*)",
       "Bash(npm run build:dev:*)",
-      "Bash(npm run dev:*)",
-      "Bash(git commit:*)",
-      "Bash(npm install:*)",
-      "Bash(dir \"C:\\\\Users\\\\leahmartinez\\\\lml-file-management\\\\api\\\\src\\\\handlers\")"
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []
