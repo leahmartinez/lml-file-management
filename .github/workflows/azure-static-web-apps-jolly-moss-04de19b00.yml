@@ -3,11 +3,11 @@ name: Azure Static Web Apps CI/CD
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
-      - main
+      - master
 
 jobs:
   build_and_deploy_job:
@@ -40,25 +40,25 @@ jobs:
       - name: Check file count before cleanup
         run: |
           echo "=== PRE-CLEANUP FILE COUNT CHECK ==="
-          FILE_COUNT=$(find build -type f | wc -l)
+          FILE_COUNT=$(find dist -type f | wc -l)
           echo "Total files before cleanup: $FILE_COUNT"
           if [ "$FILE_COUNT" -gt 1200 ]; then
             echo "❌ ERROR: File count ($FILE_COUNT) is too high before cleanup"
-            echo "This indicates a build configuration issue."
+            echo "This indicates a dist configuration issue."
             echo ""
             echo "Top 100 files by size:"
-            find build -type f -exec ls -lh {} \; | awk '{printf "%10s %s\n", $5, $9}' | sort -hr | head -100
+            find dist -type f -exec ls -lh {} \; | awk '{printf "%10s %s\n", $5, $9}' | sort -hr | head -100
             exit 1
           fi
       - name: Copy only needed public files
         run: |
           # Copy only essential files from public (exclude data files)
           echo "Copying essential public files..."
-          mkdir -p build
+          mkdir -p dist
           # Copy robots.txt if it exists
-          [ -f public/robots.txt ] && cp public/robots.txt build/ || true
+          [ -f public/robots.txt ] && cp public/robots.txt dist/ || true
           # Copy placeholder.svg if it exists
-          [ -f public/placeholder.svg ] && cp public/placeholder.svg build/ || true
+          [ -f public/placeholder.svg ] && cp public/placeholder.svg dist/ || true
           # Don't copy CSV, PDF, or users.json (they're in blob storage)
           echo "Skipped data files (hosted in blob storage)"
       - name: Analyze build output
@@ -66,129 +66,129 @@ jobs:
           echo "=== DETAILED BUILD ANALYSIS ==="
           echo ""
           echo "📊 Total file count:"
-          find build -type f | wc -l
+          find dist -type f | wc -l
           echo ""
           echo "📦 Total directory size:"
-          du -sh build || du -h build | tail -1
+          du -sh dist || du -h dist | tail -1
           echo ""
           echo "📁 Directory structure:"
-          find build -type d | head -30
+          find dist -type d | head -30
           echo ""
           echo "🔍 Top 50 largest files (with sizes):"
-          find build -type f -exec ls -lh {} \; | awk '{print $5, $9}' | sort -hr | head -50
+          find dist -type f -exec ls -lh {} \; | awk '{print $5, $9}' | sort -hr | head -50
           echo ""
           echo "📈 File count by extension:"
-          find build -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -30
+          find dist -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -30
           echo ""
           echo "📂 File count by directory:"
-          find build -type f | sed 's|/[^/]*$||' | sort | uniq -c | sort -rn | head -20
+          find dist -type f | sed 's|/[^/]*$||' | sort | uniq -c | sort -rn | head -20
           echo ""
           echo "💾 Size breakdown by extension:"
-          for ext in $(find build -type f | sed 's/.*\.//' | sort -u); do
-            size=$(find build -type f -name "*.$ext" -exec du -ch {} + | tail -1 | cut -f1)
-            count=$(find build -type f -name "*.$ext" | wc -l)
+          for ext in $(find dist -type f | sed 's/.*\.//' | sort -u); do
+            size=$(find dist -type f -name "*.$ext" -exec du -ch {} + | tail -1 | cut -f1)
+            count=$(find dist -type f -name "*.$ext" | wc -l)
             echo "  .$ext: $count files, total size: $size"
           done
           echo ""
           echo "🔎 All files (sorted by size):"
-          find build -type f -exec ls -lh {} \; | awk '{printf "%10s %s\n", $5, $9}' | sort -hr | head -100
+          find dist -type f -exec ls -lh {} \; | awk '{printf "%10s %s\n", $5, $9}' | sort -hr | head -100
       - name: Clean up unnecessary files
         run: |
           echo "=== Starting Cleanup ==="
           
           # Remove data files that are hosted in blob storage (MUST be removed)
           echo "Removing data files (hosted in blob storage)..."
-          find build -name "*.csv" -type f -delete || true
-          find build -name "*.pdf" -type f -delete || true
-          find build -name "users.json" -type f -delete || true
+          find dist -name "*.csv" -type f -delete || true
+          find dist -name "*.pdf" -type f -delete || true
+          find dist -name "users.json" -type f -delete || true
           
           # Remove any source maps if they exist
           echo "Removing source maps..."
-          find build -name "*.map" -type f -delete || true
+          find dist -name "*.map" -type f -delete || true
           
           # Remove duplicate/backup files
           echo "Removing backup files..."
-          find build -name "*_updated.csv" -type f -delete || true
-          find build -name "*.backup" -type f -delete || true
-          find build -name "*.bak" -type f -delete || true
+          find dist -name "*_updated.csv" -type f -delete || true
+          find dist -name "*.backup" -type f -delete || true
+          find dist -name "*.bak" -type f -delete || true
           
           # Remove any hidden files (except .gitkeep)
           echo "Removing hidden files..."
-          find build -name ".*" -type f ! -name ".gitkeep" -delete || true
+          find dist -name ".*" -type f ! -name ".gitkeep" -delete || true
           
           # Remove empty directories
           echo "Removing empty directories..."
-          find build -type d -empty -delete || true
+          find dist -type d -empty -delete || true
           
           # Remove any test files that might have been included
           echo "Removing test files..."
-          find build -name "*.test.*" -type f -delete || true
-          find build -name "*.spec.*" -type f -delete || true
-          find build -path "*/__tests__/*" -type f -delete || true
+          find dist -name "*.test.*" -type f -delete || true
+          find dist -name "*.spec.*" -type f -delete || true
+          find dist -path "*/__tests__/*" -type f -delete || true
           
           # Remove documentation files
           echo "Removing documentation files..."
-          find build -name "*.md" -type f ! -name "README.md" -delete || true
+          find dist -name "*.md" -type f ! -name "README.md" -delete || true
           
           # Remove any node_modules if accidentally included
           echo "Removing node_modules if present..."
-          find build -name "node_modules" -type d -exec rm -rf {} + || true
+          find dist -name "node_modules" -type d -exec rm -rf {} + || true
           
           # Remove package files
           echo "Removing package files..."
-          find build -name "package.json" -type f -delete || true
-          find build -name "package-lock.json" -type f -delete || true
-          find build -name "tsconfig.json" -type f -delete || true
-          find build -name "vite.config.*" -type f -delete || true
+          find dist -name "package.json" -type f -delete || true
+          find dist -name "package-lock.json" -type f -delete || true
+          find dist -name "tsconfig.json" -type f -delete || true
+          find dist -name "vite.config.*" -type f -delete || true
           
           # Remove any TypeScript source files
           echo "Removing TypeScript source files..."
-          find build -name "*.ts" -type f -delete || true
-          find build -name "*.tsx" -type f -delete || true
+          find dist -name "*.ts" -type f -delete || true
+          find dist -name "*.tsx" -type f -delete || true
           
           # Remove any JSON config files that might have been included
           echo "Removing config files..."
-          find build -name "tsconfig*.json" -type f -delete || true
-          find build -name "*.config.js" -type f -delete || true
-          find build -name "*.config.mjs" -type f -delete || true
+          find dist -name "tsconfig*.json" -type f -delete || true
+          find dist -name "*.config.js" -type f -delete || true
+          find dist -name "*.config.mjs" -type f -delete || true
           
           # Remove any duplicate index files (should only have one index.html)
           echo "Checking for duplicate files..."
-          find build -name "index*.html" ! -name "index.html" -type f -delete || true
+          find dist -name "index*.html" ! -name "index.html" -type f -delete || true
           
           # Final cleanup - remove empty directories again
-          find build -type d -empty -delete || true
+          find dist -type d -empty -delete || true
           
           echo "=== Post-cleanup Analysis ==="
           echo ""
           echo "📊 Final file count:"
-          find build -type f | wc -l
+          find dist -type f | wc -l
           echo ""
           echo "📦 Final directory size:"
-          du -sh build || du -h build | tail -1
+          du -sh dist || du -h dist | tail -1
           echo ""
           echo "🔍 Top 30 largest files after cleanup:"
-          find build -type f -exec ls -lh {} \; | awk '{print $5, $9}' | sort -hr | head -30
+          find dist -type f -exec ls -lh {} \; | awk '{print $5, $9}' | sort -hr | head -30
           echo ""
           echo "📈 Final file count by extension:"
-          find build -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -20
+          find dist -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -20
           echo ""
           echo "📋 Complete file listing (all files):"
-          find build -type f | sort
+          find dist -type f | sort
           echo ""
           echo "⚠️  FILE COUNT CHECK:"
-          FILE_COUNT=$(find build -type f | wc -l)
+          FILE_COUNT=$(find dist -type f | wc -l)
           echo "Total files: $FILE_COUNT"
           if [ "$FILE_COUNT" -gt 1000 ]; then
             echo "❌ ERROR: File count ($FILE_COUNT) exceeds Azure's limit (~1000 files)"
             echo "This deployment will fail. Please review the file listing above."
             echo ""
             echo "Breaking down files by type:"
-            echo "JavaScript files: $(find build -name '*.js' -type f | wc -l)"
-            echo "CSS files: $(find build -name '*.css' -type f | wc -l)"
-            echo "Image files: $(find build -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.gif' -o -name '*.svg' -o -name '*.webp' -type f | wc -l)"
-            echo "Font files: $(find build -name '*.woff' -o -name '*.woff2' -o -name '*.ttf' -o -name '*.eot' -type f | wc -l)"
-            echo "Other files: $(find build -type f ! -name '*.js' ! -name '*.css' ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' ! -name '*.gif' ! -name '*.svg' ! -name '*.webp' ! -name '*.woff' ! -name '*.woff2' ! -name '*.ttf' ! -name '*.eot' ! -name '*.html' ! -name '*.json' | wc -l)"
+            echo "JavaScript files: $(find dist -name '*.js' -type f | wc -l)"
+            echo "CSS files: $(find dist -name '*.css' -type f | wc -l)"
+            echo "Image files: $(find dist -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.gif' -o -name '*.svg' -o -name '*.webp' -type f | wc -l)"
+            echo "Font files: $(find dist -name '*.woff' -o -name '*.woff2' -o -name '*.ttf' -o -name '*.eot' -type f | wc -l)"
+            echo "Other files: $(find dist -type f ! -name '*.js' ! -name '*.css' ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' ! -name '*.gif' ! -name '*.svg' ! -name '*.webp' ! -name '*.woff' ! -name '*.woff2' ! -name '*.ttf' ! -name '*.eot' ! -name '*.html' ! -name '*.json' | wc -l)"
             exit 1
           elif [ "$FILE_COUNT" -gt 800 ]; then
             echo "⚠️  WARNING: File count ($FILE_COUNT) is approaching Azure's limit"
@@ -213,9 +213,9 @@ jobs:
           action: "upload"
           ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
-          app_location: "build" # Deploy only the build directory
+          app_location: "dist" # Deploy only the dist directory
           api_location: "" # API deployed separately to Azure Functions (liftwatch-api-flex)
-          output_location: "" # Already in build, no further subdirectory
+          output_location: "" # Already in dist, no further subdirectory
           skip_app_build: true # Build already completed
           github_id_token: ${{ steps.idtoken.outputs.result }}
           ###### End of Repository/Build Configurations ######
@@ -231,3 +231,4 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_JOLLY_MOSS_04DE19B00 }}
           action: "close"
+
