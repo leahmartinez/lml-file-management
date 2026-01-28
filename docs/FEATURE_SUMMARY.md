@@ -100,7 +100,7 @@ npm run build
 # Test with curl
 curl -X POST https://your-api.azurewebsites.net/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@liftwatch.com","password":"password"}'
+  -d '{"email":"leah@lmllift.com","password":"password"}'
 ```
 
 ### Option 2: Wait for Full Integration
@@ -307,10 +307,12 @@ cd api && npm start  # Backend
 cd api
 npm install
 npm run build
-func azure functionapp publish liftwatch-api
+func azure functionapp publish lml-api
 ```
 
 ---
 
 **Ready to proceed?** Let me know which path you want to take! 🚀
+
+
 

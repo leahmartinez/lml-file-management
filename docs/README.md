@@ -1,6 +1,6 @@
-# LiftWatch Documentation
+# LML Documentation
 
-This directory contains all technical documentation for the LiftWatch Asset View application.
+This directory contains all technical documentation for the LML Asset View application.
 
 ## 📚 Documentation Index
 
@@ -47,4 +47,5 @@ When making changes to the system:
 ---
 
 Last Updated: November 8, 2025
+
 

@@ -48,7 +48,7 @@ Your API functions need these environment variables to work:
   - Or use any secure random string generator
 
 ### ALLOWED_ORIGINS
-- **Value**: `https://jolly-moss-04de19b00.3.azurestaticapps.net,http://localhost:8080`
+- **Value**: `https://your-app.azurestaticapps.net,http://localhost:8080`
 - Add your production domain and any development URLs
 
 2. Click **Save** after adding all three settings
@@ -59,13 +59,13 @@ After setting the environment variables, initialize the database:
 
 1. Open a browser or use curl:
    ```
-   GET https://jolly-moss-04de19b00.3.azurestaticapps.net/api/initialize
+   GET https://your-app.azurestaticapps.net/api/initialize
    ```
 
 2. This will:
    - Create the Users table in Azure Table Storage
    - Create an initial admin user:
-     - **Email**: `admin@liftwatch.com`
+     - **Email**: `leah@lmllift.com`
      - **Password**: `password`
 
 ## Step 4: Verify the Fix
@@ -116,4 +116,6 @@ After setting the environment variables, initialize the database:
 - ✅ Added troubleshooting guide for 500 errors
 
 The `.nvmrc` file will be automatically picked up by Azure Static Web Apps, but setting `WEBSITE_NODE_DEFAULT_VERSION` in the portal ensures it's used.
+
+
 

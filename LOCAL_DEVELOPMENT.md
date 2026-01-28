@@ -140,7 +140,7 @@ This tells the app to:
 
 ### "Failed to load resource: 404" Errors
 
-These are expected if the old LiftWatch API is referenced. The app should:
+These are expected if the old LML API is referenced. The app should:
 - Skip these errors (they're from old asset features)
 - Continue to function with mock data
 - Show all projects and sites correctly
@@ -149,7 +149,7 @@ These are expected if the old LiftWatch API is referenced. The app should:
 
 If you see any API calls to:
 - `localhost:7071`
-- `liftwatch-api-flex.azurewebsites.net`
+- `your-api.azurewebsites.net`
 - Other Azure URLs
 
 This indicates the app is trying to use backend APIs instead of mock data. Check that `.env.local` is properly set with `VITE_USE_MOCK_DATA=true`.
@@ -272,3 +272,5 @@ For issues or questions:
 2. Verify `.env.local` exists with `VITE_USE_MOCK_DATA=true`
 3. Confirm you're using correct test user credentials
 4. Restart the dev server if changes don't appear
+
+

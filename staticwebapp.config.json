@@ -23,7 +23,7 @@
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "X-XSS-Protection": "1; mode=block",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://liftwatch-api-flex.azurewebsites.net https://view.officeapps.live.com https://*.blob.core.windows.net https://nominatim.openstreetmap.org;"
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.azurewebsites.net https://login.microsoftonline.com https://graph.microsoft.com https://view.officeapps.live.com https://*.blob.core.windows.net https://nominatim.openstreetmap.org;"
   }
 }
 

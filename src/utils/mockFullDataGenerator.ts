@@ -5,9 +5,9 @@
 
 import { Site, Unit, DirectoryContact, Project, ProjectStage, ProjectStageName, ProjectState, Proposal, ExternalContact } from '@/types/data';
 
-const SITES_STORAGE_KEY = 'liftwatch_sites';
-const EXTERNAL_CONTACTS_KEY = 'liftwatch_external_contacts';
-const PROJECTS_STORAGE_KEY = 'liftwatch_projects';
+const SITES_STORAGE_KEY = 'lml_sites';
+const EXTERNAL_CONTACTS_KEY = 'lml_external_contacts';
+const PROJECTS_STORAGE_KEY = 'lml_projects';
 const INIT_VERSION_KEY = 'mockDataVersion';
 const CURRENT_VERSION = '1.2'; // Bumped to clear phantom projects PV0004, PV0005 from old localStorage
 
@@ -369,7 +369,7 @@ export function initializeAllMockData(): void {
     localStorage.setItem(SITES_STORAGE_KEY, JSON.stringify(sites));
     localStorage.setItem(EXTERNAL_CONTACTS_KEY, JSON.stringify(contacts));
     localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
-    localStorage.setItem('liftwatch_proposals', JSON.stringify(proposals));
+    localStorage.setItem('lml_proposals', JSON.stringify(proposals));
     localStorage.setItem('mockDataInitialized', 'true'); // Mark initialization as complete
     localStorage.setItem(INIT_VERSION_KEY, CURRENT_VERSION); // Store version for future checks
 
@@ -390,7 +390,7 @@ export function clearAllMockData(): void {
   localStorage.removeItem(SITES_STORAGE_KEY);
   localStorage.removeItem(EXTERNAL_CONTACTS_KEY);
   localStorage.removeItem(PROJECTS_STORAGE_KEY);
-  localStorage.removeItem('liftwatch_proposals');
+  localStorage.removeItem('lml_proposals');
   localStorage.removeItem('mockDataInitialized'); // Clear initialization flag
   console.log('[mockFullDataGenerator] Cleared all mock data');
 }

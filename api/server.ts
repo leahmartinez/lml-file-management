@@ -23,8 +23,13 @@ const app = express();
 const PORT = 7071;
 
 // Middleware
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:8080')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: ['http://localhost:8080', 'https://jolly-moss-04de19b00.3.azurestaticapps.net'],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json());
@@ -273,7 +278,7 @@ app.get('/api/initialize', async (req, res) => {
     await initializeDatabase();
     res.json({
       message: 'Database initialized successfully',
-      info: 'Initial admin user: admin@liftwatch.com / password',
+      info: 'Initial admin user: leah@lmllift.com / password',
     });
   } catch (err: any) {
     console.error('Initialize error:', err);
@@ -290,7 +295,7 @@ async function start() {
     
     app.listen(PORT, () => {
       console.log('');
-      console.log('🚀 LiftWatch API Server Running!');
+      console.log('🚀 LML API Server Running!');
       console.log(`📍 URL: http://localhost:${PORT}`);
       console.log('');
       console.log('📋 Available Endpoints:');
@@ -303,10 +308,7 @@ async function start() {
       console.log('   GET    /api/initialize');
       console.log('');
       console.log('🧪 Test users (password: "password"):');
-      console.log('   - admin@liftwatch.com');
-      console.log('   - manager@liftwatch.com');
-      console.log('   - sitemanager@liftwatch.com');
-      console.log('   - consultant@liftwatch.com');
+      console.log('   - leah@lmllift.com');
       console.log('');
       console.log('Press Ctrl+C to stop');
     });

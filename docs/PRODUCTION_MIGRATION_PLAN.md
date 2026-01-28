@@ -133,7 +133,7 @@ func new --template "HTTP trigger" --name data
 // Store users with roles
 {
   id: "user-123",
-  email: "admin@liftwatch.com",
+  email: "leah@lmllift.com",
   passwordHash: "$2b$10$...", // bcrypt
   role: "admin",
   sites: [],
@@ -179,8 +179,8 @@ export async function createUser(req: HttpRequest) {
 ```bash
 # Azure CLI
 az storage container set-permission \
-  --name liftwatch-data \
-  --account-name liftwatchdata \
+  --name lml-data \
+  --account-name lmldata \
   --public-access off
 ```
 
@@ -433,4 +433,5 @@ This approach:
 ---
 
 **Ready to proceed?** Let me know which option you'd like (Quick Start or Full Implementation) and I'll start building it!
+
 

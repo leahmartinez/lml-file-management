@@ -2,7 +2,7 @@
 
 ## Overview
 
-The LiftWatch Asset View application now includes **Azure Communication Services (ACS) Email** integration for sending transactional emails. This guide explains the implementation, setup, and deployment of the email service.
+The LML Work Management application now includes **Azure Communication Services (ACS) Email** integration for sending transactional emails. This guide explains the implementation, setup, and deployment of the email service.
 
 ---
 
@@ -49,8 +49,8 @@ The system supports the following email templates:
 3. Search for "Communication Services"
 4. Click "Create"
 5. Fill in the details:
-   - **Resource Group**: `liftwatch-rg` (or your resource group)
-   - **Resource Name**: `liftwatch-email` (or your preferred name)
+   - **Resource Group**: `lml-rg` (or your resource group)
+   - **Resource Name**: `lml-email` (or your preferred name)
    - **Data Location**: Select a region close to you
 6. Click "Review + Create" → "Create"
 7. Wait for deployment to complete
@@ -87,7 +87,7 @@ After creating the Communication Services resource, you have two options:
 Add these environment variables to your Azure Function App:
 
 **Via Azure Portal:**
-1. Go to your Function App: `liftwatch-api-flex`
+1. Go to your Function App: `lml-api-flex`
 2. Click **Configuration** (left sidebar)
 3. Click **+ New application setting**
 4. Add the following settings:
@@ -105,7 +105,7 @@ Add these environment variables to your Azure Function App:
 Push the `dev` branch with the email service implementation:
 
 ```bash
-cd c:\Users\leahmartinez\liftwatch-asset-view
+cd c:\Users\leahmartinez\lml-file-management
 git checkout main
 git merge dev
 git push origin main
@@ -131,7 +131,7 @@ When you trigger email-sending actions (register, password reset, etc.), you'll 
 ```
 📧 ===== EMAIL (Local Development) =====
 To: user@example.com
-Subject: Verify Your Email - LiftWatch Asset View
+Subject: Verify Your Email - LML Work Management
 ------- HTML Body -------
 <!DOCTYPE html>
 ...
@@ -220,7 +220,7 @@ Azure Portal → Function App → Configuration → Edit SENDER_EMAIL
 Azure Portal → Function App → Configuration → Edit APP_URL
 ```
 
-Example: `https://jolly-moss-04de19b00.3.azurestaticapps.net`
+Example: `https://your-app.azurestaticapps.net`
 
 ---
 
@@ -283,3 +283,6 @@ The email service is now fully integrated and ready for:
 - ✅ User invitations
 
 All email sending is production-ready with Azure Communication Services and will work seamlessly once the environment variables are configured.
+
+
+

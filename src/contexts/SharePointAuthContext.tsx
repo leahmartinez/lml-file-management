@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useCallback, useEffect, useState } from 'react';
-import { msalInstance, loginRequest, graphScopes } from '@/lib/msalConfig';
+import { msalInstance, loginRequest, graphScopes, isMsalConfigured } from '@/lib/msalConfig';
 import { AccountInfo } from '@azure/msal-browser';
 
 interface SharePointAuthContextType {
@@ -35,6 +35,10 @@ export const SharePointAuthProvider: React.FC<SharePointAuthProviderProps> = ({ 
   useEffect(() => {
     const initializeMsal = async () => {
       try {
+        if (!isMsalConfigured) {
+          setIsLoading(false);
+          return;
+        }
         await msalInstance.initialize();
 
         const accounts = msalInstance.getAllAccounts();
@@ -59,6 +63,9 @@ export const SharePointAuthProvider: React.FC<SharePointAuthProviderProps> = ({ 
   useEffect(() => {
     const handleRedirect = async () => {
       try {
+        if (!isMsalConfigured) {
+          return;
+        }
         // This handles the redirect from Azure AD login
         const result = await msalInstance.handleRedirectPromise();
         if (result) {
@@ -77,6 +84,9 @@ export const SharePointAuthProvider: React.FC<SharePointAuthProviderProps> = ({ 
 
   const login = useCallback(async () => {
     try {
+      if (!isMsalConfigured) {
+        throw new Error('SharePoint integration is not configured.');
+      }
       setError(null);
       setIsLoading(true);
 
@@ -96,6 +106,11 @@ export const SharePointAuthProvider: React.FC<SharePointAuthProviderProps> = ({ 
 
   const logout = useCallback(async () => {
     try {
+      if (!isMsalConfigured) {
+        setAccount(null);
+        setIsAuthenticated(false);
+        return;
+      }
       setError(null);
       setIsLoading(true);
 
@@ -113,6 +128,9 @@ export const SharePointAuthProvider: React.FC<SharePointAuthProviderProps> = ({ 
 
   const getAccessToken = useCallback(async (): Promise<string> => {
     try {
+      if (!isMsalConfigured) {
+        throw new Error('SharePoint integration is not configured.');
+      }
       if (!account) {
         throw new Error('No authenticated account found');
       }

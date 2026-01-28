@@ -5,7 +5,7 @@
 
 import { Proposal, ProjectState } from '@/types/data';
 
-const PROPOSALS_STORAGE_KEY = 'liftwatch_proposals';
+const PROPOSALS_STORAGE_KEY = 'lml_proposals';
 
 /**
  * Generate mock proposals for a given set of projects

@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Proposal, ProposalStatus, ProjectState } from '@/types/data';
 import { toast } from '@/hooks/use-toast';
 
-const PROPOSALS_STORAGE_KEY = 'liftwatch_proposals';
+const PROPOSALS_STORAGE_KEY = 'lml_proposals';
 
 /**
  * Hook for managing proposals

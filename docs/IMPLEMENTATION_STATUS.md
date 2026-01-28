@@ -73,7 +73,7 @@ These are the frontend updates needed to connect to the API:
 Create `src/config/api.ts`:
 ```typescript
 export const API_BASE_URL = import.meta.env.PROD 
-  ? 'https://liftwatch-api.azurewebsites.net/api'  // Update after deployment
+  ? 'https://lml-api.azurewebsites.net/api'  // Update after deployment
   : 'http://localhost:7071/api';
 
 export const API_ENDPOINTS = {
@@ -160,19 +160,19 @@ You can deploy the API now and test it independently:
 cd api
 npm install
 npm run build
-func azure functionapp publish liftwatch-api
-curl https://liftwatch-api.azurewebsites.net/api/initialize
+func azure functionapp publish lml-api
+curl https://lml-api.azurewebsites.net/api/initialize
 ```
 
 2. **Test with Postman/curl**:
 ```bash
 # Login
-curl -X POST https://liftwatch-api.azurewebsites.net/api/auth/login \
+curl -X POST https://lml-api.azurewebsites.net/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@liftwatch.com","password":"password"}'
+  -d '{"email":"leah@lmllift.com","password":"password"}'
 
 # Get token from response, then:
-curl https://liftwatch-api.azurewebsites.net/api/users \
+curl https://lml-api.azurewebsites.net/api/users \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
@@ -301,4 +301,6 @@ Need to decide on approach:
 
 **Branch**: `feature/server-side-auth`  
 **To merge**: Test thoroughly, then merge to `main`
+
+
 

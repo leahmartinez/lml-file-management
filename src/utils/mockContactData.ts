@@ -9,7 +9,7 @@ import { UserProfile, ExternalContact, DirectoryContact, Business } from '@/type
  * Cache for external contacts in dev mode
  * Uses localStorage to persist external contacts across logout/login
  */
-const EXTERNAL_CONTACTS_CACHE_KEY = 'liftwatch_external_contacts';
+const EXTERNAL_CONTACTS_CACHE_KEY = 'lml_external_contacts';
 
 function getExternalContactsCache(): ExternalContact[] {
   try {
@@ -106,7 +106,7 @@ export function deleteExternalContact(id: string): boolean {
  * Cache for profile updates in dev mode
  * Uses localStorage to persist profile changes across logout/login
  */
-const PROFILE_CACHE_KEY = 'liftwatch_profile_cache';
+const PROFILE_CACHE_KEY = 'lml_profile_cache';
 
 function getProfileCache(): { [email: string]: Partial<UserProfile> } {
   try {
@@ -204,7 +204,7 @@ export function getMockCategories(): string[] {
  * Cache for businesses in dev mode
  * Uses localStorage to persist businesses across logout/login
  */
-const BUSINESSES_CACHE_KEY = 'liftwatch_businesses';
+const BUSINESSES_CACHE_KEY = 'lml_businesses';
 
 function getBusinessesCache(): Business[] {
   try {

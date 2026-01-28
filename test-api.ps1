@@ -1,7 +1,7 @@
 # API Testing Script
 # Quick PowerShell script to test all API endpoints
 
-Write-Host "🧪 Testing LiftWatch API" -ForegroundColor Cyan
+Write-Host "🧪 Testing LML API" -ForegroundColor Cyan
 Write-Host "API URL: http://localhost:7071" -ForegroundColor Gray
 Write-Host ""
 
@@ -11,7 +11,7 @@ try {
     $loginResponse = Invoke-RestMethod -Uri 'http://localhost:7071/api/auth/login' `
         -Method POST `
         -ContentType 'application/json' `
-        -Body '{"email":"admin@liftwatch.com","password":"password"}'
+        -Body '{"email":"leah@lmllift.com","password":"password"}'
     
     Write-Host "✅ Login successful!" -ForegroundColor Green
     Write-Host "User: $($loginResponse.user.email)" -ForegroundColor Gray
@@ -116,7 +116,7 @@ try {
 # Test 7: Security - Try to delete self
 Write-Host "7️⃣  Testing Security (Self-Deletion Prevention)..." -ForegroundColor Yellow
 try {
-    $result = Invoke-RestMethod -Uri 'http://localhost:7071/api/users/admin@liftwatch.com' `
+    $result = Invoke-RestMethod -Uri 'http://localhost:7071/api/users/leah@lmllift.com' `
         -Method DELETE `
         -Headers $headers
     
@@ -133,7 +133,7 @@ try {
     $badLogin = Invoke-RestMethod -Uri 'http://localhost:7071/api/auth/login' `
         -Method POST `
         -ContentType 'application/json' `
-        -Body '{"email":"admin@liftwatch.com","password":"wrongpassword"}'
+        -Body '{"email":"leah@lmllift.com","password":"wrongpassword"}'
     
     Write-Host "❌ SECURITY ISSUE: Should reject wrong password!" -ForegroundColor Red
     
@@ -151,4 +151,5 @@ Write-Host "✅ User management works" -ForegroundColor Green
 Write-Host "✅ Security checks pass" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next: Deploy to Azure or update frontend" -ForegroundColor Yellow
+
 

@@ -1,6 +1,6 @@
 # Azure Static Web Apps Deployment Guide
 
-This guide explains how to deploy the LiftWatch Asset View application to Azure Static Web Apps.
+This guide explains how to deploy the LML Work Management application to Azure Static Web Apps.
 
 ## Prerequisites
 
@@ -20,13 +20,13 @@ This guide explains how to deploy the LiftWatch Asset View application to Azure 
 5. Fill in the details:
    - **Subscription**: Your Azure subscription
    - **Resource Group**: Create new or use existing
-   - **Name**: `liftwatch-asset-view` (or your preferred name)
+   - **Name**: `lml-file-management` (or your preferred name)
    - **Plan type**: Free or Standard
    - **Region**: Choose closest region
    - **Source**: GitHub
    - **GitHub account**: Sign in and authorize
    - **Organization**: Your GitHub organization/username
-   - **Repository**: `liftwatch-asset-view` (or your repo name)
+   - **Repository**: `lml-file-management` (or your repo name)
    - **Branch**: `main` or `dev`
    - **Build Presets**: Custom
    - **App location**: `/`
@@ -91,7 +91,7 @@ The API functions require the following environment variables:
    - `JWT_SECRET`: A secure random string for JWT token signing
      - Generate using: `openssl rand -base64 32` or PowerShell: `[Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`
    - `ALLOWED_ORIGINS`: Comma-separated list of allowed origins for CORS
-     - Example: `https://jolly-moss-04de19b00.3.azurestaticapps.net,http://localhost:8080`
+     - Example: `https://your-app.azurestaticapps.net,http://localhost:8080`
 
 4. Click **Save** (this will restart your app)
 
@@ -285,4 +285,6 @@ To rollback to a previous deployment:
 - [Azure Static Web Apps Documentation](https://docs.microsoft.com/azure/static-web-apps/)
 - [Azure Static Web Apps GitHub](https://github.com/Azure/static-web-apps)
 - [Vite Documentation](https://vitejs.dev/)
+
+
 

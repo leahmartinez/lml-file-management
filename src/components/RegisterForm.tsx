@@ -114,7 +114,7 @@ export function RegisterForm() {
         <CardHeader>
           <CardTitle>Create an Account</CardTitle>
           <CardDescription>
-            Register for LiftWatch Asset View
+            Register for LML Lift Consultants
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

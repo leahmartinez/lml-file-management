@@ -24,7 +24,7 @@ function testEndpoint(url: string) {
 }
 
 async function run() {
-  await testEndpoint('https://liftwatch-api-flex.azurewebsites.net/api/health');
+  await testEndpoint(`${process.env.API_BASE_URL || 'http://localhost:7071/api'}/health`);
 }
 
 run();

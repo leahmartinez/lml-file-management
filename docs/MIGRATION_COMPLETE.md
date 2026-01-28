@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-✅ **Successfully migrated LiftWatch API from Azure Functions Linux Consumption to Flex Consumption**
+✅ **Successfully migrated LML API from Azure Functions Linux Consumption to Flex Consumption**
 
 All 16 HTTP functions are now **fully operational** and responding correctly with proper:
 - HTTP status codes
@@ -14,14 +14,14 @@ All 16 HTTP functions are now **fully operational** and responding correctly wit
 
 ### Health Endpoint ✅
 ```
-GET https://liftwatch-api-flex.azurewebsites.net/api/health
+GET https://your-api.azurewebsites.net/api/health
 → HTTP 200 OK
 → Returns: {"status":"healthy","timestamp":"...","runtime":"Node.js v4 Functions"}
 ```
 
 ### Authentication Endpoint ✅
 ```
-POST https://liftwatch-api-flex.azurewebsites.net/api/auth/login
+POST https://your-api.azurewebsites.net/api/auth/login
 → HTTP 401 Unauthorized (expected for invalid credentials)
 → Returns: {"error":"Invalid email or password"}
 → CORS headers properly applied
@@ -29,7 +29,7 @@ POST https://liftwatch-api-flex.azurewebsites.net/api/auth/login
 
 ### Users Endpoint ✅
 ```
-GET https://liftwatch-api-flex.azurewebsites.net/api/users
+GET https://your-api.azurewebsites.net/api/users
 → HTTP 401 Unauthorized (expected without valid token)
 → Returns: {"error":"Unauthorized"}
 → CORS headers properly applied
@@ -37,7 +37,7 @@ GET https://liftwatch-api-flex.azurewebsites.net/api/users
 
 ### CORS Preflight ✅
 ```
-OPTIONS https://liftwatch-api-flex.azurewebsites.net/api/auth/login
+OPTIONS https://your-api.azurewebsites.net/api/auth/login
 → HTTP 200 OK
 → Headers: Access-Control-Allow-Methods, Access-Control-Allow-Headers, etc.
 ```
@@ -83,8 +83,8 @@ OPTIONS https://liftwatch-api-flex.azurewebsites.net/api/auth/login
 
 ## New Function App Details
 
-**Name:** `liftwatch-api-flex`
-**Endpoint:** https://liftwatch-api-flex.azurewebsites.net
+**Name:** `lml-api-flex`
+**Endpoint:** https://your-api.azurewebsites.net
 **Runtime:** Node.js 20
 **Plan:** Flex Consumption (Dynamic)
 **OS:** Linux
@@ -101,20 +101,20 @@ Before fully using the API, set this environment variable:
 
 ```bash
 az functionapp config appsettings set \
-  --resource-group liftwatch-rg \
-  --name liftwatch-api-flex \
+  --resource-group lml-rg \
+  --name lml-api-flex \
   --settings AZURE_STORAGE_CONNECTION_STRING="<your-connection-string>"
 ```
 
 Get the connection string:
 ```bash
 az storage account show-connection-string \
-  --resource-group liftwatch-rg \
-  --name liftwatchstorage1056
+  --resource-group lml-rg \
+  --name lmlstorage1056
 ```
 
 Or set it manually in Azure Portal:
-- Navigate to `liftwatch-api-flex` Function App
+- Navigate to `lml-api-flex` Function App
 - Configuration → Application settings
 - Add: `AZURE_STORAGE_CONNECTION_STRING` with storage account connection string
 
@@ -124,7 +124,7 @@ Or set it manually in Azure Portal:
    - This is needed for database operations in the `initialize` endpoint
 
 2. **Update Application URLs** (if applicable)
-   - Update frontend/client code to use `https://liftwatch-api-flex.azurewebsites.net`
+   - Update frontend/client code to use `https://your-api.azurewebsites.net`
    - Or configure DNS records
 
 3. **Run Full Integration Tests**
@@ -138,7 +138,7 @@ Or set it manually in Azure Portal:
    - Watch error rates
 
 5. **Decommission Old App** (when ready)
-   - Keep `liftwatch-api-7497` running for a period as fallback
+   - Keep `lml-api-7497` running for a period as fallback
    - Once fully validated, delete the old Linux Consumption app
 
 ## Performance Benefits
@@ -192,10 +192,13 @@ Both work seamlessly with Flex Consumption.
 ✅ **Ready for production use**
 ✅ **Future-proof for next 3+ years**
 
-The API is now ready to serve the LiftWatch application with improved reliability and performance.
+The API is now ready to serve the LML application with improved reliability and performance.
 
 ---
 
 **Created:** November 10, 2025
 **Branch:** flex-consumption-migration
 **Status:** Ready to merge to main
+
+
+

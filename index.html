@@ -15,13 +15,21 @@
     <script>
       // Load runtime configuration from Static Web Apps environment variables
       // These are injected as window properties by Azure Static Web Apps
+      const runtimeApiBaseUrl = window.__STATIC_WEB_APPS_APP_CONFIG__?.apiBaseUrl || '';
+      const storedApiBaseUrl = localStorage.getItem('apiBaseUrl') || '';
+
+      const resolvedApiBaseUrl =
+        runtimeApiBaseUrl ||
+        (storedApiBaseUrl ? storedApiBaseUrl : '') ||
+        '/api';
+
       window.__apiConfig = {
-        apiBaseUrl: window.__STATIC_WEB_APPS_APP_CONFIG__?.apiBaseUrl ||
-                   localStorage.getItem('apiBaseUrl') ||
-                   'https://liftwatch-api-flex.azurewebsites.net/api'
+        apiBaseUrl: resolvedApiBaseUrl
       };
-      // Store in localStorage as fallback for future page loads
-      localStorage.setItem('apiBaseUrl', window.__apiConfig.apiBaseUrl);
+
+      if (resolvedApiBaseUrl) {
+        localStorage.setItem('apiBaseUrl', resolvedApiBaseUrl);
+      }
     </script>
   </head>
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully migrated LiftWatch API from Azure Functions Linux Consumption to Flex Consumption. This resolves persistent deployment and function discovery issues.
+Successfully migrated LML API from Azure Functions Linux Consumption to Flex Consumption. This resolves persistent deployment and function discovery issues.
 
 ## Migration Results
 
@@ -48,8 +48,8 @@ All 16 functions successfully deployed:
 
 ## Deployment Details
 
-**New Function App:** `liftwatch-api-flex`
-- **Endpoint:** https://liftwatch-api-flex.azurewebsites.net
+**New Function App:** `lml-api-flex`
+- **Endpoint:** https://your-api.azurewebsites.net
 - **Runtime:** Node.js 20
 - **Plan:** Flex Consumption (Dynamic)
 - **OS:** Linux
@@ -68,8 +68,8 @@ AZURE_STORAGE_CONNECTION_STRING=<connection-string-from-storage-account>
 Or use Azure CLI:
 ```bash
 az functionapp config appsettings set \
-  --resource-group liftwatch-rg \
-  --name liftwatch-api-flex \
+  --resource-group lml-rg \
+  --name lml-api-flex \
   --settings AZURE_STORAGE_CONNECTION_STRING="<your-connection-string>"
 ```
 
@@ -77,7 +77,7 @@ az functionapp config appsettings set \
 
 ### Health Endpoint
 ```
-GET https://liftwatch-api-flex.azurewebsites.net/api/health
+GET https://your-api.azurewebsites.net/api/health
 
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -87,7 +87,7 @@ Content-Type: application/json
 
 ### Initialize Endpoint (without storage configured)
 ```
-GET https://liftwatch-api-flex.azurewebsites.net/api/initialize
+GET https://your-api.azurewebsites.net/api/initialize
 
 HTTP/1.1 500 Internal Server Error
 Content-Type: application/json
@@ -104,15 +104,15 @@ The error response is expected and demonstrates the function is working correctl
    - This is required for the initialize endpoint and database operations
 
 2. **Update DNS/Routing**
-   - Update any DNS records pointing from `liftwatch-api-7497` to `liftwatch-api-flex`
+   - Update any DNS records pointing from `lml-api-7497` to `lml-api-flex`
    - Or update application configuration to use the new endpoint
 
 3. **Decommission Old App (when ready)**
    - Keep Linux Consumption app running for a period for gradual migration
-   - Once fully transitioned, delete `liftwatch-api-7497`
+   - Once fully transitioned, delete `lml-api-7497`
 
 4. **Monitor Application**
-   - Check Application Insights for `liftwatch-api-flex`
+   - Check Application Insights for `lml-api-flex`
    - Monitor error rates and performance
 
 ## Code Changes
@@ -139,7 +139,7 @@ Both approaches work with Flex Consumption, providing maximum flexibility.
 ### Architecture
 
 ```
-liftwatch-api-flex/
+lml-api-flex/
 ├── health.js              (compiled from src/health.ts)
 ├── handlers/              (compiled handlers)
 │   ├── initialize.js
@@ -183,3 +183,6 @@ liftwatch-api-flex/
 This migration was completed on branch: `flex-consumption-migration`
 
 Ready to merge to `main` once all configuration is complete and testing passes.
+
+
+

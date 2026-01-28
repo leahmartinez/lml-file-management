@@ -91,6 +91,7 @@ For each function, make these changes:
 1. Convert remaining 12 functions using the pattern above
 2. Update `src/functions.ts` imports (already done)
 3. Test build: `npm run build`
-4. Deploy: `func azure functionapp publish liftwatch-api-7497`
+4. Deploy: `func azure functionapp publish lml-api-7497`
 5. Test initialize endpoint
+
 

@@ -27,10 +27,10 @@ My notes for deploying the new backend API with proper authentication.
 az login
 
 # My settings
-RESOURCE_GROUP="liftwatch-rg"
+RESOURCE_GROUP="lml-rg"
 LOCATION="australiaeast"  # Closest to Australia
-STORAGE_ACCOUNT="liftwatchstorage"  # Must be unique globally
-FUNCTION_APP="liftwatch-api"  # Must be unique
+STORAGE_ACCOUNT="lmlstorage"  # Must be unique globally
+FUNCTION_APP="lml-api"  # Must be unique
 
 # Create resource group
 az group create \
@@ -56,7 +56,7 @@ az functionapp create \
   --os-type Linux
 ```
 
-**Expected output:** Function app URL will be displayed (e.g., `https://liftwatch-api.azurewebsites.net`)
+**Expected output:** Function app URL will be displayed (e.g., `https://lml-api.azurewebsites.net`)
 
 ### Step 1.2: Configure Function App Settings
 
@@ -78,7 +78,7 @@ az functionapp config appsettings set \
   --settings \
     "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONNECTION" \
     "JWT_SECRET=$JWT_SECRET" \
-    "ALLOWED_ORIGINS=http://localhost:8080,https://jolly-moss-04de19b00.3.azurestaticapps.net"
+    "ALLOWED_ORIGINS=http://localhost:8080,https://your-app.azurestaticapps.net"
 ```
 
 ### Step 1.3: Build and Deploy API
@@ -98,12 +98,12 @@ func azure functionapp publish $FUNCTION_APP
 
 **Expected output:**
 ```
-Functions in liftwatch-api:
+Functions in lml-api:
     auth-login - [httpTrigger]
-        Invoke url: https://liftwatch-api.azurewebsites.net/api/auth/login
+        Invoke url: https://lml-api.azurewebsites.net/api/auth/login
 
     users-list - [httpTrigger]
-        Invoke url: https://liftwatch-api.azurewebsites.net/api/users
+        Invoke url: https://lml-api.azurewebsites.net/api/users
 
     [... more functions ...]
 ```
@@ -112,14 +112,14 @@ Functions in liftwatch-api:
 
 ```bash
 # Initialize database and seed admin user
-curl https://liftwatch-api.azurewebsites.net/api/initialize
+curl https://lml-api.azurewebsites.net/api/initialize
 ```
 
 **Expected response:**
 ```json
 {
   "message": "Database initialized successfully",
-  "info": "Initial admin user: admin@liftwatch.com / password"
+  "info": "Initial admin user: leah@lmllift.com / password"
 }
 ```
 
@@ -127,9 +127,9 @@ curl https://liftwatch-api.azurewebsites.net/api/initialize
 
 ```bash
 # Test login
-curl -X POST https://liftwatch-api.azurewebsites.net/api/auth/login \
+curl -X POST https://lml-api.azurewebsites.net/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@liftwatch.com","password":"password"}'
+  -d '{"email":"leah@lmllift.com","password":"password"}'
 ```
 
 **Expected response:**
@@ -137,7 +137,7 @@ curl -X POST https://liftwatch-api.azurewebsites.net/api/auth/login \
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
-    "email": "admin@liftwatch.com",
+    "email": "leah@lmllift.com",
     "role": "admin",
     "sites": []
   }
@@ -159,7 +159,7 @@ cd ..  # Back to project root
 Create `src/config/api.ts`:
 ```typescript
 export const API_BASE_URL = import.meta.env.PROD 
-  ? 'https://liftwatch-api.azurewebsites.net/api'
+  ? 'https://lml-api.azurewebsites.net/api'
   : 'http://localhost:7071/api';
 ```
 
@@ -186,7 +186,7 @@ npm run dev
 ```
 
 Open http://localhost:8080 and test:
-1. Login with admin@liftwatch.com / password
+1. Login with leah@lmllift.com / password
 2. Navigate to Admin Portal
 3. Try creating a user
 4. Logout and login with new user
@@ -200,14 +200,14 @@ Open http://localhost:8080 and test:
 ```bash
 # Make container private
 az storage container set-permission \
-  --name liftwatch-data \
-  --account-name liftwatchdata \
+  --name lml-data \
+  --account-name lmldata \
   --public-access off
 
 # Verify (should show "private")
 az storage container show-properties \
-  --name liftwatch-data \
-  --account-name liftwatchdata \
+  --name lml-data \
+  --account-name lmldata \
   --query properties.publicAccess
 ```
 
@@ -236,14 +236,14 @@ git push origin main
 The GitHub Actions workflow will automatically deploy the frontend.
 
 Monitor deployment at:
-https://github.com/leahmartinez/liftwatch-asset-view/actions
+https://github.com/leahmartinez/lml-file-management/actions
 
 ### Step 4.3: Update CORS Settings
 
 Once frontend is deployed, update Function App CORS:
 
 ```bash
-FRONTEND_URL="https://jolly-moss-04de19b00.3.azurestaticapps.net"
+FRONTEND_URL="https://your-app.azurestaticapps.net"
 
 az functionapp config appsettings set \
   --name $FUNCTION_APP \
@@ -253,8 +253,8 @@ az functionapp config appsettings set \
 
 ### Step 4.4: Test Production
 
-1. Navigate to: https://jolly-moss-04de19b00.3.azurestaticapps.net
-2. Login with: admin@liftwatch.com / password
+1. Navigate to: https://your-app.azurestaticapps.net
+2. Login with: leah@lmllift.com / password
 3. Test all features:
    - Dashboard loads
    - Admin portal works
@@ -280,7 +280,7 @@ The app now has proper security:
 
 ### Change Default Password
 
-1. Login as admin@liftwatch.com
+1. Login as leah@lmllift.com
 2. Go to Admin Portal
 3. Click "Edit" on admin user
 4. Change password
@@ -334,7 +334,7 @@ az functionapp config appsettings set \
 ### Database Errors
 ```bash
 # Reinitialize database
-curl https://liftwatch-api.azurewebsites.net/api/initialize
+curl https://lml-api.azurewebsites.net/api/initialize
 ```
 
 ### JWT Token Errors
@@ -375,7 +375,10 @@ See `docs/PRODUCTION_MIGRATION_PLAN.md` for full feature roadmap.
 
 **Deployment Date**: _________  
 **Deployed By**: _________  
-**API URL**: https://liftwatch-api.azurewebsites.net  
-**Frontend URL**: https://jolly-moss-04de19b00.3.azurestaticapps.net  
+**API URL**: https://lml-api.azurewebsites.net  
+**Frontend URL**: https://your-app.azurestaticapps.net  
 **JWT Secret**: _________ (store securely!)
+
+
+
 

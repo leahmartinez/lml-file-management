@@ -38,10 +38,10 @@ These are excluded from compilation and commented out in `src/functions.ts`:
 ## 🧪 Ready to Test
 
 You can now:
-1. **Deploy to Azure**: `func azure functionapp publish liftwatch-api-7497`
-2. **Test the initialize endpoint**: `GET https://liftwatch-api-7497.azurewebsites.net/api/initialize`
-3. **Test login**: `POST https://liftwatch-api-7497.azurewebsites.net/api/auth/login`
-4. **Test registration**: `POST https://liftwatch-api-7497.azurewebsites.net/api/auth/register`
+1. **Deploy to Azure**: `func azure functionapp publish lml-api-7497`
+2. **Test the initialize endpoint**: `GET https://lml-api-7497.azurewebsites.net/api/initialize`
+3. **Test login**: `POST https://lml-api-7497.azurewebsites.net/api/auth/login`
+4. **Test registration**: `POST https://lml-api-7497.azurewebsites.net/api/auth/register`
 
 ## 📝 Converting Remaining Functions
 
@@ -64,4 +64,5 @@ To convert the remaining 10 functions, follow this pattern (see `docs/V4_MIGRATI
 1. Deploy and test the 5 converted functions
 2. If successful, convert the remaining 10 functions using the same pattern
 3. Once all converted, remove the exclusions from `tsconfig.json`
+
 

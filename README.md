@@ -165,7 +165,7 @@ Data is stored in:
 ## Project Phases
 
 ### Phase 1: Repository Setup ✅
-- Fork from liftwatch-asset-view
+- Fork from lml-file-management
 - Package metadata updates
 
 ### Phase 2: Data Model Refactoring ✅
@@ -270,3 +270,4 @@ Full documentation is available in the [`docs/`](./docs/) directory:
 ## Support
 
 For issues or questions, please contact the LML development team.
+

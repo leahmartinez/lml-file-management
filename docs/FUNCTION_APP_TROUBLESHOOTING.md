@@ -2,7 +2,7 @@
 
 ## Current Status
 
-- ✅ Function App created: `liftwatch-api-7497`
+- ✅ Function App created: `lml-api-7497`
 - ✅ Environment variables configured
 - ✅ Code deployed successfully
 - ❌ Function host not starting (503 error)
@@ -13,7 +13,7 @@
 ### 1. Check Azure Portal Logs
 
 1. Go to [Azure Portal](https://portal.azure.com)
-2. Navigate to: **Function App** → `liftwatch-api-7497`
+2. Navigate to: **Function App** → `lml-api-7497`
 3. In the left menu, click **Log stream** (under Monitoring)
 4. Look for error messages that explain why the host isn't starting
 
@@ -50,7 +50,7 @@ The deployment should include:
 ### 6. Try Restarting the Function App
 
 ```powershell
-az functionapp restart --name liftwatch-api-7497 --resource-group liftwatch-rg
+az functionapp restart --name lml-api-7497 --resource-group lml-rg
 ```
 
 Wait 2-3 minutes, then test again.
@@ -81,4 +81,6 @@ Wait 2-3 minutes, then test again.
 ## Still Not Working?
 
 The most likely issue is visible in the **Log stream** in Azure Portal. Check there first for specific error messages about why the function host isn't starting.
+
+
 

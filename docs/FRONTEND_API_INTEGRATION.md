@@ -86,7 +86,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7071
 
 **For production:**
 - Set `VITE_API_BASE_URL` to your Azure Functions URL
-- Example: `https://liftwatch-api.azurewebsites.net/api`
+- Example: `https://lml-api.azurewebsites.net/api`
 
 ---
 
@@ -151,7 +151,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7071
 ### Local Testing
 1. Start Azure Functions API: `cd api && npm start`
 2. Start frontend: `npm run dev`
-3. Login with: `admin@liftwatch.com` / `password`
+3. Login with: `leah@lmllift.com` / `password`
 4. Test user management in Admin portal
 
 ### Production Testing
@@ -192,4 +192,6 @@ src/
 ---
 
 **Status**: ✅ Frontend integration complete and ready for testing!
+
+
 

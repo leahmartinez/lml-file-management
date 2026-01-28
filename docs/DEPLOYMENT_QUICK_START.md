@@ -37,7 +37,7 @@ Your frontend is trying to connect to `http://localhost:7071/api` but the API se
    ```
 
 5. **Test login** with:
-   - Email: `admin@liftwatch.com`
+   - Email: `leah@lmllift.com`
    - Password: `password`
 
 ---
@@ -58,10 +58,10 @@ Your frontend is trying to connect to `http://localhost:7071/api` but the API se
 
 3. **Set your variables**:
    ```powershell
-   $RESOURCE_GROUP = "liftwatch-rg"
+   $RESOURCE_GROUP = "lml-rg"
    $LOCATION = "australiaeast"
-   $STORAGE_ACCOUNT = "liftwatchstorage"
-   $FUNCTION_APP = "liftwatch-api"
+   $STORAGE_ACCOUNT = "lmlstorage"
+   $FUNCTION_APP = "lml-api"
    ```
 
 4. **Create resources** (if they don't exist):
@@ -109,7 +109,7 @@ Your frontend is trying to connect to `http://localhost:7071/api` but the API se
      --settings `
        "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONNECTION" `
        "JWT_SECRET=$JWT_SECRET" `
-       "ALLOWED_ORIGINS=https://jolly-moss-04de19b00.3.azurestaticapps.net,http://localhost:8080"
+       "ALLOWED_ORIGINS=https://your-app.azurestaticapps.net,http://localhost:8080"
    ```
 
 7. **Deploy the API**:
@@ -129,14 +129,14 @@ Your frontend is trying to connect to `http://localhost:7071/api` but the API se
 
 1. **Create `.env.production` file** in the root directory:
    ```
-   VITE_API_BASE_URL=https://liftwatch-api-flex.azurewebsites.net/api
+   VITE_API_BASE_URL=https://your-api.azurewebsites.net/api
    ```
 
 2. **Or set it in Azure Static Web Apps**:
    - Go to Azure Portal → Your Static Web App → Configuration
    - Add application setting:
      - Name: `VITE_API_BASE_URL`
-     - Value: `https://liftwatch-api-flex.azurewebsites.net/api`
+     - Value: `https://your-api.azurewebsites.net/api`
 
 3. **Redeploy frontend** (push to main branch)
 
@@ -204,4 +204,7 @@ The custom API approach gives you:
 - Check Azure Functions logs in Azure Portal
 - Verify all environment variables are set
 - Make sure Function App is running (not stopped)
+
+
+
 

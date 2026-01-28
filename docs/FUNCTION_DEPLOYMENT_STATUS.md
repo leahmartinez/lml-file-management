@@ -2,7 +2,7 @@
 
 ## ✅ Completed
 
-1. **Function App Created**: `liftwatch-api-7497`
+1. **Function App Created**: `lml-api-7497`
    - Node.js 20
    - Linux Consumption Plan
    - Location: australiaeast
@@ -24,7 +24,7 @@
 
 **Functions are not being registered/discovered by Azure Functions runtime**
 
-- Deployment shows: "Functions in liftwatch-api-7497:" (but doesn't list them)
+- Deployment shows: "Functions in lml-api-7497:" (but doesn't list them)
 - `az functionapp function list` returns empty array `[]`
 - HTTP requests return 404
 - Function host is running (root URL returns 200)
@@ -44,7 +44,7 @@
 ## Next Steps to Diagnose
 
 ### Option 1: Check Azure Portal
-1. Go to Azure Portal → Function App → `liftwatch-api-7497`
+1. Go to Azure Portal → Function App → `lml-api-7497`
 2. Click **Functions** in the left menu
 3. See if any functions are listed there
 4. If empty, check for error messages
@@ -66,11 +66,11 @@ The issue might be that we need to explicitly configure the programming model or
 
 ## Function App Details
 
-- **Name**: `liftwatch-api-7497`
-- **URL**: `https://liftwatch-api-7497.azurewebsites.net`
-- **API Base URL**: `https://liftwatch-api-7497.azurewebsites.net/api`
-- **Resource Group**: `liftwatch-rg`
-- **Storage Account**: `liftwatchstorage1056`
+- **Name**: `lml-api-7497`
+- **URL**: `https://lml-api-7497.azurewebsites.net`
+- **API Base URL**: `https://lml-api-7497.azurewebsites.net/api`
+- **Resource Group**: `lml-rg`
+- **Storage Account**: `lmlstorage1056`
 
 ## Files Deployed
 
@@ -83,14 +83,16 @@ All functions have:
 
 To test once functions are registered:
 ```powershell
-Invoke-RestMethod -Uri "https://liftwatch-api-7497.azurewebsites.net/api/initialize" -Method GET
+Invoke-RestMethod -Uri "https://lml-api-7497.azurewebsites.net/api/initialize" -Method GET
 ```
 
 Expected response:
 ```json
 {
   "message": "Database initialized successfully",
-  "info": "Initial admin user: admin@liftwatch.com / password"
+  "info": "Initial admin user: leah@lmllift.com / password"
 }
 ```
+
+
 

@@ -216,53 +216,53 @@ curl http://localhost:7071/api/initialize
 1. **Create Azure Resources:**
 ```bash
 # Create resource group
-az group create --name liftwatch-rg --location australiaeast
+az group create --name lml-rg --location australiaeast
 
 # Create storage account
 az storage account create \
-  --name liftwatchstorage \
-  --resource-group liftwatch-rg \
+  --name lmlstorage \
+  --resource-group lml-rg \
   --sku Standard_LRS
 
 # Create function app
 az functionapp create \
-  --resource-group liftwatch-rg \
+  --resource-group lml-rg \
   --consumption-plan-location australiaeast \
   --runtime node \
   --runtime-version 20 \
   --functions-version 4 \
-  --name liftwatch-api \
-  --storage-account liftwatchstorage
+  --name lml-api \
+  --storage-account lmlstorage
 ```
 
 2. **Configure application settings:**
 ```bash
 # Get storage connection string
 STORAGE_CONNECTION=$(az storage account show-connection-string \
-  --name liftwatchstorage \
-  --resource-group liftwatch-rg \
+  --name lmlstorage \
+  --resource-group lml-rg \
   --query connectionString -o tsv)
 
 # Set application settings
 az functionapp config appsettings set \
-  --name liftwatch-api \
-  --resource-group liftwatch-rg \
+  --name lml-api \
+  --resource-group lml-rg \
   --settings \
     "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONNECTION" \
     "JWT_SECRET=your-production-secret-here" \
-    "ALLOWED_ORIGINS=https://jolly-moss-04de19b00.3.azurestaticapps.net"
+    "ALLOWED_ORIGINS=https://your-app.azurestaticapps.net"
 ```
 
 3. **Deploy:**
 ```bash
 cd api
 npm run build
-func azure functionapp publish liftwatch-api
+func azure functionapp publish lml-api
 ```
 
 4. **Initialize database:**
 ```bash
-curl https://liftwatch-api.azurewebsites.net/api/initialize
+curl https://lml-api.azurewebsites.net/api/initialize
 ```
 
 ## 🔒 Security
@@ -347,4 +347,7 @@ curl http://localhost:7071/api/users \
 - [Azure Functions Documentation](https://learn.microsoft.com/azure/azure-functions/)
 - [Azure Table Storage](https://learn.microsoft.com/azure/storage/tables/)
 - [JWT.io](https://jwt.io/)
+
+
+
 

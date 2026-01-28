@@ -5,8 +5,8 @@
 The Static Web App frontend was blocked by CORS (Cross-Origin Resource Sharing) policy errors when trying to communicate with the Flex Consumption API:
 
 ```
-Access to fetch at 'https://liftwatch-api-flex.azurewebsites.net/api/profile'
-from origin 'https://jolly-moss-04de19b00.3.azurestaticapps.net'
+Access to fetch at 'https://your-api.azurewebsites.net/api/profile'
+from origin 'https://your-app.azurestaticapps.net'
 has been blocked by CORS policy
 ```
 
@@ -37,9 +37,9 @@ Configured CORS at the Azure Function App level to handle preflight requests:
 
 ```bash
 az functionapp cors add \
-  --resource-group liftwatch-rg \
-  --name liftwatch-api-flex \
-  --allowed-origins https://jolly-moss-04de19b00.3.azurestaticapps.net \
+  --resource-group lml-rg \
+  --name lml-api-flex \
+  --allowed-origins https://your-app.azurestaticapps.net \
                       http://localhost:5173 \
                       http://localhost:8080
 ```
@@ -69,21 +69,21 @@ All CORS headers are now properly returned on preflight requests:
 GET /api/auth/login (OPTIONS preflight)
   Status: 204 No Content
   Headers:
-    access-control-allow-origin: https://jolly-moss-04de19b00.3.azurestaticapps.net
+    access-control-allow-origin: https://your-app.azurestaticapps.net
     access-control-allow-methods: POST
     access-control-allow-headers: Content-Type,Authorization
 
 GET /api/profile (OPTIONS preflight)
   Status: 204 No Content
   Headers:
-    access-control-allow-origin: https://jolly-moss-04de19b00.3.azurestaticapps.net
+    access-control-allow-origin: https://your-app.azurestaticapps.net
     access-control-allow-methods: GET
     access-control-allow-headers: Content-Type,Authorization
 
 GET /api/users (OPTIONS preflight)
   Status: 204 No Content
   Headers:
-    access-control-allow-origin: https://jolly-moss-04de19b00.3.azurestaticapps.net
+    access-control-allow-origin: https://your-app.azurestaticapps.net
     access-control-allow-methods: GET,POST
     access-control-allow-headers: Content-Type,Authorization
 ```
@@ -95,16 +95,16 @@ GET /api/users (OPTIONS preflight)
 The API respects these environment variables for CORS configuration:
 
 ```
-ALLOWED_ORIGINS=https://jolly-moss-04de19b00.3.azurestaticapps.net,http://localhost:5173,http://localhost:8080
+ALLOWED_ORIGINS=https://your-app.azurestaticapps.net,http://localhost:5173,http://localhost:8080
 ```
 
-Currently set on `liftwatch-api-flex` Function App.
+Currently set on `lml-api-flex` Function App.
 
 ### Static Web App Origin
 
 The Static Web App is deployed at:
-- **Domain:** jolly-moss-04de19b00.3.azurestaticapps.net
-- **Full URL:** https://jolly-moss-04de19b00.3.azurestaticapps.net
+- **Domain:** your-swa-app.3.azurestaticapps.net
+- **Full URL:** https://your-app.azurestaticapps.net
 - **Status:** Allowed for API access ✅
 
 ## Result
@@ -122,7 +122,7 @@ The application should now fully function without CORS errors.
 ## How CORS Works
 
 1. **Browser makes preflight request (OPTIONS)**
-   - Includes `Origin` header: `https://jolly-moss-04de19b00.3.azurestaticapps.net`
+   - Includes `Origin` header: `https://your-app.azurestaticapps.net`
    - Includes `Access-Control-Request-Method` header
 
 2. **Azure platform or handler responds**
@@ -144,3 +144,7 @@ The application should now fully function without CORS errors.
 **Status:** ✅ Complete and Tested
 **Date:** November 10, 2025
 **Component:** Flex Consumption API / Static Web App Integration
+
+
+
+

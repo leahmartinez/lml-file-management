@@ -7,7 +7,7 @@
  * Requires environment variables:
  *   AZURE_STORAGE_ACCOUNT_NAME
  *   AZURE_STORAGE_ACCOUNT_KEY
- *   AZURE_STORAGE_CONTAINER_NAME (optional, defaults to 'liftwatch-data')
+ *   AZURE_STORAGE_CONTAINER_NAME (optional, defaults to 'lml-data')
  */
 
 import { BlobServiceClient } from '@azure/storage-blob';
@@ -20,7 +20,7 @@ const __dirname = path.dirname(__filename);
 
 const STORAGE_ACCOUNT_NAME = process.env.AZURE_STORAGE_ACCOUNT_NAME;
 const STORAGE_ACCOUNT_KEY = process.env.AZURE_STORAGE_ACCOUNT_KEY;
-const CONTAINER_NAME = process.env.AZURE_STORAGE_CONTAINER_NAME || 'liftwatch-data';
+const CONTAINER_NAME = process.env.AZURE_STORAGE_CONTAINER_NAME || 'lml-data';
 
 if (!STORAGE_ACCOUNT_NAME || !STORAGE_ACCOUNT_KEY) {
   console.error('Error: AZURE_STORAGE_ACCOUNT_NAME and AZURE_STORAGE_ACCOUNT_KEY must be set');
@@ -114,4 +114,5 @@ function getContentType(fileName) {
 }
 
 uploadFiles();
+
 

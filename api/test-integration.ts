@@ -5,7 +5,7 @@
 
 import https from 'https';
 
-const API_BASE = 'https://liftwatch-api-flex.azurewebsites.net/api';
+const API_BASE = process.env.API_BASE_URL || 'http://localhost:7071/api';
 
 interface TestResult {
   name: string;

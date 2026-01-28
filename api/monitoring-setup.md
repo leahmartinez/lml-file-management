@@ -1,18 +1,18 @@
-# LiftWatch Flex Consumption API - Monitoring and Alerts Setup
+# LML Flex Consumption API - Monitoring and Alerts Setup
 
 ## Overview
 
-Application monitoring has been configured for the new `liftwatch-api-flex` Function App using Azure Monitor and Application Insights.
+Application monitoring has been configured for the new `lml-api-flex` Function App using Azure Monitor and Application Insights.
 
 ## Monitoring Components Configured
 
 ### 1. Application Insights
-- **Name:** liftwatch-api-flex
-- **Location:** liftwatch-rg resource group
+- **Name:** lml-api-flex
+- **Location:** lml-rg resource group
 - **Status:** ✅ Active and collecting telemetry
 
 ### 2. Action Group Created
-- **Name:** liftwatch-api-alerts
+- **Name:** lml-api-alerts
 - **Short Name:** LiftAPI
 - **Purpose:** Central routing for all alert notifications
 - **Status:** ✅ Created and ready to use
@@ -24,7 +24,7 @@ Application monitoring has been configured for the new `liftwatch-api-flex` Func
 1. Navigate to Azure Portal
 2. Go to **Monitor → Alerts → New Alert Rule**
 3. Configure as follows:
-   - **Resource:** Select `liftwatch-api-flex` Function App
+   - **Resource:** Select `lml-api-flex` Function App
    - **Condition:**
      - Metric: `Http5xx`
      - Operator: Greater than
@@ -32,15 +32,15 @@ Application monitoring has been configured for the new `liftwatch-api-flex` Func
      - Aggregation: Total
      - Time window: 5 minutes
      - Frequency: Every 1 minute
-   - **Actions:** Select `liftwatch-api-alerts` action group
-   - **Alert name:** `liftwatch-api-flex-http-5xx-errors`
+   - **Actions:** Select `lml-api-alerts` action group
+   - **Alert name:** `lml-api-flex-http-5xx-errors`
    - **Severity:** 2 (Warning)
 
 ### Step 2: Create Alert Rule for High Response Time
 
 1. **Monitor → Alerts → New Alert Rule**
 2. Configure:
-   - **Resource:** `liftwatch-api-flex` Function App
+   - **Resource:** `lml-api-flex` Function App
    - **Condition:**
      - Metric: `AverageResponseTime`
      - Operator: Greater than
@@ -48,8 +48,8 @@ Application monitoring has been configured for the new `liftwatch-api-flex` Func
      - Aggregation: Average
      - Time window: 5 minutes
      - Frequency: Every 1 minute
-   - **Actions:** Select `liftwatch-api-alerts`
-   - **Alert name:** `liftwatch-api-flex-slow-response`
+   - **Actions:** Select `lml-api-alerts`
+   - **Alert name:** `lml-api-flex-slow-response`
    - **Severity:** 2 (Warning)
 
 ### Step 3: Create Smart Detection Rule
@@ -62,9 +62,9 @@ Smart Detection is automatically enabled for Application Insights. It will alert
 
 ### Step 4: Configure Action Group Recipients (Optional)
 
-To actually receive alerts, add notification channels to `liftwatch-api-alerts`:
+To actually receive alerts, add notification channels to `lml-api-alerts`:
 
-1. Go to **Monitor → Action Groups → liftwatch-api-alerts**
+1. Go to **Monitor → Action Groups → lml-api-alerts**
 2. Click **Edit** (pencil icon)
 3. Add notification types:
    - **Email/SMS:** Add email address for critical alerts
@@ -126,16 +126,16 @@ requests
 
 ### View Logs in Azure Portal
 
-1. Go to **liftwatch-api-flex** Function App
+1. Go to **lml-api-flex** Function App
 2. Select **Monitoring → Logs**
 3. Run built-in queries or custom KQL (Kusto Query Language)
 
 ### Enable Diagnostic Settings
 
-1. Go to **liftwatch-api-flex → Diagnostic settings**
+1. Go to **lml-api-flex → Diagnostic settings**
 2. Click **+ Add diagnostic setting**
 3. Configure:
-   - **Name:** `liftwatch-api-flex-diagnostics`
+   - **Name:** `lml-api-flex-diagnostics`
    - **Logs:** Check all Azure Functions categories
    - **Metrics:** Check all metrics
    - **Destination:** Send to Log Analytics workspace
@@ -145,7 +145,7 @@ requests
 
 ### Application Insights Pricing
 
-The new `liftwatch-api-flex` App Insights instance:
+The new `lml-api-flex` App Insights instance:
 - **Data ingestion:** First 5 GB free per month
 - **Retention:** 30 days retention (free tier)
 - **Beyond free tier:** $2.99 per GB per month
@@ -181,7 +181,7 @@ requests
 
 ## Next Steps
 
-1. **Add notification recipients** to `liftwatch-api-alerts` action group
+1. **Add notification recipients** to `lml-api-alerts` action group
 2. **Create metric alerts** in Azure Portal (as described in Steps 1-3 above)
 3. **Configure Smart Detection** email recipients
 4. **Set up custom dashboards** in Application Insights
@@ -191,7 +191,7 @@ requests
 
 ```
 ┌─────────────────────────────────────┐
-│  liftwatch-api-flex Function App    │
+│  lml-api-flex Function App    │
 ├─────────────────────────────────────┤
 │          HTTP Requests              │
 │   Authorization Requests            │
@@ -201,7 +201,7 @@ requests
              ▼
 ┌─────────────────────────────────────┐
 │   Application Insights              │
-│  (liftwatch-api-flex)               │
+│  (lml-api-flex)               │
 ├─────────────────────────────────────┤
 │   • Requests & Performance          │
 │   • Failures & Exceptions           │
@@ -222,7 +222,7 @@ requests
              ▼
 ┌─────────────────────────────────────┐
 │   Action Group                      │
-│  (liftwatch-api-alerts)             │
+│  (lml-api-alerts)             │
 ├─────────────────────────────────────┤
 │   • Email notifications             │
 │   • SMS alerts                      │
@@ -243,5 +243,8 @@ To test alert functionality:
 ---
 
 **Created:** November 11, 2025
-**Function App:** liftwatch-api-flex
+**Function App:** lml-api-flex
 **Status:** Monitoring configured and ready
+
+
+

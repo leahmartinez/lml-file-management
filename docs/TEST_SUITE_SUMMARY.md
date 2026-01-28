@@ -2,7 +2,7 @@
 
 ## Overview
 
-A comprehensive test suite has been created for the LiftWatch Asset View application, covering functionality, security, and integration scenarios. The suite is ready for Azure Static Web Apps deployment.
+A comprehensive test suite has been created for the LML Asset View application, covering functionality, security, and integration scenarios. The suite is ready for Azure Static Web Apps deployment.
 
 ## Test Files Created
 
@@ -176,4 +176,5 @@ For issues or questions:
 - Check `TESTING.md` for detailed test documentation
 - Review test files for examples
 - Check Azure documentation for deployment issues
+
 

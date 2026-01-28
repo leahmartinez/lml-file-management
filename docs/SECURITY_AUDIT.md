@@ -1,4 +1,4 @@
-# Security Audit Report - LiftWatch Asset View
+# Security Audit Report - LML Asset View
 **Date**: November 8, 2025  
 **Version**: v1.0.0  
 **Status**: Production-Ready with Recommendations
@@ -72,9 +72,9 @@ All data files in Azure Blob Storage are **publicly accessible**:
 
 ```json
 {
-  "master_data.csv": "https://liftwatchdata.blob.core.windows.net/...",
-  "sites_data.csv": "https://liftwatchdata.blob.core.windows.net/...",
-  "users.json": "https://liftwatchdata.blob.core.windows.net/..."
+  "master_data.csv": "https://yourstorage.blob.core.windows.net/...",
+  "sites_data.csv": "https://yourstorage.blob.core.windows.net/...",
+  "users.json": "https://yourstorage.blob.core.windows.net/..."
 }
 ```
 
@@ -318,4 +318,6 @@ const response = await fetch(usersUrl, {
 - [Azure Static Web Apps Authentication](https://learn.microsoft.com/en-us/azure/static-web-apps/authentication-authorization)
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
 - [React Security Best Practices](https://reactjs.org/docs/dom-elements.html#dangerouslysetinnerhtml)
+
+
 

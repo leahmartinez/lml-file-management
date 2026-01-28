@@ -33,7 +33,7 @@ export async function initializeHandler(request: HttpRequest, context: Invocatio
     return addCorsHeaders(
       success({
         message: 'Database initialized successfully',
-        info: 'Initial admin user: admin@liftwatch.com / password',
+        info: 'Initial admin user: leah@lmllift.com / password',
       }),
       request.headers.get('origin') || undefined
     );

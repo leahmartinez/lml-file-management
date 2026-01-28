@@ -1,7 +1,7 @@
 {
-  "name": "liftwatch-api",
+  "name": "lml-api",
   "version": "1.0.0",
-  "description": "Azure Functions API for LiftWatch Asset View",
+  "description": "Azure Functions API for LML File Management",
   "main": "dist/index.js",
   "type": "commonjs",
   "engines": {
@@ -38,3 +38,5 @@
     "typescript": "^5.3.0"
   }
 }
+
+

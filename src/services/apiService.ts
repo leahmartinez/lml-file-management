@@ -23,8 +23,7 @@ function getApiBaseUrl(): string {
     return 'http://localhost:7071/api';
   }
 
-  // Production fallback: use relative path to Static Web Apps integrated API
-  // This URL can be overridden by setting window.__apiConfig before app loads
+  // Production fallback: use Static Web Apps integrated API
   return '/api';
 }
 
@@ -92,6 +91,11 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  if (!API_BASE_URL) {
+    throw new Error(
+      'API base URL is not configured. Set VITE_API_BASE_URL in Azure Static Web Apps Configuration (or provide apiBaseUrl via SWA app config).'
+    );
+  }
   const token = getToken();
   const url = `${API_BASE_URL}${endpoint}`;
 

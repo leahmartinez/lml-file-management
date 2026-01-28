@@ -1,6 +1,6 @@
 # Testing Guide
 
-This document provides an overview of the comprehensive test suite for the LiftWatch Asset View application.
+This document provides an overview of the comprehensive test suite for the LML Asset View application.
 
 ## Test Structure
 
@@ -179,4 +179,5 @@ describe('FeatureName', () => {
 - [Vitest Documentation](https://vitest.dev/)
 - [React Testing Library](https://testing-library.com/react)
 - [Azure Static Web Apps Testing](https://docs.microsoft.com/azure/static-web-apps/)
+
 

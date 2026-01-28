@@ -2,10 +2,10 @@
 # Run this after completing 'az login'
 
 # Set your variables (customize these)
-$RESOURCE_GROUP = "liftwatch-rg"
+$RESOURCE_GROUP = "lml-rg"
 $LOCATION = "australiaeast"  # Or your preferred region
-$STORAGE_ACCOUNT = "liftwatchstorage$(Get-Random -Maximum 9999)"  # Must be globally unique
-$FUNCTION_APP = "liftwatch-api-$(Get-Random -Maximum 9999)"  # Must be globally unique
+$STORAGE_ACCOUNT = "lmlstorage$(Get-Random -Maximum 9999)"  # Must be globally unique
+$FUNCTION_APP = "lml-file-management-api-$(Get-Random -Maximum 9999)"  # Must be globally unique
 
 Write-Host "Creating Azure resources..." -ForegroundColor Cyan
 Write-Host "Resource Group: $RESOURCE_GROUP" -ForegroundColor Yellow
@@ -65,7 +65,7 @@ az functionapp config appsettings set `
   --settings `
     "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONNECTION" `
     "JWT_SECRET=$JWT_SECRET" `
-    "ALLOWED_ORIGINS=https://jolly-moss-04de19b00.3.azurestaticapps.net"
+    "ALLOWED_ORIGINS=https://your-app.azurestaticapps.net"
 
 Write-Host ""
 Write-Host "✅ Environment variables configured!" -ForegroundColor Green
@@ -110,4 +110,6 @@ Write-Host "   Name: VITE_API_BASE_URL" -ForegroundColor Yellow
 Write-Host "   Value: https://$FUNCTION_APP.azurewebsites.net/api" -ForegroundColor Yellow
 Write-Host "3. Save and wait for deployment" -ForegroundColor Yellow
 Write-Host "==================" -ForegroundColor Cyan
+
+
 

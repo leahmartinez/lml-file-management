@@ -5,7 +5,7 @@
 The most important step is to see the actual error message:
 
 1. Go to [Azure Portal](https://portal.azure.com)
-2. Navigate to your Static Web App: `jolly-moss-04de19b00`
+2. Navigate to your Static Web App: `your-swa-app`
 3. In the left menu, click **Functions**
 4. Click on the **initialize** function
 5. Click on **Monitor** tab (or **Logs** if available)
@@ -33,7 +33,7 @@ Common errors you might see:
    - Must NOT be `your-jwt-secret-here` or placeholder text
 
    ✅ **ALLOWED_ORIGINS**
-   - Should be: `https://jolly-moss-04de19b00.3.azurestaticapps.net`
+   - Should be: `https://your-app.azurestaticapps.net`
    - Can include multiple origins separated by commas
 
 3. If any are missing or have placeholder values, **add/update them** and click **Save**
@@ -51,7 +51,7 @@ If you don't have a storage account yet:
 2. Fill in:
    - **Subscription**: Your subscription
    - **Resource group**: Same as your Static Web App (or create new)
-   - **Storage account name**: Must be globally unique (e.g., `liftwatchstorage123`)
+   - **Storage account name**: Must be globally unique (e.g., `lmlstorage123`)
    - **Region**: Same region as your Static Web App (recommended)
    - **Performance**: Standard
    - **Redundancy**: LRS (Locally redundant storage) is fine
@@ -90,7 +90,7 @@ After setting environment variables:
 2. Wait **3-5 minutes** for changes to propagate
 3. Try the initialize endpoint again:
    ```
-   https://jolly-moss-04de19b00.3.azurestaticapps.net/api/initialize
+   https://your-app.azurestaticapps.net/api/initialize
    ```
 
 ## Step 7: Enable Application Insights (Optional but Recommended)
@@ -154,4 +154,7 @@ If you've checked everything above and it's still not working:
 2. **Verify the storage account connection string** - Test it with Azure CLI
 3. **Check if the storage account is in a different subscription** - This can cause access issues
 4. **Try creating a new storage account** - Sometimes there are permission issues with existing accounts
+
+
+
 

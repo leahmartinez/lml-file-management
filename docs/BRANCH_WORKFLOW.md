@@ -1,4 +1,4 @@
-# Git Workflow - LiftWatch Project
+# Git Workflow - LML Project
 
 ## Branch Strategy
 
@@ -239,4 +239,5 @@ git push origin main
 **Last Updated**: November 8, 2025  
 **Current Branch**: `feature/server-side-auth`  
 **Next Step**: Test and merge to main when ready
+
 

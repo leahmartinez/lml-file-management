@@ -5,10 +5,15 @@
 
 import { Configuration, PublicClientApplication } from '@azure/msal-browser';
 
+const clientId = import.meta.env.VITE_AZURE_AD_CLIENT_ID || '';
+const tenantId = import.meta.env.VITE_AZURE_AD_TENANT_ID || '';
+
+export const isMsalConfigured = Boolean(clientId && tenantId);
+
 export const msalConfig: Configuration = {
   auth: {
-    clientId: import.meta.env.VITE_AZURE_AD_CLIENT_ID || '',
-    authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_AD_TENANT_ID}`,
+    clientId,
+    authority: tenantId ? `https://login.microsoftonline.com/${tenantId}` : '',
     redirectUri: window.location.origin,
   },
   cache: {
