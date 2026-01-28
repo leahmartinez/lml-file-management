@@ -85,8 +85,54 @@ export interface StageEntity extends TableEntity {
   createdBy?: string;
 }
 
-// Initialize table client
+// Initialize table clients
 let usersTable: TableClient | null = null;
+let sitesTable: TableClient | null = null;
+let projectsTable: TableClient | null = null;
+let stagesTable: TableClient | null = null;
+let contactsTable: TableClient | null = null;
+let businessesTable: TableClient | null = null;
+
+// Contact entity structure (external contacts)
+export interface ContactEntity extends TableEntity {
+  partitionKey: string; // "CONTACT"
+  rowKey: string; // contact id
+  id: string;
+  firstName: string;
+  lastName: string;
+  position: string;
+  company?: string;
+  businessId?: string;
+  email?: string;
+  phone?: string;
+  officePhone?: string;
+  category?: string;
+  photo?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Business entity structure
+export interface BusinessEntity extends TableEntity {
+  partitionKey: string; // "BUSINESS"
+  rowKey: string; // business id
+  id: string;
+  name: string;
+  description?: string;
+  address?: string;
+  city?: string;
+  postcode?: string;
+  state?: string;
+  website?: string;
+  phone?: string;
+  email?: string;
+  category?: string;
+  logo?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 /**
  * Get or create users table client
@@ -102,6 +148,49 @@ export function getUsersTable(): TableClient {
   return usersTable;
 }
 
+function getTableClient(tableName: string): TableClient {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  if (!connectionString) {
+    throw new Error('AZURE_STORAGE_CONNECTION_STRING not configured');
+  }
+  return TableClient.fromConnectionString(connectionString, tableName);
+}
+
+export function getSitesTable(): TableClient {
+  if (!sitesTable) {
+    sitesTable = getTableClient("Sites");
+  }
+  return sitesTable;
+}
+
+export function getProjectsTable(): TableClient {
+  if (!projectsTable) {
+    projectsTable = getTableClient("Projects");
+  }
+  return projectsTable;
+}
+
+export function getStagesTable(): TableClient {
+  if (!stagesTable) {
+    stagesTable = getTableClient("Stages");
+  }
+  return stagesTable;
+}
+
+export function getContactsTable(): TableClient {
+  if (!contactsTable) {
+    contactsTable = getTableClient("Contacts");
+  }
+  return contactsTable;
+}
+
+export function getBusinessesTable(): TableClient {
+  if (!businessesTable) {
+    businessesTable = getTableClient("Businesses");
+  }
+  return businessesTable;
+}
+
 /**
  * Initialize database (create tables if they don't exist)
  */
@@ -112,15 +201,214 @@ export async function initializeDatabase(): Promise<void> {
   }
   
   try {
-    const table = getUsersTable();
-    await table.createTable();
-    console.log('Users table created or already exists');
-  } catch (error: any) {
-    if (error.statusCode !== 409) { // 409 = table already exists
-      console.error('Error creating table:', error);
-      throw error;
+    const tables = [
+      { name: "Users", client: getUsersTable },
+      { name: "Sites", client: getSitesTable },
+      { name: "Projects", client: getProjectsTable },
+      { name: "Stages", client: getStagesTable },
+      { name: "Contacts", client: getContactsTable },
+      { name: "Businesses", client: getBusinessesTable },
+    ];
+
+    for (const tableInfo of tables) {
+      try {
+        await tableInfo.client().createTable();
+        console.log(`${tableInfo.name} table created or already exists`);
+      } catch (error: any) {
+        if (error.statusCode !== 409) {
+          throw error;
+        }
+      }
     }
+  } catch (error: any) {
+    console.error('Error creating tables:', error);
+    throw error;
   }
+}
+
+/**
+ * Get all sites
+ */
+export async function getAllSites(): Promise<SiteEntity[]> {
+  if (IS_LOCAL) {
+    return localDb.getAllSitesLocal();
+  }
+
+  const table = getSitesTable();
+  const sites: SiteEntity[] = [];
+  const entities = table.listEntities<SiteEntity>({
+    queryOptions: { filter: `PartitionKey eq 'SITE'` }
+  });
+
+  for await (const entity of entities) {
+    sites.push(entity);
+  }
+
+  return sites;
+}
+
+/**
+ * Get all projects
+ */
+export async function getAllProjects(): Promise<ProjectEntity[]> {
+  if (IS_LOCAL) {
+    return localDb.getAllProjectsLocal();
+  }
+
+  const table = getProjectsTable();
+  const projects: ProjectEntity[] = [];
+  const entities = table.listEntities<ProjectEntity>({
+    queryOptions: { filter: `PartitionKey eq 'PROJECT'` }
+  });
+
+  for await (const entity of entities) {
+    projects.push(entity);
+  }
+
+  return projects;
+}
+
+/**
+ * Get stages for a project
+ */
+export async function getStagesByProject(projectCode: string): Promise<StageEntity[]> {
+  if (IS_LOCAL) {
+    return localDb.getStagesByProjectLocal(projectCode);
+  }
+
+  const table = getStagesTable();
+  const stages: StageEntity[] = [];
+  const entities = table.listEntities<StageEntity>({
+    queryOptions: { filter: `PartitionKey eq '${projectCode}'` }
+  });
+
+  for await (const entity of entities) {
+    stages.push(entity);
+  }
+
+  return stages;
+}
+
+/**
+ * Get all external contacts
+ */
+export async function getAllContacts(): Promise<ContactEntity[]> {
+  if (IS_LOCAL) {
+    return localDb.getAllContactsLocal();
+  }
+
+  const table = getContactsTable();
+  const contacts: ContactEntity[] = [];
+  const entities = table.listEntities<ContactEntity>({
+    queryOptions: { filter: `PartitionKey eq 'CONTACT'` }
+  });
+
+  for await (const entity of entities) {
+    contacts.push(entity);
+  }
+
+  return contacts;
+}
+
+/**
+ * Create external contact
+ */
+export async function createContact(entity: ContactEntity): Promise<ContactEntity> {
+  if (IS_LOCAL) {
+    return localDb.createContactLocal(entity);
+  }
+
+  const table = getContactsTable();
+  await table.createEntity(entity);
+  return entity;
+}
+
+/**
+ * Update external contact
+ */
+export async function updateContact(id: string, updates: Partial<ContactEntity>): Promise<ContactEntity> {
+  if (IS_LOCAL) {
+    return localDb.updateContactLocal(id, updates);
+  }
+
+  const table = getContactsTable();
+  const existing = await table.getEntity<ContactEntity>('CONTACT', id);
+  const updated: ContactEntity = { ...existing, ...updates };
+  await table.updateEntity(updated, 'Merge');
+  return updated;
+}
+
+/**
+ * Delete external contact
+ */
+export async function deleteContact(id: string): Promise<void> {
+  if (IS_LOCAL) {
+    return localDb.deleteContactLocal(id);
+  }
+
+  const table = getContactsTable();
+  await table.deleteEntity('CONTACT', id);
+}
+
+/**
+ * Get all businesses
+ */
+export async function getAllBusinesses(): Promise<BusinessEntity[]> {
+  if (IS_LOCAL) {
+    return localDb.getAllBusinessesLocal();
+  }
+
+  const table = getBusinessesTable();
+  const businesses: BusinessEntity[] = [];
+  const entities = table.listEntities<BusinessEntity>({
+    queryOptions: { filter: `PartitionKey eq 'BUSINESS'` }
+  });
+
+  for await (const entity of entities) {
+    businesses.push(entity);
+  }
+
+  return businesses;
+}
+
+/**
+ * Create business
+ */
+export async function createBusiness(entity: BusinessEntity): Promise<BusinessEntity> {
+  if (IS_LOCAL) {
+    return localDb.createBusinessLocal(entity);
+  }
+
+  const table = getBusinessesTable();
+  await table.createEntity(entity);
+  return entity;
+}
+
+/**
+ * Update business
+ */
+export async function updateBusiness(id: string, updates: Partial<BusinessEntity>): Promise<BusinessEntity> {
+  if (IS_LOCAL) {
+    return localDb.updateBusinessLocal(id, updates);
+  }
+
+  const table = getBusinessesTable();
+  const existing = await table.getEntity<BusinessEntity>('BUSINESS', id);
+  const updated: BusinessEntity = { ...existing, ...updates };
+  await table.updateEntity(updated, 'Merge');
+  return updated;
+}
+
+/**
+ * Delete business
+ */
+export async function deleteBusiness(id: string): Promise<void> {
+  if (IS_LOCAL) {
+    return localDb.deleteBusinessLocal(id);
+  }
+
+  const table = getBusinessesTable();
+  await table.deleteEntity('BUSINESS', id);
 }
 
 /**
@@ -301,21 +589,22 @@ export async function deleteProject(projectCode: string): Promise<void> {
 
   try {
     console.log(`[tableStorage] Deleting project ${projectCode} and all its stages`);
-    const table = getUsersTable(); // Get the table client
+    const projects = getProjectsTable();
+    const stages = getStagesTable();
 
     // Delete all stages for this project
     // In Azure Table Storage, stages are partitioned by projectCode
-    const stagesQuery = table.listEntities<StageEntity>({
+    const stagesQuery = stages.listEntities<StageEntity>({
       queryOptions: { filter: `PartitionKey eq '${projectCode}'` }
     });
 
     for await (const stage of stagesQuery) {
-      await table.deleteEntity(stage.partitionKey, stage.rowKey);
+      await stages.deleteEntity(stage.partitionKey, stage.rowKey);
       console.log(`[tableStorage] Deleted stage ${stage.stageId}`);
     }
 
     // Delete the project itself
-    await table.deleteEntity('PROJECT', projectCode);
+    await projects.deleteEntity('PROJECT', projectCode);
     console.log(`[tableStorage] Deleted project ${projectCode}`);
   } catch (error) {
     console.error(`Error deleting project ${projectCode}:`, error);
@@ -333,12 +622,14 @@ export async function deleteSite(siteId: string): Promise<void> {
 
   try {
     console.log(`[tableStorage] Deleting site ${siteId} and all its projects/stages`);
-    const table = getUsersTable();
+    const sites = getSitesTable();
+    const projects = getProjectsTable();
+    const stages = getStagesTable();
 
     // Step 1: Get the site to find all projects
     let site: SiteEntity | null = null;
     try {
-      site = await table.getEntity<SiteEntity>('SITE', siteId);
+      site = await sites.getEntity<SiteEntity>('SITE', siteId);
     } catch (error: any) {
       if (error.statusCode === 404) {
         throw new Error(`Site ${siteId} not found`);
@@ -352,22 +643,22 @@ export async function deleteSite(siteId: string): Promise<void> {
     // Step 3: Delete all projects and their stages
     for (const projectCode of projectCodes) {
       // Delete all stages for this project
-      const stagesQuery = table.listEntities<StageEntity>({
+      const stagesQuery = stages.listEntities<StageEntity>({
         queryOptions: { filter: `PartitionKey eq '${projectCode}'` }
       });
 
       for await (const stage of stagesQuery) {
-        await table.deleteEntity(stage.partitionKey, stage.rowKey);
+        await stages.deleteEntity(stage.partitionKey, stage.rowKey);
         console.log(`[tableStorage] Deleted stage ${stage.stageId} from project ${projectCode}`);
       }
 
       // Delete the project
-      await table.deleteEntity('PROJECT', projectCode);
+      await projects.deleteEntity('PROJECT', projectCode);
       console.log(`[tableStorage] Deleted project ${projectCode}`);
     }
 
     // Step 4: Delete the site itself
-    await table.deleteEntity('SITE', siteId);
+    await sites.deleteEntity('SITE', siteId);
     console.log(`[tableStorage] Deleted site ${siteId}`);
   } catch (error) {
     console.error(`Error deleting site ${siteId}:`, error);

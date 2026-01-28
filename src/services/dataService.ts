@@ -66,10 +66,12 @@ async function fetchAPI<T>(endpoint: string): Promise<T[]> {
   try {
     const baseUrl = dataSourceConfig.baseUrl || '';
     const url = `${baseUrl}${endpoint}`;
+    const token = localStorage.getItem('jwt_token');
     
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         // Add authentication headers here when API is ready
         // 'Authorization': `Bearer ${token}`,
       },
@@ -320,7 +322,12 @@ export const dataService = {
       return mockSites.filter(s => !deletedSites.includes(s.building));
     }
 
-    // All data in development/production comes from CSV or API
+    // API: return structured data directly
+    if (dataSourceConfig.type === 'api' && dataSourceConfig.endpoints?.sites) {
+      return fetchAPI<Site>(dataSourceConfig.endpoints.sites);
+    }
+
+    // CSV data
     const rawData = await fetchData<any>({
       csvPath: dataSourceConfig.csvPaths?.sites,
       apiEndpoint: dataSourceConfig.endpoints?.sites,
@@ -351,7 +358,12 @@ export const dataService = {
       return mockProjects.filter(p => !deletedProjects.includes(p.projectCode));
     }
 
-    // All data in development/production comes from CSV or API
+    // API: return structured data directly
+    if (dataSourceConfig.type === 'api' && dataSourceConfig.endpoints?.projects) {
+      return fetchAPI<Project>(dataSourceConfig.endpoints.projects);
+    }
+
+    // CSV data
     const rawData = await fetchData<any>({
       csvPath: dataSourceConfig.csvPaths?.sites, // Use sites CSV as projects are in the same file
       apiEndpoint: dataSourceConfig.endpoints?.projects,
@@ -383,6 +395,10 @@ export const dataService = {
    * Fetch all contacts
    */
   async fetchContacts(): Promise<Contact[]> {
+    if (dataSourceConfig.type === 'api' && dataSourceConfig.endpoints?.contacts) {
+      return fetchAPI<Contact>(dataSourceConfig.endpoints.contacts);
+    }
+
     const rawData = await fetchData<Contact>({
       csvPath: dataSourceConfig.csvPaths?.contacts,
       apiEndpoint: dataSourceConfig.endpoints?.contacts,

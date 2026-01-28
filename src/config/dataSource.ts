@@ -10,8 +10,9 @@
 import { DataSourceConfig, DataSourceType } from '@/types/data';
 import blobStorageUrls from './blobStorageUrls.json';
 
-// Prefer API when configured, otherwise fall back to CSV/local
-const DATA_SOURCE_TYPE: DataSourceType = import.meta.env.VITE_API_BASE_URL ? 'api' : 'csv';
+// Explicit data source selection (defaults to CSV)
+const DATA_SOURCE_TYPE: DataSourceType =
+  import.meta.env.VITE_DATA_SOURCE === 'api' ? 'api' : 'csv';
 
 // Use blob storage URLs only when explicitly enabled (defaults to local CSVs)
 const USE_BLOB_STORAGE =

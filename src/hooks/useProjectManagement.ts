@@ -251,10 +251,10 @@ export const useProjectManagement = () => {
       // Call backend DELETE endpoint
       const response = await fetch('/api/projects/delete', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('jwt_token') || ''}`,
+          },
         body: JSON.stringify({ projectCode }),
       });
 

@@ -6,6 +6,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { Business, ExternalContact } from '@/types/data';
+import { businessesApi } from '@/services/apiService';
 import {
   getBusinesses as getBusinessesFromStorage,
   getBusinessById as getBusinessByIdFromStorage,
@@ -36,6 +37,9 @@ export function useBusiness() {
         const loadedBusinesses = getBusinessesFromStorage();
         console.log('[useBusiness] Loaded businesses from storage:', loadedBusinesses.length);
         setBusinesses(loadedBusinesses);
+      } else {
+        const apiBusinesses = await businessesApi.getAll();
+        setBusinesses(apiBusinesses as Business[]);
       }
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to fetch businesses');
@@ -75,6 +79,9 @@ export function useBusiness() {
           await fetchBusinesses();
           return newBusiness;
         }
+        const created = await businessesApi.create(business);
+        await fetchBusinesses();
+        return created as Business;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to create business');
         console.error('[useBusiness] Error creating business:', error);
@@ -103,6 +110,9 @@ export function useBusiness() {
           await fetchBusinesses();
           return updated;
         }
+        const updated = await businessesApi.update(id, updates);
+        await fetchBusinesses();
+        return updated as Business;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to update business');
         console.error('[useBusiness] Error updating business:', error);
@@ -131,6 +141,9 @@ export function useBusiness() {
           await fetchBusinesses();
           return true;
         }
+        await businessesApi.delete(id);
+        await fetchBusinesses();
+        return true;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to delete business');
         console.error('[useBusiness] Error deleting business:', error);

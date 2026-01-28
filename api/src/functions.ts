@@ -17,6 +17,10 @@ import { usersDeleteHandler } from "./handlers/users-delete";
 import { usersUpdateHandler } from "./handlers/users-update";
 import { projectsDeleteHandler } from "./handlers/projects-delete";
 import { sitesDeleteHandler } from "./handlers/sites-delete";
+import { sitesHandler } from "./handlers/sites";
+import { projectsHandler } from "./handlers/projects";
+import { contactsHandler } from "./handlers/contacts";
+import { businessesHandler } from "./handlers/businesses";
 
 // Register health check first to test if app is loading
 app.http("health", {
@@ -126,6 +130,30 @@ app.http("sites-delete", {
   methods: ["DELETE", "OPTIONS"],
   route: "sites/delete",
   handler: sitesDeleteHandler,
+});
+
+app.http("sites", {
+  methods: ["GET", "OPTIONS"],
+  route: "sites",
+  handler: sitesHandler,
+});
+
+app.http("projects", {
+  methods: ["GET", "OPTIONS"],
+  route: "projects",
+  handler: projectsHandler,
+});
+
+app.http("contacts", {
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  route: "contacts",
+  handler: contactsHandler,
+});
+
+app.http("businesses", {
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  route: "businesses",
+  handler: businessesHandler,
 });
 
 export { app };

@@ -369,7 +369,7 @@ export const contactsApi = {
    * Get a specific contact
    */
   async getContact(id: string): Promise<any> {
-    return apiRequest<any>(`/contacts/${encodeURIComponent(id)}`, {
+    return apiRequest<any>(`/contacts?id=${encodeURIComponent(id)}`, {
       method: 'GET',
     });
   },
@@ -388,7 +388,7 @@ export const contactsApi = {
    * Update external contact (admin/consultant only)
    */
   async updateContact(id: string, updates: any): Promise<any> {
-    return apiRequest<any>(`/contacts/${encodeURIComponent(id)}`, {
+    return apiRequest<any>(`/contacts?id=${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
@@ -398,7 +398,36 @@ export const contactsApi = {
    * Delete external contact (admin/consultant only)
    */
   async deleteContact(id: string): Promise<void> {
-    await apiRequest<void>(`/contacts/${encodeURIComponent(id)}`, {
+    await apiRequest<void>(`/contacts?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+/**
+ * Business API - Manage businesses
+ */
+export const businessesApi = {
+  async getAll(): Promise<any[]> {
+    return apiRequest<any[]>('/businesses', { method: 'GET' });
+  },
+
+  async create(business: any): Promise<any> {
+    return apiRequest<any>('/businesses', {
+      method: 'POST',
+      body: JSON.stringify(business),
+    });
+  },
+
+  async update(id: string, updates: any): Promise<any> {
+    return apiRequest<any>(`/businesses?id=${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ ...updates, id }),
+    });
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiRequest<void>(`/businesses?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
   },

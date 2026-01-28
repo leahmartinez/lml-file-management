@@ -4,7 +4,7 @@
  * Only for local development
  */
 
-import { UserEntity, ProjectEntity, SiteEntity, StageEntity } from "./tableStorage";
+import { UserEntity, ProjectEntity, SiteEntity, StageEntity, ContactEntity, BusinessEntity } from "./tableStorage";
 import bcrypt from 'bcryptjs';
 
 // In-memory stores
@@ -12,6 +12,8 @@ let users: Map<string, UserEntity> = new Map();
 let projects: Map<string, ProjectEntity> = new Map(); // key: projectCode
 let sites: Map<string, SiteEntity> = new Map(); // key: siteId
 let stages: Map<string, StageEntity> = new Map(); // key: stageId
+let contacts: Map<string, ContactEntity> = new Map(); // key: contact id
+let businesses: Map<string, BusinessEntity> = new Map(); // key: business id
 
 /**
  * Initialize local database with demo users
@@ -72,6 +74,64 @@ export async function initializeLocalDatabase(): Promise<void> {
  */
 export async function getAllUsersLocal(): Promise<UserEntity[]> {
   return Array.from(users.values());
+}
+
+export async function getAllSitesLocal(): Promise<SiteEntity[]> {
+  return Array.from(sites.values());
+}
+
+export async function getAllProjectsLocal(): Promise<ProjectEntity[]> {
+  return Array.from(projects.values());
+}
+
+export async function getStagesByProjectLocal(projectCode: string): Promise<StageEntity[]> {
+  return Array.from(stages.values()).filter(stage => stage.projectCode === projectCode);
+}
+
+export async function getAllContactsLocal(): Promise<ContactEntity[]> {
+  return Array.from(contacts.values());
+}
+
+export async function createContactLocal(contact: ContactEntity): Promise<ContactEntity> {
+  contacts.set(contact.id, contact);
+  return contact;
+}
+
+export async function updateContactLocal(id: string, updates: Partial<ContactEntity>): Promise<ContactEntity> {
+  const existing = contacts.get(id);
+  if (!existing) {
+    throw new Error('Contact not found');
+  }
+  const updated = { ...existing, ...updates };
+  contacts.set(id, updated);
+  return updated;
+}
+
+export async function deleteContactLocal(id: string): Promise<void> {
+  contacts.delete(id);
+}
+
+export async function getAllBusinessesLocal(): Promise<BusinessEntity[]> {
+  return Array.from(businesses.values());
+}
+
+export async function createBusinessLocal(business: BusinessEntity): Promise<BusinessEntity> {
+  businesses.set(business.id, business);
+  return business;
+}
+
+export async function updateBusinessLocal(id: string, updates: Partial<BusinessEntity>): Promise<BusinessEntity> {
+  const existing = businesses.get(id);
+  if (!existing) {
+    throw new Error('Business not found');
+  }
+  const updated = { ...existing, ...updates };
+  businesses.set(id, updated);
+  return updated;
+}
+
+export async function deleteBusinessLocal(id: string): Promise<void> {
+  businesses.delete(id);
 }
 
 /**
