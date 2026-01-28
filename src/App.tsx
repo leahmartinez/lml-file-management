@@ -23,6 +23,7 @@ const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const Proposals = lazy(() => import("./pages/Proposals"));
 const Admin = lazy(() => import("./pages/Admin"));
 const UserPortal = lazy(() => import("./pages/UserPortal"));
+const ForcePasswordReset = lazy(() => import("./pages/ForcePasswordReset"));
 
 // Loading placeholder component
 const PageLoader = () => (
@@ -63,6 +64,16 @@ const AppContent = () => {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route
+            path="/force-password-reset"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <ForcePasswordReset />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
           <Route path="/accept-invitation" element={<AcceptInvitation />} />
 
           {/* Default landing page - Projects/Sites */}

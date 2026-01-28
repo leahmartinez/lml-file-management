@@ -22,17 +22,22 @@ const MOCK_USERS: Record<string, { password: string; role: User['role']; sites: 
  * Separate from VITE_USE_MOCK_DATA to allow mock auth with real CSV data
  */
 function useMockAuth(): boolean {
+  if (import.meta.env.PROD) {
+    return false;
+  }
   return import.meta.env.VITE_USE_MOCK_AUTH === 'true';
 }
 
 // Updated User interface to match API (uses email instead of username)
 export interface User {
   email: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'subconsultant' | 'site_manager' | 'consultant' | 'national_manager';
   sites: string[];
   createdAt?: string;
   lastLogin?: string;
   createdBy?: string;
+  password?: string;
+  mustChangePassword?: boolean;
 }
 
 interface AuthContextType {
@@ -42,6 +47,7 @@ interface AuthContextType {
   allUsers: User[];
   updateUsers: (users: User[]) => Promise<void>;
   refreshUsers: () => Promise<void>;
+  updateUserPassword: (email: string, newPassword: string, options?: { mustChangePassword?: boolean }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,6 +56,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const getMockUsers = useCallback((): User[] => {
+    try {
+      const stored = localStorage.getItem('mockUsers');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch (error) {
+      errorLog("useAuth: Failed to parse mockUsers from localStorage", error);
+    }
+
+    return Object.entries(MOCK_USERS).map(([email, userData]) => ({
+      email,
+      role: userData.role,
+      sites: userData.sites,
+      password: userData.password,
+      mustChangePassword: false,
+    }));
+  }, []);
+
+  const persistMockUsers = useCallback((users: User[]) => {
+    localStorage.setItem('mockUsers', JSON.stringify(users));
+  }, []);
 
   // Load current user from token on mount
   useEffect(() => {
@@ -138,16 +170,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Use mock users in local development mode
       if (useMockAuth()) {
         authLog("useAuth: Loading mock users...");
-        const mockUsers: User[] = Object.entries(MOCK_USERS).map(([email, userData]) => ({
-          email,
-          role: userData.role,
-          sites: userData.sites,
-        }));
+        const mockUsers = getMockUsers();
 
-        // Add current user if not in mock users list
-        if (user && !mockUsers.find(u => u.email === user.email)) {
-          mockUsers.push(user);
-          authLog("useAuth: Added current user to mock users list");
+        if (!localStorage.getItem('mockUsers')) {
+          persistMockUsers(mockUsers);
         }
 
         setAllUsers(mockUsers);
@@ -167,7 +193,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         authLog("useAuth: User doesn't have permission to view users");
       }
     }
-  }, [user]);
+  }, [getMockUsers, persistMockUsers]);
+
+  const updateUserPassword = useCallback(async (email: string, newPassword: string, options?: { mustChangePassword?: boolean }) => {
+    if (!useMockAuth()) return;
+
+    const mockUsers = getMockUsers();
+    const updatedUsers = mockUsers.map((u) =>
+      u.email.toLowerCase() === email.toLowerCase()
+        ? { ...u, password: newPassword, mustChangePassword: options?.mustChangePassword ?? false }
+        : u
+    );
+
+    persistMockUsers(updatedUsers);
+    setAllUsers(updatedUsers);
+
+    if (user?.email.toLowerCase() === email.toLowerCase()) {
+      const updatedUser = updatedUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
+      if (updatedUser) {
+        setUser(updatedUser);
+        localStorage.setItem('current_user', JSON.stringify(updatedUser));
+      }
+    }
+  }, [getMockUsers, persistMockUsers, user?.email]);
 
   const login = async (email: string, password: string): Promise<User | null> => {
     authLog("useAuth: Login attempt for email:", email);
@@ -176,15 +224,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Use mock authentication if enabled
       if (useMockAuth()) {
         // Try exact match first, then case-insensitive lookup
-        let mockUser = MOCK_USERS[email];
+        const mockUsers = getMockUsers();
+        let mockUser = mockUsers.find((u) => u.email.toLowerCase() === email.toLowerCase().trim());
 
         if (!mockUser) {
-          const lowerEmail = email.toLowerCase().trim();
-          mockUser = MOCK_USERS[lowerEmail];
+          authLog("useAuth: Mock auth failed - user not found");
+          return null;
         }
 
-        // Allow login with any email in mock mode - use predefined role if exists, otherwise default to consultant
-        if (mockUser && mockUser.password !== password) {
+        if (mockUser.password && mockUser.password !== password) {
           authLog("useAuth: Mock auth failed - wrong password for known user");
           return null;
         }
@@ -192,9 +240,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         authLog("useAuth: Mock login successful");
         const loggedInUser: User = {
           email,
-          role: mockUser?.role || 'user',
-          sites: mockUser?.sites || [],
+          role: mockUser.role || 'user',
+          sites: mockUser.sites || [],
           lastLogin: new Date().toISOString(),
+          mustChangePassword: !!mockUser.mustChangePassword,
         };
 
         setUser(loggedInUser);
@@ -263,7 +312,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     allUsers,
     updateUsers,
     refreshUsers,
-  }), [user, allUsers, updateUsers, refreshUsers]);
+    updateUserPassword,
+  }), [user, allUsers, updateUsers, refreshUsers, updateUserPassword]);
 
   // Show loading state while checking authentication
   if (isLoading) {

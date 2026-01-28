@@ -13,6 +13,45 @@ interface AssignedWorkMapProps {
 
 // Cache for geocoded addresses to avoid repeated API calls
 const geocodeCache = new Map<string, [number, number] | null>();
+let leafletLoadPromise: Promise<void> | null = null;
+
+const ensureLeafletLoaded = () => {
+  if ((window as any).L) {
+    return Promise.resolve();
+  }
+
+  if (leafletLoadPromise) {
+    return leafletLoadPromise;
+  }
+
+  // Load Leaflet CSS if needed
+  if (!document.getElementById('leaflet-css')) {
+    const link = document.createElement('link');
+    link.id = 'leaflet-css';
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(link);
+  }
+
+  leafletLoadPromise = new Promise((resolve, reject) => {
+    const existingScript = document.getElementById('leaflet-js') as HTMLScriptElement | null;
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve());
+      existingScript.addEventListener('error', () => reject(new Error('Leaflet failed to load')));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'leaflet-js';
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Leaflet failed to load'));
+    document.head.appendChild(script);
+  });
+
+  return leafletLoadPromise;
+};
 
 export const AssignedWorkMap: React.FC<AssignedWorkMapProps> = ({ rows }) => {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -20,6 +59,9 @@ export const AssignedWorkMap: React.FC<AssignedWorkMapProps> = ({ rows }) => {
   const markersRef = useRef<any[]>([]);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const initObserverRef = useRef<ResizeObserver | null>(null);
+  const initRetryRef = useRef<number | null>(null);
 
   // Geocode an address using Nominatim (OpenStreetMap)
   const geocodeAddress = async (address: string): Promise<[number, number] | null> => {
@@ -65,32 +107,6 @@ export const AssignedWorkMap: React.FC<AssignedWorkMapProps> = ({ rows }) => {
   };
 
   useEffect(() => {
-    // Dynamically load Leaflet CSS and JS
-    if (!document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-
-    const loadLeaflet = async () => {
-      // Check if Leaflet is already loaded
-      if ((window as any).L) {
-        initializeMap();
-        return;
-      }
-
-      // Load Leaflet JS
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.async = true;
-      script.onload = () => {
-        initializeMap();
-      };
-      document.head.appendChild(script);
-    };
-
     const initializeMap = () => {
       if (!mapRef.current || mapInstanceRef.current) return;
 
@@ -107,9 +123,55 @@ export const AssignedWorkMap: React.FC<AssignedWorkMapProps> = ({ rows }) => {
 
       mapInstanceRef.current = map;
       setMapReady(true);
+
+      // Ensure tiles render correctly if the container finishes sizing after init
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 0);
     };
 
-    loadLeaflet();
+    const tryInit = () => {
+      if (!mapRef.current || mapInstanceRef.current) return true;
+      const { width, height } = mapRef.current.getBoundingClientRect();
+      if (width === 0 || height === 0) return false;
+      initializeMap();
+      return true;
+    };
+
+    ensureLeafletLoaded()
+      .then(() => {
+        const didInit = tryInit();
+        if (!didInit && mapRef.current) {
+          // Retry a few times in case layout settles late (tabs, fonts, etc.)
+          let attempts = 0;
+          const retry = () => {
+            if (tryInit()) {
+              if (initRetryRef.current) {
+                window.clearTimeout(initRetryRef.current);
+                initRetryRef.current = null;
+              }
+              return;
+            }
+            attempts += 1;
+            if (attempts < 10) {
+              initRetryRef.current = window.setTimeout(retry, 150);
+            }
+          };
+
+          initRetryRef.current = window.setTimeout(retry, 150);
+
+          initObserverRef.current = new ResizeObserver(() => {
+            if (tryInit()) {
+              initObserverRef.current?.disconnect();
+              initObserverRef.current = null;
+            }
+          });
+          initObserverRef.current.observe(mapRef.current);
+        }
+      })
+      .catch((error) => {
+        console.error('[AssignedWorkMap] Failed to load Leaflet:', error);
+      });
 
     return () => {
       // Cleanup map on unmount
@@ -117,8 +179,50 @@ export const AssignedWorkMap: React.FC<AssignedWorkMapProps> = ({ rows }) => {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
+      if (initObserverRef.current) {
+        initObserverRef.current.disconnect();
+        initObserverRef.current = null;
+      }
+      if (initRetryRef.current) {
+        window.clearTimeout(initRetryRef.current);
+        initRetryRef.current = null;
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !mapRef.current) return;
+
+    const handleResize = () => {
+      mapInstanceRef.current?.invalidateSize();
+    };
+
+    // Window resize
+    window.addEventListener('resize', handleResize);
+
+    // Container resize
+    resizeObserverRef.current = new ResizeObserver(() => {
+      mapInstanceRef.current?.invalidateSize();
+    });
+    resizeObserverRef.current.observe(mapRef.current);
+
+    // One more invalidate on next frame in case layout settles late
+    requestAnimationFrame(() => {
+      mapInstanceRef.current?.invalidateSize();
+    });
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
+    };
+  }, [mapReady]);
 
   // Update markers when rows change or map becomes ready
   useEffect(() => {
@@ -250,18 +354,6 @@ export const AssignedWorkMap: React.FC<AssignedWorkMapProps> = ({ rows }) => {
     updateMarkers();
   }, [rows, mapReady]);
 
-  if (rows.length === 0) {
-    return (
-      <div className="h-full flex items-center justify-center bg-muted/20 rounded-lg border-2 border-dashed border-border">
-        <div className="text-center text-muted-foreground p-8">
-          <MapPin className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>No locations to display</p>
-          <p className="text-sm mt-1">Assigned work will appear here</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative h-full w-full">
       <div
@@ -269,6 +361,15 @@ export const AssignedWorkMap: React.FC<AssignedWorkMapProps> = ({ rows }) => {
         className="h-full w-full rounded-lg border border-border overflow-hidden"
         style={{ minHeight: '400px' }}
       />
+      {rows.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/70 rounded-lg">
+          <div className="text-center text-muted-foreground p-8">
+            <MapPin className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>No locations to display</p>
+            <p className="text-sm mt-1">Assigned work will appear here</p>
+          </div>
+        </div>
+      )}
       {isGeocoding && (
         <div className="absolute inset-0 bg-black/10 flex items-center justify-center rounded-lg pointer-events-none">
           <div className="bg-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">

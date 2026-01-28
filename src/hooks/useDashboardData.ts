@@ -9,6 +9,7 @@ import { useProjectManagement } from './useProjectManagement';
 import { useSites } from './useData';
 import { useContacts } from './useContacts';
 import { useStageConsultants } from './useStageConsultants';
+import { useAuth } from './useAuth';
 
 export interface DashboardRow {
   // Original data
@@ -54,6 +55,7 @@ export function useDashboardData() {
   const { data: sites = [] } = useSites();
   const { contacts = [] } = useContacts() || {};
   const { getStageConsultants } = useStageConsultants();
+  const { user } = useAuth();
 
   // Memoize contact lookup map for O(1) access instead of O(n) .find()
   const contactsByEmail = useMemo(() => {
@@ -70,7 +72,7 @@ export function useDashboardData() {
       return [];
     }
 
-    return allProjects.flatMap((project) => {
+    const allRows = allProjects.flatMap((project) => {
       // Find corresponding site
       const site = sites && sites.length > 0
         ? sites.find((s) => s.building === project.building)
@@ -183,7 +185,12 @@ export function useDashboardData() {
         };
       });
     });
-  }, [allProjects, sites, contactsByEmail, getStageConsultants]);
+    if (user?.role === 'subconsultant' && user.email) {
+      return allRows.filter((row) => row.stageConsultantEmails?.includes(user.email));
+    }
+
+    return allRows;
+  }, [allProjects, sites, contactsByEmail, getStageConsultants, user?.email, user?.role]);
 
   return {
     rows: dashboardRows,

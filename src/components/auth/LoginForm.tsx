@@ -32,8 +32,12 @@ const LoginForm = () => {
           title: "Login Successful",
           description: "Welcome back!",
         });
-        // All users have same permissions - redirect to home (which redirects to /sites)
-        navigate("/");
+        if (user.mustChangePassword) {
+          navigate("/force-password-reset");
+        } else {
+          // All users have same permissions - redirect to home (which redirects to /sites)
+          navigate("/");
+        }
       } else {
         toast({
           title: "Login Failed",

@@ -13,8 +13,10 @@ import blobStorageUrls from './blobStorageUrls.json';
 // Change this to switch between CSV (blob storage), API, or local
 const DATA_SOURCE_TYPE: DataSourceType = 'csv';
 
-// Use blob storage URLs if available, otherwise fall back to local paths
-const USE_BLOB_STORAGE = Object.values(blobStorageUrls).some(url => url && url.startsWith('https://'));
+// Use blob storage URLs only when explicitly enabled (defaults to local CSVs)
+const USE_BLOB_STORAGE =
+  import.meta.env.VITE_USE_BLOB_STORAGE === 'true' &&
+  Object.values(blobStorageUrls).some(url => url && url.startsWith('https://'));
 
 // API Configuration (for future use)
 const API_CONFIG = {
