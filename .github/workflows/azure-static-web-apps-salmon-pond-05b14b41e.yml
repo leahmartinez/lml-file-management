@@ -34,6 +34,8 @@ jobs:
         continue-on-error: true
       - name: Build Frontend
         run: npm run build
+      - name: Copy SWA config to dist
+        run: cp staticwebapp.config.json dist/
       - name: Install API dependencies
         run: npm ci
         working-directory: api
@@ -58,12 +60,12 @@ jobs:
           action: "upload"
           ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
-          app_location: "/" # App source code path
+          app_location: "dist" # Built frontend output
           api_location: "api/dist" # Azure Functions build output (avoid bundling node_modules)
-          output_location: "dist" # Vite build output
+          output_location: "" # Not needed when app_location is already the output
           skip_app_build: true # Build already completed
           skip_api_build: true # API build already completed
-          config_file_location: "/" # staticwebapp.config.json lives at repo root
+          config_file_location: "dist" # staticwebapp.config.json copied here during build
           github_id_token: ${{ steps.idtoken.outputs.result }}
           ###### End of Repository/Build Configurations ######
 
