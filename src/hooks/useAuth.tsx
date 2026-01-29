@@ -57,6 +57,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const clearAuthState = useCallback(() => {
+    setUser(null);
+    setAllUsers([]);
+    localStorage.removeItem('current_user');
+    localStorage.removeItem('jwt_token');
+  }, []);
+
   const getMockUsers = useCallback((): User[] => {
     try {
       const stored = localStorage.getItem('mockUsers');
@@ -114,8 +121,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
           } catch (error) {
             authLog("useAuth: Failed to parse stored user");
-            localStorage.removeItem('current_user');
-            localStorage.removeItem('jwt_token');
+            clearAuthState();
           }
         }
         setIsLoading(false);
@@ -155,14 +161,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         authLog("useAuth: No valid token or failed to load profile");
         // Clear invalid token
         authApi.logout();
-        setUser(null);
+        clearAuthState();
       } finally {
         setIsLoading(false);
       }
     };
 
     loadUser();
-  }, []);
+  }, [clearAuthState, refreshUsers]);
 
   // Load all users from API or mock data
   const refreshUsers = useCallback(async () => {
@@ -188,6 +194,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setAllUsers(users);
     } catch (error: any) {
       errorLog("useAuth: Failed to fetch users:", error);
+      setAllUsers([]);
       // If unauthorized, user might not have permission
       if (error.message?.includes('401') || error.message?.includes('403')) {
         authLog("useAuth: User doesn't have permission to view users");
@@ -229,11 +236,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (!mockUser) {
           authLog("useAuth: Mock auth failed - user not found");
+          clearAuthState();
           return null;
         }
 
         if (mockUser.password && mockUser.password !== password) {
           authLog("useAuth: Mock auth failed - wrong password for known user");
+          clearAuthState();
           return null;
         }
 
@@ -285,6 +294,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return loggedInUser;
     } catch (error: any) {
       errorLog("useAuth: Login failed:", error);
+      clearAuthState();
       return null;
     }
   };
