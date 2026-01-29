@@ -90,6 +90,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('mockUsers', JSON.stringify(users));
   }, []);
 
+  // Load all users from API or mock data
+  // NOTE: This must be defined BEFORE the useEffect that uses it
+  const refreshUsers = useCallback(async () => {
+    try {
+      // Use mock users in local development mode
+      if (useMockAuth()) {
+        authLog("useAuth: Loading mock users...");
+        const mockUsers = getMockUsers();
+
+        if (!localStorage.getItem('mockUsers')) {
+          persistMockUsers(mockUsers);
+        }
+
+        setAllUsers(mockUsers);
+        authLog("useAuth: Mock users loaded:", mockUsers.length);
+        return;
+      }
+
+      // Use API for real users
+      authLog("useAuth: Fetching all users from API...");
+      const users = await usersApi.getAllUsers();
+      authLog("useAuth: Users loaded from API:", users.length);
+      setAllUsers(users);
+    } catch (error: any) {
+      errorLog("useAuth: Failed to fetch users:", error);
+      setAllUsers([]);
+      // If unauthorized, user might not have permission
+      if (error.message?.includes('401') || error.message?.includes('403')) {
+        authLog("useAuth: User doesn't have permission to view users");
+      }
+    }
+  }, [getMockUsers, persistMockUsers]);
+
   // Load current user from token on mount
   useEffect(() => {
     const loadUser = async () => {
@@ -169,38 +202,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     loadUser();
   }, [clearAuthState, refreshUsers]);
-
-  // Load all users from API or mock data
-  const refreshUsers = useCallback(async () => {
-    try {
-      // Use mock users in local development mode
-      if (useMockAuth()) {
-        authLog("useAuth: Loading mock users...");
-        const mockUsers = getMockUsers();
-
-        if (!localStorage.getItem('mockUsers')) {
-          persistMockUsers(mockUsers);
-        }
-
-        setAllUsers(mockUsers);
-        authLog("useAuth: Mock users loaded:", mockUsers.length);
-        return;
-      }
-
-      // Use API for real users
-      authLog("useAuth: Fetching all users from API...");
-      const users = await usersApi.getAllUsers();
-      authLog("useAuth: Users loaded from API:", users.length);
-      setAllUsers(users);
-    } catch (error: any) {
-      errorLog("useAuth: Failed to fetch users:", error);
-      setAllUsers([]);
-      // If unauthorized, user might not have permission
-      if (error.message?.includes('401') || error.message?.includes('403')) {
-        authLog("useAuth: User doesn't have permission to view users");
-      }
-    }
-  }, [getMockUsers, persistMockUsers]);
 
   const updateUserPassword = useCallback(async (email: string, newPassword: string, options?: { mustChangePassword?: boolean }) => {
     if (!useMockAuth()) return;
