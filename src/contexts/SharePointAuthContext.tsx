@@ -31,55 +31,55 @@ export const SharePointAuthProvider: React.FC<SharePointAuthProviderProps> = ({ 
   const [account, setAccount] = useState<AccountInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize MSAL and check for existing account
+  // Initialize MSAL and handle redirect in a single flow to avoid race conditions
   useEffect(() => {
+    let isMounted = true;
+
     const initializeMsal = async () => {
       try {
         if (!isMsalConfigured) {
-          setIsLoading(false);
+          if (isMounted) {
+            setIsLoading(false);
+          }
           return;
         }
+
         await msalInstance.initialize();
 
-        const accounts = msalInstance.getAllAccounts();
-        if (accounts.length > 0) {
-          const cachedAccount = accounts[0];
-          setAccount(cachedAccount);
+        // Handle redirect from Azure AD login after initialization
+        const result = await msalInstance.handleRedirectPromise();
+        if (result?.account && isMounted) {
+          setAccount(result.account);
           setIsAuthenticated(true);
+        }
+
+        // If no redirect result, check cached accounts
+        if (!result) {
+          const accounts = msalInstance.getAllAccounts();
+          if (accounts.length > 0 && isMounted) {
+            const cachedAccount = accounts[0];
+            setAccount(cachedAccount);
+            setIsAuthenticated(true);
+          }
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to initialize MSAL';
         console.error('MSAL initialization error:', errorMessage);
-        setError(errorMessage);
+        if (isMounted) {
+          setError(errorMessage);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     initializeMsal();
-  }, []);
 
-  // Handle redirect after login
-  useEffect(() => {
-    const handleRedirect = async () => {
-      try {
-        if (!isMsalConfigured) {
-          return;
-        }
-        // This handles the redirect from Azure AD login
-        const result = await msalInstance.handleRedirectPromise();
-        if (result) {
-          setAccount(result.account);
-          setIsAuthenticated(true);
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Redirect handling failed';
-        console.error('Redirect handling error:', errorMessage);
-        setError(errorMessage);
-      }
+    return () => {
+      isMounted = false;
     };
-
-    handleRedirect();
   }, []);
 
   const login = useCallback(async () => {
