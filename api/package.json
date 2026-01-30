@@ -10,7 +10,7 @@
   "scripts": {
     "clean": "node -e \"const fs=require('fs'); const path=require('path'); if (fs.existsSync('dist')) { fs.rmSync('dist', { recursive: true, force: true }); console.log('Cleaned dist folder'); }\"",
     "build": "npm run clean && tsc && npm run copy-configs && npm run generate-functions",
-    "copy-configs": "node -e \"const fs=require('fs'); const path=require('path'); fs.copyFileSync('host.json','dist/host.json'); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); pkg.main='index.js'; fs.writeFileSync('dist/package.json',JSON.stringify(pkg,null,2)); console.log('Copied host.json and package.json to dist/');\"",
+    "copy-configs": "node -e \"const fs=require('fs'); fs.copyFileSync('host.json','dist/host.json'); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); pkg.main='index.js'; fs.writeFileSync('dist/package.json',JSON.stringify(pkg,null,2)); if (fs.existsSync('package-lock.json')) { fs.copyFileSync('package-lock.json','dist/package-lock.json'); } console.log('Copied host.json and package.json to dist/');\"",
     "generate-functions": "node generate-function-jsons.js",
     "watch": "tsc -w",
     "prestart": "npm run build",
