@@ -34,6 +34,7 @@ functions.forEach(func => {
   
   const functionJson = {
     scriptFile: func.script,
+    entryPoint: 'default',
     bindings: [
       {
         authLevel: 'anonymous',
