@@ -59,10 +59,10 @@ jobs:
           ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
           app_location: "build" # Vite outputs to 'build' directory
-          api_location: "api/dist" # Azure Functions build output (avoid bundling node_modules)
+          api_location: "api" # Let SWA build the API and install dependencies
           output_location: "" # Not needed when app_location is already the output
           skip_app_build: true # Build already completed
-          skip_api_build: true # API build already completed
+          skip_api_build: false # Let SWA install API dependencies
           config_file_location: "build" # Vite copies staticwebapp.config.json here
           github_id_token: ${{ steps.idtoken.outputs.result }}
           ###### End of Repository/Build Configurations ######
