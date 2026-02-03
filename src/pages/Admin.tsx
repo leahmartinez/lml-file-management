@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { useAuth, User } from '@/hooks/useAuth';
-import { usersApi } from '@/services/apiService';
+import { authApi, usersApi } from '@/services/apiService';
 import { useProposalTemplates } from '@/hooks/useProposalTemplates';
 import { ProposalTemplate } from '@/types/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -149,10 +149,9 @@ const Admin = () => {
       return;
     }
 
-    const tempPassword = generateTempPassword();
-
     try {
       if (isMockAuth) {
+        const tempPassword = generateTempPassword();
         const newUser: User = {
           email: formData.email,
           role: formData.role,
@@ -165,23 +164,25 @@ const Admin = () => {
 
         const updatedUsers = [...getStoredUsers(), newUser];
         saveUsers(updatedUsers);
+        setTempPasswordInfo({ email: formData.email, password: tempPassword, action: 'created' });
       } else {
-        await usersApi.createUser({
-          email: formData.email.trim(),
-          password: tempPassword,
-          role: formData.role,
-          sites: formData.sites,
-          mustChangePassword: true,
-        });
+        await authApi.sendInvitation(
+          formData.email.trim(),
+          formData.role,
+          formData.role === 'national_manager' || formData.role === 'admin' || formData.role === 'consultant'
+            ? []
+            : formData.sites
+        );
       }
 
       await refreshUsers();
 
       toast({
         title: "Success",
-        description: `User ${formData.email} has been added`,
+        description: isMockAuth
+          ? `User ${formData.email} has been added`
+          : `Invitation sent to ${formData.email}`,
       });
-      setTempPasswordInfo({ email: formData.email, password: tempPassword, action: 'created' });
 
       resetForm();
       setIsAddModalOpen(false);
@@ -736,7 +737,9 @@ const Admin = () => {
             </div>
             {!isEditModalOpen && (
               <div className="text-xs text-muted-foreground">
-                A temporary password will be generated and the user will be prompted to change it on first login.
+                {isMockAuth
+                  ? 'A temporary password will be generated and the user will be prompted to change it on first login.'
+                  : 'An invitation email will be sent so the user can set their own password.'}
               </div>
             )}
           </div>
