@@ -69,6 +69,9 @@ export async function sendEmail(options: EmailOptions, context?: InvocationConte
   }
 
   try {
+    if (!process.env.SENDER_EMAIL) {
+      throw new Error('SENDER_EMAIL is not configured');
+    }
     const client = getEmailClient();
     if (!client) {
       throw new Error('Email service not configured. Please set AZURE_COMMUNICATION_CONNECTION_STRING.');
@@ -107,8 +110,7 @@ export async function sendEmail(options: EmailOptions, context?: InvocationConte
       context.error(`Error details: ${errorDetails}`);
     }
 
-    // Don't throw - log the error but allow the operation to continue
-    // This prevents email failures from breaking the entire registration/password reset flow
+    throw new Error(errorMessage);
   }
 }
 
