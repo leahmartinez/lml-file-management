@@ -95,6 +95,7 @@ export async function authLoginHandler(request: HttpRequest, context: Invocation
           sites: JSON.parse(user.sites || '[]'),
           lastLogin: user.lastLogin,
           accountStatus: user.accountStatus,
+          mustChangePassword: user.mustChangePassword || false,
         },
       }),
       request.headers.get('origin') || undefined

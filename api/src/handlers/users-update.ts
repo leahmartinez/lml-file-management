@@ -33,7 +33,7 @@ export async function usersUpdateHandler(request: HttpRequest, context: Invocati
     const normalizedEmail = email.toLowerCase().trim();
 
     // Extract update fields from body
-    const { role, sites, password } = body;
+    const { role, sites, password, mustChangePassword } = body;
 
     // Check if user exists
     const existing = await getUserByEmail(normalizedEmail);
@@ -44,8 +44,9 @@ export async function usersUpdateHandler(request: HttpRequest, context: Invocati
     // Prepare updates
     const updates: any = {};
     if (role) updates.role = role;
-    if (sites) updates.sites = sites;
+    if (sites !== undefined) updates.sites = sites;
     if (password) updates.passwordHash = await hashPassword(password);
+    if (typeof mustChangePassword === 'boolean') updates.mustChangePassword = mustChangePassword;
 
     // Update user
     const updated = await updateUser(normalizedEmail, updates);

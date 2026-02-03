@@ -23,7 +23,7 @@ export interface UserEntity extends TableEntity {
   rowKey: string; // email
   email: string;
   passwordHash: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'subconsultant' | 'consultant' | 'site_manager' | 'national_manager';
   sites: string; // JSON stringified array
   createdAt: string;
   lastLogin?: string;
@@ -36,6 +36,7 @@ export interface UserEntity extends TableEntity {
   // Password reset
   passwordResetToken?: string; // token for password reset
   passwordResetExpiry?: string; // expiry time for reset token
+  mustChangePassword?: boolean; // force change on next login
 }
 
 // Site entity structure
@@ -466,6 +467,7 @@ export async function createUser(userData: {
   emailVerified?: boolean;
   emailVerificationToken?: string;
   emailVerificationExpiry?: string;
+  mustChangePassword?: boolean;
 }): Promise<UserEntity> {
   if (IS_LOCAL) {
     return localDb.createUserLocal(userData);
@@ -486,6 +488,7 @@ export async function createUser(userData: {
     emailVerified: userData.emailVerified || false,
     emailVerificationToken: userData.emailVerificationToken,
     emailVerificationExpiry: userData.emailVerificationExpiry,
+    mustChangePassword: userData.mustChangePassword || false,
   };
 
   await table.createEntity(entity);
@@ -508,6 +511,7 @@ export async function updateUser(
     emailVerificationExpiry?: string;
     passwordResetToken?: string;
     passwordResetExpiry?: string;
+    mustChangePassword?: boolean;
   }
 ): Promise<UserEntity> {
   if (IS_LOCAL) {
@@ -524,7 +528,7 @@ export async function updateUser(
   const updated: UserEntity = {
     ...existing,
     ...(updates.role && { role: updates.role as any }),
-    ...(updates.sites && { sites: JSON.stringify(updates.sites) }),
+    ...(updates.sites !== undefined && { sites: JSON.stringify(updates.sites) }),
     ...(updates.lastLogin && { lastLogin: updates.lastLogin }),
     ...(updates.passwordHash && { passwordHash: updates.passwordHash }),
     ...(updates.accountStatus && { accountStatus: updates.accountStatus }),
@@ -533,6 +537,7 @@ export async function updateUser(
     ...(updates.emailVerificationExpiry !== undefined && { emailVerificationExpiry: updates.emailVerificationExpiry }),
     ...(updates.passwordResetToken !== undefined && { passwordResetToken: updates.passwordResetToken }),
     ...(updates.passwordResetExpiry !== undefined && { passwordResetExpiry: updates.passwordResetExpiry }),
+    ...(typeof updates.mustChangePassword === 'boolean' && { mustChangePassword: updates.mustChangePassword }),
   };
 
   await table.updateEntity(updated, 'Merge');

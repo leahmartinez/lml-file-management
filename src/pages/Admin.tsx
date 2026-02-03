@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { useAuth, User } from '@/hooks/useAuth';
+import { usersApi } from '@/services/apiService';
 import { useProposalTemplates } from '@/hooks/useProposalTemplates';
 import { ProposalTemplate } from '@/types/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,8 +44,12 @@ const Admin = () => {
 
   const isAdmin = user?.role === 'admin';
   const isMasterAdmin = user?.email?.toLowerCase() === 'leah@lmllift.com';
+  const isMockAuth = !import.meta.env.PROD && import.meta.env.VITE_USE_MOCK_AUTH === 'true';
   const isLmlEmail = (email: string) => email.trim().toLowerCase().endsWith('@lmllift.com');
   const getStoredUsers = (): User[] => {
+    if (!isMockAuth) {
+      return allUsers;
+    }
     try {
       const stored = localStorage.getItem('mockUsers');
       if (stored) {
@@ -59,6 +64,9 @@ const Admin = () => {
     return allUsers;
   };
   const saveUsers = (users: User[]) => {
+    if (!isMockAuth) {
+      return;
+    }
     localStorage.setItem('mockUsers', JSON.stringify(users));
   };
   const generateTempPassword = () => {
@@ -104,7 +112,7 @@ const Admin = () => {
     });
   };
 
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!isMasterAdmin) {
       toast({
         title: "Access Denied",
@@ -141,34 +149,52 @@ const Admin = () => {
       return;
     }
 
-    const newUser: User = {
-      email: formData.email,
-      role: formData.role,
-      sites: formData.sites,
-      createdAt: new Date().toISOString(),
-      createdBy: user?.email,
-      password: generateTempPassword(),
-      mustChangePassword: true,
-    };
+    const tempPassword = generateTempPassword();
 
-    // Add user to localStorage (mock implementation)
-    const updatedUsers = [...getStoredUsers(), newUser];
-    saveUsers(updatedUsers);
+    try {
+      if (isMockAuth) {
+        const newUser: User = {
+          email: formData.email,
+          role: formData.role,
+          sites: formData.sites,
+          createdAt: new Date().toISOString(),
+          createdBy: user?.email,
+          password: tempPassword,
+          mustChangePassword: true,
+        };
 
-    // Refresh users list
-    refreshUsers();
+        const updatedUsers = [...getStoredUsers(), newUser];
+        saveUsers(updatedUsers);
+      } else {
+        await usersApi.createUser({
+          email: formData.email.trim(),
+          password: tempPassword,
+          role: formData.role,
+          sites: formData.sites,
+          mustChangePassword: true,
+        });
+      }
 
-    toast({
-      title: "Success",
-      description: `User ${formData.email} has been added`,
-    });
-    setTempPasswordInfo({ email: newUser.email, password: newUser.password || '', action: 'created' });
+      await refreshUsers();
 
-    resetForm();
-    setIsAddModalOpen(false);
+      toast({
+        title: "Success",
+        description: `User ${formData.email} has been added`,
+      });
+      setTempPasswordInfo({ email: formData.email, password: tempPassword, action: 'created' });
+
+      resetForm();
+      setIsAddModalOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add user. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleEditUser = () => {
+  const handleEditUser = async () => {
     if (!selectedUser) return;
     if (!isMasterAdmin) {
       toast({
@@ -187,26 +213,38 @@ const Admin = () => {
       return;
     }
 
-    const updatedUsers = getStoredUsers().map(u =>
-      u.email === selectedUser.email
-        ? { ...u, role: formData.role, sites: formData.sites }
-        : u
-    );
+    try {
+      if (isMockAuth) {
+        const updatedUsers = getStoredUsers().map(u =>
+          u.email === selectedUser.email
+            ? { ...u, role: formData.role, sites: formData.sites }
+            : u
+        );
+        saveUsers(updatedUsers);
+      } else {
+        await usersApi.updateUser(selectedUser.email, {
+          role: formData.role,
+          sites: formData.sites,
+        });
+      }
 
-    // Update in localStorage
-    saveUsers(updatedUsers);
+      await refreshUsers();
 
-    // Refresh users list
-    refreshUsers();
+      toast({
+        title: "Success",
+        description: `User ${selectedUser.email} has been updated`,
+      });
 
-    toast({
-      title: "Success",
-      description: `User ${selectedUser.email} has been updated`,
-    });
-
-    setIsEditModalOpen(false);
-    setSelectedUser(null);
-    resetForm();
+      setIsEditModalOpen(false);
+      setSelectedUser(null);
+      resetForm();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const openEditModal = (userToEdit: User) => {
@@ -219,7 +257,7 @@ const Admin = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleDeleteUser = (userToDelete: User) => {
+  const handleDeleteUser = async (userToDelete: User) => {
     if (!isMasterAdmin) {
       toast({
         title: "Access Denied",
@@ -238,22 +276,31 @@ const Admin = () => {
     }
 
     if (window.confirm(`Are you sure you want to delete user ${userToDelete.email}?`)) {
-      const updatedUsers = getStoredUsers().filter(u => u.email !== userToDelete.email);
+      try {
+        if (isMockAuth) {
+          const updatedUsers = getStoredUsers().filter(u => u.email !== userToDelete.email);
+          saveUsers(updatedUsers);
+        } else {
+          await usersApi.deleteUser(userToDelete.email);
+        }
 
-      // Update in localStorage
-      saveUsers(updatedUsers);
+        await refreshUsers();
 
-      // Refresh users list
-      refreshUsers();
-
-      toast({
-        title: "Success",
-        description: `User ${userToDelete.email} has been deleted`,
-      });
+        toast({
+          title: "Success",
+          description: `User ${userToDelete.email} has been deleted`,
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete user. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
-  const handleResetPassword = (userToReset: User) => {
+  const handleResetPassword = async (userToReset: User) => {
     if (!isMasterAdmin) {
       toast({
         title: "Access Denied",
@@ -263,18 +310,34 @@ const Admin = () => {
       return;
     }
     const tempPassword = generateTempPassword();
-    const updatedUsers = getStoredUsers().map((u) =>
-      u.email === userToReset.email
-        ? { ...u, password: tempPassword, mustChangePassword: true }
-        : u
-    );
-    saveUsers(updatedUsers);
-    refreshUsers();
-    toast({
-      title: "Password reset",
-      description: `Temporary password generated for ${userToReset.email}`,
-    });
-    setTempPasswordInfo({ email: userToReset.email, password: tempPassword, action: 'reset' });
+    try {
+      if (isMockAuth) {
+        const updatedUsers = getStoredUsers().map((u) =>
+          u.email === userToReset.email
+            ? { ...u, password: tempPassword, mustChangePassword: true }
+            : u
+        );
+        saveUsers(updatedUsers);
+      } else {
+        await usersApi.updateUser(userToReset.email, {
+          password: tempPassword,
+          mustChangePassword: true,
+        });
+      }
+
+      await refreshUsers();
+      toast({
+        title: "Password reset",
+        description: `Temporary password generated for ${userToReset.email}`,
+      });
+      setTempPasswordInfo({ email: userToReset.email, password: tempPassword, action: 'reset' });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reset password. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const resetTemplateForm = () => {

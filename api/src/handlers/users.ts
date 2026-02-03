@@ -35,6 +35,7 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
         createdBy: u.createdBy,
         accountStatus: u.accountStatus,
         emailVerified: u.emailVerified,
+        mustChangePassword: u.mustChangePassword || false,
       }));
 
       return addCorsHeaders(success(safeUsers), request.headers.get('origin') || undefined);
@@ -42,7 +43,7 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
     } else if (request.method === 'POST') {
       // Create user
       const body = await request.json() as any;
-      const { email, password, role, sites } = body;
+      const { email, password, role, sites, mustChangePassword } = body;
 
       if (!email || !password || !role) {
         return addCorsHeaders(error('Email, password, and role are required'), request.headers.get('origin') || undefined);
@@ -69,6 +70,9 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
         role,
         sites: sites || [],
         createdBy: currentUser.email,
+        mustChangePassword: !!mustChangePassword,
+        accountStatus: 'active',
+        emailVerified: true,
       });
 
       return addCorsHeaders(

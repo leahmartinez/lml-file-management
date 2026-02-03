@@ -166,6 +166,7 @@ export async function createUserLocal(userData: {
   emailVerified?: boolean;
   emailVerificationToken?: string;
   emailVerificationExpiry?: string;
+  mustChangePassword?: boolean;
 }): Promise<UserEntity> {
   // Normalize email to lowercase for storage
   const normalizedEmail = userData.email.toLowerCase().trim();
@@ -183,6 +184,7 @@ export async function createUserLocal(userData: {
     emailVerified: userData.emailVerified || false,
     emailVerificationToken: userData.emailVerificationToken,
     emailVerificationExpiry: userData.emailVerificationExpiry,
+    mustChangePassword: userData.mustChangePassword || false,
   };
 
   users.set(normalizedEmail, entity);
@@ -205,6 +207,7 @@ export async function updateUserLocal(
     emailVerificationExpiry?: string;
     passwordResetToken?: string;
     passwordResetExpiry?: string;
+    mustChangePassword?: boolean;
   }
 ): Promise<UserEntity> {
   const existing = users.get(email);
@@ -216,7 +219,7 @@ export async function updateUserLocal(
   const updated: UserEntity = {
     ...existing,
     ...(updates.role && { role: updates.role as any }),
-    ...(updates.sites && { sites: JSON.stringify(updates.sites) }),
+    ...(updates.sites !== undefined && { sites: JSON.stringify(updates.sites) }),
     ...(updates.lastLogin && { lastLogin: updates.lastLogin }),
     ...(updates.passwordHash && { passwordHash: updates.passwordHash }),
     ...(updates.accountStatus && { accountStatus: updates.accountStatus }),
@@ -225,6 +228,7 @@ export async function updateUserLocal(
     ...(updates.emailVerificationExpiry !== undefined && { emailVerificationExpiry: updates.emailVerificationExpiry }),
     ...(updates.passwordResetToken !== undefined && { passwordResetToken: updates.passwordResetToken }),
     ...(updates.passwordResetExpiry !== undefined && { passwordResetExpiry: updates.passwordResetExpiry }),
+    ...(typeof updates.mustChangePassword === 'boolean' && { mustChangePassword: updates.mustChangePassword }),
   };
 
   users.set(email, updated);

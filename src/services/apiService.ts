@@ -31,13 +31,14 @@ const API_BASE_URL = getApiBaseUrl();
 
 export interface ApiUser {
   email: string;
-  role: 'national_manager' | 'site_manager' | 'admin' | 'consultant';
+  role: 'national_manager' | 'site_manager' | 'admin' | 'consultant' | 'user' | 'subconsultant';
   sites: string[];
   createdAt?: string;
   lastLogin?: string;
   createdBy?: string;
   accountStatus?: 'pending' | 'active' | 'suspended';
   emailVerified?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface LoginRequest {
@@ -55,12 +56,14 @@ export interface CreateUserRequest {
   password: string;
   role: string;
   sites: string[];
+  mustChangePassword?: boolean;
 }
 
 export interface UpdateUserRequest {
   role?: string;
   sites?: string[];
   password?: string;
+  mustChangePassword?: boolean;
 }
 
 /**

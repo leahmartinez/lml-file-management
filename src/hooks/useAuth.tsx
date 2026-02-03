@@ -278,6 +278,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role: response.user.role,
         sites: response.user.sites,
         lastLogin: response.user.lastLogin,
+        mustChangePassword: !!response.user.mustChangePassword,
       };
 
       setUser(loggedInUser);
