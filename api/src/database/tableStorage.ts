@@ -561,6 +561,7 @@ export async function seedInitialUsers(): Promise<void> {
   }
 
   const users = await getAllUsers();
+  const adminEmail = 'leah@lmllift.com';
 
   if (users.length === 0) {
     console.log('No users found, seeding initial admin...');
@@ -568,14 +569,27 @@ export async function seedInitialUsers(): Promise<void> {
     const adminPasswordHash = await bcrypt.hash('password', 10);
 
     await createUser({
-      email: 'leah@lmllift.com',
+      email: adminEmail,
       passwordHash: adminPasswordHash,
       role: 'admin',
       sites: [],
       createdBy: 'system',
+      accountStatus: 'active',
+      emailVerified: true,
     });
 
     console.log('Initial admin user created: leah@lmllift.com / password');
+    return;
+  }
+
+  // Ensure initial admin is verified/active if the user already exists
+  const existingAdmin = await getUserByEmail(adminEmail);
+  if (existingAdmin && (!existingAdmin.emailVerified || existingAdmin.accountStatus !== 'active')) {
+    await updateUser(adminEmail, {
+      emailVerified: true,
+      accountStatus: 'active',
+    });
+    console.log('Initial admin user updated to verified/active.');
   }
 }
 
