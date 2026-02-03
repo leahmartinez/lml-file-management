@@ -113,6 +113,7 @@ async function apiRequest<T>(
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+    headers['X-LML-Token'] = token;
     if (import.meta.env.DEV) {
       console.log('🔑 Sending token for:', endpoint);
     }

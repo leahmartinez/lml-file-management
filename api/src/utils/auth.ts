@@ -63,6 +63,12 @@ export function verifyToken(token: string): JWTPayload | null {
  */
 export function extractToken(req: HttpRequest): string | null {
   const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+  const altHeader = req.headers.get('x-lml-token') || req.headers.get('X-LML-Token');
+
+  if (altHeader && altHeader.trim()) {
+    return altHeader.trim();
+  }
+
   if (!authHeader) return null;
 
   const parts = authHeader.split(' ');
