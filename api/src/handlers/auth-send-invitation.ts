@@ -95,9 +95,10 @@ export async function authSendInvitationHandler(request: HttpRequest, context: I
     );
 
   } catch (err: any) {
+    const errorMessage = err?.message || 'Failed to send invitation. Please try again.';
     context.error('Send invitation error:', err);
     return addCorsHeaders(
-      error('Failed to send invitation. Please try again.', 500),
+      error(errorMessage, 500),
       request.headers.get('origin') || undefined
     );
   }
