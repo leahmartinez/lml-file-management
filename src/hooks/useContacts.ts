@@ -101,8 +101,15 @@ export function useContacts() {
         };
       });
 
-      // Reload external contacts from localStorage to ensure we have latest
-      const freshExternalContacts = USE_MOCK_DATA ? getExternalContactsFromStorage() : externalContacts;
+      // Load external contacts (localStorage in mock mode, API in production)
+      let freshExternalContacts: ExternalContact[] = [];
+      if (USE_MOCK_DATA) {
+        freshExternalContacts = getExternalContactsFromStorage();
+      } else {
+        const apiContacts = await contactsApi.getContacts();
+        freshExternalContacts = apiContacts as ExternalContact[];
+        setExternalContacts(freshExternalContacts);
+      }
       console.log('[useContacts] Fresh external contacts:', freshExternalContacts.length);
 
       // Combine with external contacts - VALIDATE emails!
