@@ -21,6 +21,8 @@ import { sitesHandler } from "./handlers/sites";
 import { projectsHandler } from "./handlers/projects";
 import { contactsHandler } from "./handlers/contacts";
 import { businessesHandler } from "./handlers/businesses";
+import { userProfileHandler } from "./handlers/user-profile";
+import { profilesHandler } from "./handlers/profiles";
 
 // Register health check first to test if app is loading
 app.http("health", {
@@ -40,6 +42,18 @@ app.http("profile", {
   methods: ["GET", "OPTIONS"],
   route: "profile",
   handler: profileHandler,
+});
+
+app.http("user-profile", {
+  methods: ["GET", "PUT", "OPTIONS"],
+  route: "user/profile",
+  handler: userProfileHandler,
+});
+
+app.http("profiles", {
+  methods: ["GET", "OPTIONS"],
+  route: "profiles/{email}",
+  handler: profilesHandler,
 });
 
 app.http("users", {

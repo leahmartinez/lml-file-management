@@ -26,8 +26,19 @@ export interface UserEntity extends TableEntity {
   role: 'admin' | 'user' | 'subconsultant' | 'consultant' | 'site_manager' | 'national_manager';
   sites: string; // JSON stringified array
   createdAt: string;
+  updatedAt?: string;
   lastLogin?: string;
   createdBy?: string;
+  // Profile fields
+  firstName?: string;
+  lastName?: string;
+  position?: string;
+  phone?: string;
+  officePhone?: string;
+  department?: string;
+  photo?: string;
+  bio?: string;
+  category?: string;
   // Account status and verification
   accountStatus: 'pending' | 'active' | 'suspended'; // pending = awaiting admin approval
   emailVerified: boolean; // true if email has been verified
@@ -626,6 +637,16 @@ export async function updateUser(
     passwordResetToken?: string;
     passwordResetExpiry?: string;
     mustChangePassword?: boolean;
+    firstName?: string;
+    lastName?: string;
+    position?: string;
+    phone?: string;
+    officePhone?: string;
+    department?: string;
+    photo?: string;
+    bio?: string;
+    category?: string;
+    updatedAt?: string;
   }
 ): Promise<UserEntity> {
   if (IS_LOCAL) {
@@ -652,6 +673,16 @@ export async function updateUser(
     ...(updates.passwordResetToken !== undefined && { passwordResetToken: updates.passwordResetToken }),
     ...(updates.passwordResetExpiry !== undefined && { passwordResetExpiry: updates.passwordResetExpiry }),
     ...(typeof updates.mustChangePassword === 'boolean' && { mustChangePassword: updates.mustChangePassword }),
+    ...(updates.firstName !== undefined && { firstName: updates.firstName }),
+    ...(updates.lastName !== undefined && { lastName: updates.lastName }),
+    ...(updates.position !== undefined && { position: updates.position }),
+    ...(updates.phone !== undefined && { phone: updates.phone }),
+    ...(updates.officePhone !== undefined && { officePhone: updates.officePhone }),
+    ...(updates.department !== undefined && { department: updates.department }),
+    ...(updates.photo !== undefined && { photo: updates.photo }),
+    ...(updates.bio !== undefined && { bio: updates.bio }),
+    ...(updates.category !== undefined && { category: updates.category }),
+    ...(updates.updatedAt !== undefined && { updatedAt: updates.updatedAt }),
   };
 
   await table.updateEntity(updated, 'Merge');

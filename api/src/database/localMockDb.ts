@@ -217,6 +217,15 @@ export async function createUserLocal(userData: {
   emailVerificationToken?: string;
   emailVerificationExpiry?: string;
   mustChangePassword?: boolean;
+  firstName?: string;
+  lastName?: string;
+  position?: string;
+  phone?: string;
+  officePhone?: string;
+  department?: string;
+  photo?: string;
+  bio?: string;
+  category?: string;
 }): Promise<UserEntity> {
   // Normalize email to lowercase for storage
   const normalizedEmail = userData.email.toLowerCase().trim();
@@ -229,12 +238,22 @@ export async function createUserLocal(userData: {
     role: userData.role as any,
     sites: JSON.stringify(userData.sites),
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     createdBy: userData.createdBy,
     accountStatus: userData.accountStatus || 'active',
     emailVerified: userData.emailVerified || false,
     emailVerificationToken: userData.emailVerificationToken,
     emailVerificationExpiry: userData.emailVerificationExpiry,
     mustChangePassword: userData.mustChangePassword || false,
+    firstName: userData.firstName,
+    lastName: userData.lastName,
+    position: userData.position,
+    phone: userData.phone,
+    officePhone: userData.officePhone,
+    department: userData.department,
+    photo: userData.photo,
+    bio: userData.bio,
+    category: userData.category,
   };
 
   users.set(normalizedEmail, entity);
@@ -258,6 +277,16 @@ export async function updateUserLocal(
     passwordResetToken?: string;
     passwordResetExpiry?: string;
     mustChangePassword?: boolean;
+    firstName?: string;
+    lastName?: string;
+    position?: string;
+    phone?: string;
+    officePhone?: string;
+    department?: string;
+    photo?: string;
+    bio?: string;
+    category?: string;
+    updatedAt?: string;
   }
 ): Promise<UserEntity> {
   const existing = users.get(email);
@@ -279,6 +308,16 @@ export async function updateUserLocal(
     ...(updates.passwordResetToken !== undefined && { passwordResetToken: updates.passwordResetToken }),
     ...(updates.passwordResetExpiry !== undefined && { passwordResetExpiry: updates.passwordResetExpiry }),
     ...(typeof updates.mustChangePassword === 'boolean' && { mustChangePassword: updates.mustChangePassword }),
+    ...(updates.firstName !== undefined && { firstName: updates.firstName }),
+    ...(updates.lastName !== undefined && { lastName: updates.lastName }),
+    ...(updates.position !== undefined && { position: updates.position }),
+    ...(updates.phone !== undefined && { phone: updates.phone }),
+    ...(updates.officePhone !== undefined && { officePhone: updates.officePhone }),
+    ...(updates.department !== undefined && { department: updates.department }),
+    ...(updates.photo !== undefined && { photo: updates.photo }),
+    ...(updates.bio !== undefined && { bio: updates.bio }),
+    ...(updates.category !== undefined && { category: updates.category }),
+    ...(updates.updatedAt !== undefined && { updatedAt: updates.updatedAt }),
   };
 
   users.set(email, updated);
