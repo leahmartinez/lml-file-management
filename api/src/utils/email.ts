@@ -351,46 +351,73 @@ export async function sendInvitationEmail(
   const htmlBody = `
     <!DOCTYPE html>
     <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-        .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 5px 5px; }
-        .button { display: inline-block; background-color: #4F46E5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
-        .info-box { background-color: #EEF2FF; border-left: 4px solid #4F46E5; padding: 15px; margin: 15px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>You're Invited to LML File Management!</h1>
-        </div>
-        <div class="content">
-          <p>You've been invited to join LML File Management as a <strong>${formatRole(role)}</strong>.</p>
-          <p>Click the button below to accept your invitation and set up your account:</p>
-          <p style="text-align: center;">
-            <a href="${invitationUrl}" class="button">Accept Invitation</a>
-          </p>
-          <p>Or copy and paste this link into your browser:</p>
-          <p style="word-break: break-all; color: #4F46E5;">${invitationUrl}</p>
-          <div class="info-box">
-            <p><strong>What happens next:</strong></p>
-            <ol>
-              <li>Click the invitation link above</li>
-              <li>Set your password for the account</li>
-              <li>Your account will be pending admin approval</li>
-              <li>You'll receive an email when approved and can log in</li>
-            </ol>
-          </div>
-          <p><strong>This invitation link will expire in 7 days.</strong></p>
-          <p>If you didn't expect this invitation, you can safely ignore this email.</p>
-        </div>
-        <div class="footer">
-          <p>LML File Management - LML Lift Consultants</p>
-        </div>
-      </div>
+    <body style="margin:0;padding:0;background-color:#f4f4f5;">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f4f4f5;padding:24px 0;">
+        <tr>
+          <td align="center">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+              <tr>
+                <td style="background-color:#111111;padding:24px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td align="left" valign="middle">
+                        <img src="${process.env.APP_URL || 'http://localhost:8080'}/LML-Icon.svg" alt="LML Lift Consultants" width="40" height="40" style="display:block;border:0;outline:none;text-decoration:none;">
+                      </td>
+                      <td align="right" valign="middle" style="color:#ffffff;font-family:Arial,sans-serif;font-size:14px;letter-spacing:0.08em;text-transform:uppercase;">
+                        Invitation
+                      </td>
+                    </tr>
+                  </table>
+                  <h1 style="margin:16px 0 0;color:#ffffff;font-family:Arial,sans-serif;font-size:24px;line-height:1.3;">
+                    You're invited to LML File Management
+                  </h1>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:28px 28px 8px;color:#111111;font-family:Arial,sans-serif;font-size:15px;line-height:1.6;">
+                  <p style="margin:0 0 12px;">You've been invited to join LML File Management as a <strong>${formatRole(role)}</strong>.</p>
+                  <p style="margin:0 0 18px;">Use the button below to accept your invitation and set up your account.</p>
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 18px;">
+                    <tr>
+                      <td bgcolor="#b91c1c" style="border-radius:8px;">
+                        <a href="${invitationUrl}" style="display:inline-block;padding:12px 24px;color:#ffffff;text-decoration:none;font-weight:bold;font-family:Arial,sans-serif;">
+                          Accept Invitation
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                  <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">Or copy and paste this link into your browser:</p>
+                  <p style="margin:0 0 16px;word-break:break-all;color:#b91c1c;font-size:13px;">${invitationUrl}</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:0 28px 20px;">
+                  <div style="border:1px solid #e5e7eb;border-left:4px solid #b91c1c;border-radius:8px;padding:14px 16px;background-color:#f9fafb;font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#111111;">
+                    <strong style="display:block;margin-bottom:6px;">What happens next</strong>
+                    <ol style="margin:0;padding-left:18px;">
+                      <li>Click the invitation link above</li>
+                      <li>Set your password</li>
+                      <li>Your account will be pending admin approval</li>
+                      <li>You'll receive an email when approved</li>
+                    </ol>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:0 28px 24px;color:#111111;font-family:Arial,sans-serif;font-size:14px;line-height:1.6;">
+                  <p style="margin:0 0 10px;"><strong>This invitation link will expire in 7 days.</strong></p>
+                  <p style="margin:0;color:#6b7280;">If you didn't expect this invitation, you can safely ignore this email.</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="background-color:#ffffff;border-top:1px solid #e5e7eb;padding:16px 28px;color:#6b7280;font-family:Arial,sans-serif;font-size:12px;text-align:center;">
+                  LML File Management • LML Lift Consultants
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
     </body>
     </html>
   `;
