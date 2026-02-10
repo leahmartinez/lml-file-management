@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,7 @@ const EditSiteModal: React.FC<EditSiteModalProps> = ({ open, site, onClose, onSa
   const [address, setAddress] = useState('');
   const [state, setState] = useState('');
   const [city, setCity] = useState('');
+  const [postcode, setPostcode] = useState('');
   const [country, setCountry] = useState('Australia');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -41,15 +42,16 @@ const EditSiteModal: React.FC<EditSiteModalProps> = ({ open, site, onClose, onSa
       setAddress(site.address || '');
       setState(site.state || '');
       setCity(site.city || '');
+      setPostcode(site.postcode || '');
       setCountry(site.country || 'Australia');
     }
   }, [site]);
 
-  const handleAddressChange = (newAddress: string, placeDetails?: AddressComponents) => {
+  const handleAddressChange = useCallback((newAddress: string, placeDetails?: AddressComponents) => {
     setAddress(newAddress);
 
     if (placeDetails) {
-      // Auto-fill city, state, and country from Google Places data
+      // Auto-fill city, state, postcode and country from Google Places data
       if (placeDetails.locality) {
         setCity(placeDetails.locality);
       }
@@ -68,11 +70,14 @@ const EditSiteModal: React.FC<EditSiteModalProps> = ({ open, site, onClose, onSa
         const mappedState = stateMapping[placeDetails.administrativeArea] || placeDetails.administrativeArea;
         setState(mappedState);
       }
+      if (placeDetails.postalCode) {
+        setPostcode(placeDetails.postalCode);
+      }
       if (placeDetails.country) {
         setCountry(placeDetails.country);
       }
     }
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +120,7 @@ const EditSiteModal: React.FC<EditSiteModalProps> = ({ open, site, onClose, onSa
         address: address.trim(),
         state: state,
         city: city.trim() || '',
+        postcode: postcode.trim() || '',
         country: country.trim() || 'Australia',
       };
 
@@ -170,7 +176,7 @@ const EditSiteModal: React.FC<EditSiteModalProps> = ({ open, site, onClose, onSa
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="city">City</Label>
                 <Input
@@ -193,6 +199,16 @@ const EditSiteModal: React.FC<EditSiteModalProps> = ({ open, site, onClose, onSa
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="postcode">Postcode</Label>
+                <Input
+                  id="postcode"
+                  value={postcode}
+                  onChange={(e) => setPostcode(e.target.value)}
+                  placeholder="e.g., 2000"
+                />
               </div>
             </div>
 

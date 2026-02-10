@@ -6,7 +6,7 @@
 import { useMemo } from 'react';
 import { Project, Site, DirectoryContact, ProjectStage } from '@/types/data';
 import { useProjectManagement } from './useProjectManagement';
-import { useSites } from './useData';
+import { useSiteManagement } from './useSiteManagement';
 import { useContacts } from './useContacts';
 import { useStageConsultants } from './useStageConsultants';
 import { useAuth } from './useAuth';
@@ -52,7 +52,7 @@ export interface DashboardRow {
 
 export function useDashboardData() {
   const { projects: allProjects, loading: projectsLoading } = useProjectManagement();
-  const { data: sites = [] } = useSites();
+  const { sites = [] } = useSiteManagement();
   const { contacts = [] } = useContacts() || {};
   const { getStageConsultants } = useStageConsultants();
   const { user } = useAuth();

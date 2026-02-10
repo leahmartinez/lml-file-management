@@ -166,7 +166,7 @@ export function useContacts() {
     } finally {
       setLoading(false);
     }
-  }, [allUsers, externalContacts, fetchUserProfile]);
+  }, [allUsers, fetchUserProfile]);
 
   /**
    * Fetch available categories for filtering

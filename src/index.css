@@ -117,3 +117,17 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Google Places Autocomplete dropdown - ensure it appears above modals */
+.pac-container {
+  z-index: 10000 !important;
+  pointer-events: auto !important;
+}
+
+.pac-item {
+  cursor: pointer;
+}
+
+.pac-item:hover {
+  background-color: #f5f5f5;
+}

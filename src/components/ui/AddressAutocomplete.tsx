@@ -1,6 +1,7 @@
 /**
  * Address Autocomplete Component
  * Uses Google Places Autocomplete API for address suggestions
+ * Uses uncontrolled input to prevent React from fighting Google Places
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -41,8 +42,21 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const onChangeRef = useRef(onChange);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isUnavailable, setIsUnavailable] = useState(false);
+
+  // Keep the ref updated with the latest onChange
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  // Sync input value when prop value changes (for initial load or external updates)
+  useEffect(() => {
+    if (inputRef.current && inputRef.current.value !== value) {
+      inputRef.current.value = value;
+    }
+  }, [value]);
 
   useEffect(() => {
     // Load Google Maps API
@@ -89,9 +103,9 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!isLoaded || !inputRef.current) return;
+    if (!isLoaded || !inputRef.current || autocompleteRef.current) return;
 
-    // Initialize autocomplete
+    // Initialize autocomplete only once
     const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
       componentRestrictions: countryRestrict ? { country: countryRestrict } : undefined,
       fields: ['address_components', 'formatted_address', 'geometry'],
@@ -144,7 +158,10 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         }
       });
 
-      onChange(place.formatted_address || '', components);
+      const formattedAddress = place.formatted_address || '';
+
+      // Call onChange with the selected address and components
+      onChangeRef.current(formattedAddress, components);
     };
 
     autocomplete.addListener('place_changed', handlePlaceSelect);
@@ -152,17 +169,23 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     return () => {
       if (autocompleteRef.current) {
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
       }
     };
-  }, [isLoaded, onChange, countryRestrict]);
+  }, [isLoaded, countryRestrict]);
+
+  // Handle manual input changes (typing)
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChangeRef.current(e.target.value);
+  };
 
   return (
     <div className="relative">
       <Input
         ref={inputRef}
         id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        defaultValue={value}
+        onChange={handleInputChange}
         placeholder={isLoaded ? placeholder : isUnavailable ? 'Enter address...' : 'Loading Google Maps...'}
         required={required}
         className={className}

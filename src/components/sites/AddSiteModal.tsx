@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,7 @@ const AddSiteModal: React.FC<AddSiteModalProps> = ({ open, onClose, onSave }) =>
   const [postcode, setPostcode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddressChange = (newAddress: string, placeDetails?: AddressComponents) => {
+  const handleAddressChange = useCallback((newAddress: string, placeDetails?: AddressComponents) => {
     setAddress(newAddress);
 
     if (placeDetails) {
@@ -61,7 +61,7 @@ const AddSiteModal: React.FC<AddSiteModalProps> = ({ open, onClose, onSave }) =>
         setPostcode(placeDetails.postalCode);
       }
     }
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
