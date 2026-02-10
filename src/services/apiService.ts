@@ -404,6 +404,7 @@ export const contactsApi = {
   async deleteContact(id: string): Promise<void> {
     await apiRequest<void>(`/contacts?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ id }),
     });
   },
 };

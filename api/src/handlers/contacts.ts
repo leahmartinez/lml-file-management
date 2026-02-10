@@ -64,7 +64,15 @@ export async function contactsHandler(request: HttpRequest, context: InvocationC
     }
 
     if (request.method === "DELETE") {
-      const id = request.query.get("id");
+      let id = request.query.get("id");
+      if (!id) {
+        try {
+          const body = (await request.json()) as Partial<ContactEntity>;
+          id = body.id;
+        } catch {
+          // ignore parse errors for empty body
+        }
+      }
       if (!id) {
         return addCorsHeaders(error("Contact id is required", 400), request.headers.get("origin") || undefined);
       }

@@ -269,6 +269,8 @@ const SitesPage = () => {
     building: '',
     address: '',
     state: '',
+    city: '',
+    postcode: '',
     description: '',
   });
 
@@ -308,6 +310,8 @@ const SitesPage = () => {
         building: selectedSite.building || '',
         address: selectedSite.address || '',
         state: selectedSite.state || '',
+        city: selectedSite.city || '',
+        postcode: selectedSite.postcode || '',
         description: selectedSite.description || '',
       });
       setSelectedSiteContacts(getSiteContacts(selectedSite.building) || []);
@@ -652,6 +656,9 @@ const SitesPage = () => {
     if (placeDetails) {
       // Auto-fill state from Google Places data
       const updates: any = {};
+      if (placeDetails.locality) {
+        updates.city = placeDetails.locality;
+      }
       if (placeDetails.administrativeArea) {
         // Map abbreviations to full state names
         const stateMapping: Record<string, string> = {
@@ -665,6 +672,9 @@ const SitesPage = () => {
           'NT': 'Northern Territory',
         };
         updates.state = stateMapping[placeDetails.administrativeArea] || placeDetails.administrativeArea;
+      }
+      if (placeDetails.postalCode) {
+        updates.postcode = placeDetails.postalCode;
       }
 
       setEditSiteFormData((prev) => ({
@@ -716,6 +726,8 @@ const SitesPage = () => {
                             building: editSiteFormData.building || selectedSite!.building,
                             address: editSiteFormData.address,
                             state: editSiteFormData.state,
+                            city: editSiteFormData.city,
+                            postcode: editSiteFormData.postcode,
                             description: editSiteFormData.description,
                           };
                           updateSite(updatedSite);
