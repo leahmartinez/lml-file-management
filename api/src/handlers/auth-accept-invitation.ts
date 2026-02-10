@@ -76,13 +76,15 @@ export async function authAcceptInvitationHandler(request: HttpRequest, context:
       emailVerified: true,
       emailVerificationToken: undefined,
       emailVerificationExpiry: undefined,
+      accountStatus: 'active',
+      mustChangePassword: false,
     });
 
     context.log('Invitation accepted successfully for:', normalizedEmail);
 
     return addCorsHeaders(
       success({
-        message: 'Invitation accepted! Your account is pending admin approval. You will receive an email when approved.',
+        message: 'Invitation accepted! You can now log in with your new password.',
       }),
       request.headers.get('origin') || undefined
     );

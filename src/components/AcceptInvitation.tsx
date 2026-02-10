@@ -76,23 +76,22 @@ export function AcceptInvitation() {
             </div>
             <CardTitle>Invitation Accepted!</CardTitle>
             <CardDescription>
-              Your account is being reviewed
+              Your account is ready
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert>
               <Mail className="h-4 w-4" />
               <AlertDescription>
-                Your account has been created and is pending administrator approval.
-                You'll receive an email notification when your account is approved and you can log in.
+                Your account has been created and you can log in now.
               </AlertDescription>
             </Alert>
             <div className="text-sm text-muted-foreground space-y-2">
               <p><strong>What happens next:</strong></p>
               <ol className="list-decimal list-inside space-y-1">
-                <li>Admin reviews your account</li>
-                <li>You receive approval email</li>
-                <li>You can log in and access the system</li>
+                <li>Return to the login page</li>
+                <li>Sign in with your new password</li>
+                <li>Access the system</li>
               </ol>
             </div>
           </CardContent>
@@ -201,8 +200,7 @@ export function AcceptInvitation() {
 
             <Alert>
               <AlertDescription className="text-xs">
-                After setting your password, your account will be pending admin approval.
-                You'll receive an email when your account is approved and you can log in.
+                After setting your password, you can log in immediately.
               </AlertDescription>
             </Alert>
           </CardContent>

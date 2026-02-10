@@ -75,10 +75,11 @@ export async function authSendInvitationHandler(request: HttpRequest, context: I
       role,
       sites: sites || [],
       createdBy: currentUser.email,
-      accountStatus: 'pending',
+      accountStatus: 'active',
       emailVerified: false,
       emailVerificationToken: invitationToken,
       emailVerificationExpiry: invitationExpiry,
+      mustChangePassword: true,
     });
 
     context.log('User invitation created, sending email');

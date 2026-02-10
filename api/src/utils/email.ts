@@ -397,8 +397,7 @@ export async function sendInvitationEmail(
                     <ol style="margin:0;padding-left:18px;">
                       <li>Click the invitation link above</li>
                       <li>Set your password</li>
-                      <li>Your account will be pending admin approval</li>
-                      <li>You'll receive an email when approved</li>
+                      <li>Log in right away</li>
                     </ol>
                   </div>
                 </td>
@@ -433,8 +432,7 @@ export async function sendInvitationEmail(
     What happens next:
     1. Click the invitation link above
     2. Set your password for the account
-    3. Your account will be pending admin approval
-    4. You'll receive an email when approved and can log in
+    3. Log in right away
 
     This invitation link will expire in 7 days.
 
