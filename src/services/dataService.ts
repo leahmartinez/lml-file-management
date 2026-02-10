@@ -66,14 +66,12 @@ async function fetchAPI<T>(endpoint: string): Promise<T[]> {
   try {
     const baseUrl = dataSourceConfig.baseUrl || '';
     const url = `${baseUrl}${endpoint}`;
-    const token = localStorage.getItem('jwt_token');
+  const token = localStorage.getItem('jwt_token') || localStorage.getItem('token');
     
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        // Add authentication headers here when API is ready
-        // 'Authorization': `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}`, 'X-LML-Token': token } : {}),
       },
     });
 
@@ -380,7 +378,7 @@ export const dataService = {
    */
   async fetchAssets(): Promise<Asset[]> {
     // Assets are no longer used in LML File Management
-    if (useMockData()) {
+    if (useMockData() || dataSourceConfig.type === 'api') {
       return [];
     }
 
