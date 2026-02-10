@@ -238,13 +238,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!mockUser) {
           authLog("useAuth: Mock auth failed - user not found");
           clearAuthState();
-          return null;
+          throw new Error('Invalid email or password');
         }
 
         if (mockUser.password && mockUser.password !== password) {
           authLog("useAuth: Mock auth failed - wrong password for known user");
           clearAuthState();
-          return null;
+          throw new Error('Invalid email or password');
         }
 
         authLog("useAuth: Mock login successful");
@@ -297,7 +297,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error: any) {
       errorLog("useAuth: Login failed:", error);
       clearAuthState();
-      return null;
+      throw new Error(error?.message || 'Login failed');
     }
   };
 

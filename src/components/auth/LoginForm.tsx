@@ -27,24 +27,25 @@ const LoginForm = () => {
     setIsLoading(true);
     try {
       const user = await login(email, password);
-      if (user) {
-        toast({
-          title: "Login Successful",
-          description: "Welcome back!",
-        });
-        if (user.mustChangePassword) {
-          navigate("/force-password-reset");
-        } else {
-          // All users have same permissions - redirect to home (which redirects to /sites)
-          navigate("/");
-        }
-      } else {
-        toast({
-          title: "Login Failed",
-          description: "Invalid email or password.",
-          variant: "destructive",
-        });
+      if (!user) {
+        throw new Error('Login failed');
       }
+      toast({
+        title: "Login Successful",
+        description: "Welcome back!",
+      });
+      if (user.mustChangePassword) {
+        navigate("/force-password-reset");
+      } else {
+        // All users have same permissions - redirect to home (which redirects to /sites)
+        navigate("/");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Login Failed",
+        description: error?.message || "Invalid email or password.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
