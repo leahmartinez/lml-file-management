@@ -1,5 +1,5 @@
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { getUserByEmail } from '../database/tableStorage';
+import { getUserByEmail, updateUser } from '../database/tableStorage';
 import { verifyPassword, generateToken } from '../utils/auth';
 import { success, error, addCorsHeaders } from '../utils/response';
 
@@ -80,22 +80,27 @@ export async function authLoginHandler(request: HttpRequest, context: Invocation
 
     context.log('Login successful for:', normalizedEmail);
 
+    const loginTimestamp = new Date().toISOString();
+    const updatedUser = await updateUser(user.email, {
+      lastLogin: loginTimestamp,
+    });
+
     const token = generateToken({
-      email: user.email,
-      role: user.role,
-      sites: JSON.parse(user.sites || '[]'),
+      email: updatedUser.email,
+      role: updatedUser.role,
+      sites: JSON.parse(updatedUser.sites || '[]'),
     });
 
     return addCorsHeaders(
       success({
         token,
         user: {
-          email: user.email,
-          role: user.role,
-          sites: JSON.parse(user.sites || '[]'),
-          lastLogin: user.lastLogin,
-          accountStatus: user.accountStatus,
-          mustChangePassword: user.mustChangePassword || false,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          sites: JSON.parse(updatedUser.sites || '[]'),
+          lastLogin: updatedUser.lastLogin,
+          accountStatus: updatedUser.accountStatus,
+          mustChangePassword: updatedUser.mustChangePassword || false,
         },
       }),
       request.headers.get('origin') || undefined
