@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useContacts } from '@/hooks/useContacts';
 import { useProposalTemplates } from '@/hooks/useProposalTemplates';
 import { AddExternalContactModal } from '@/components/contacts/AddExternalContactModal';
-import { Proposal, ProposalStatus, Project, Site, ProjectState, ExternalContact } from '@/types/data';
+import { Proposal, ProposalStatus, Project, Site, ProjectStage, ProjectState, ExternalContact } from '@/types/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,8 +21,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Plus, FileText, Search, Check, Edit, Trash2, Building2, Download, Copy, RefreshCw, UserPlus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
-// Status filter options
-const STATUS_OPTIONS: Array<ProposalStatus | 'All'> = ['All', 'Draft', 'Sent', 'Under Review', 'Accepted', 'Part Acceptance', 'Rejected', 'Expired'];
+// Status filter options (drafts are managed in a separate section)
+const STATUS_OPTIONS: Array<ProposalStatus | 'All'> = ['All', 'Sent', 'Under Review', 'Accepted', 'Part Acceptance', 'Rejected', 'Expired'];
 
 const Proposals = () => {
   const { user } = useAuth();
@@ -33,6 +33,7 @@ const Proposals = () => {
   const { templates } = useProposalTemplates();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [draftSearchQuery, setDraftSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProposalStatus | 'All'>('All');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -112,9 +113,17 @@ const Proposals = () => {
     setIsAddModalOpen(true);
   };
 
-  // Filter and search proposals
+  const draftProposals = useMemo(() => {
+    return proposals.filter((proposal) => proposal.status === 'Draft');
+  }, [proposals]);
+
+  const activeProposals = useMemo(() => {
+    return proposals.filter((proposal) => proposal.status !== 'Draft');
+  }, [proposals]);
+
+  // Filter and search active proposals (drafts handled separately)
   const filteredProposals = useMemo(() => {
-    let filtered = proposals;
+    let filtered = activeProposals;
 
     // Status filter
     if (statusFilter !== 'All') {
@@ -136,7 +145,26 @@ const Proposals = () => {
     return filtered.sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [proposals, statusFilter, searchQuery]);
+  }, [activeProposals, statusFilter, searchQuery]);
+
+  const filteredDrafts = useMemo(() => {
+    if (!draftSearchQuery.trim()) {
+      return [...draftProposals].sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    }
+    const query = draftSearchQuery.toLowerCase();
+    return draftProposals
+      .filter((draft) =>
+        draft.proposalNumber.toLowerCase().includes(query) ||
+        draft.clientName.toLowerCase().includes(query) ||
+        draft.siteName.toLowerCase().includes(query) ||
+        draft.description.toLowerCase().includes(query)
+      )
+      .sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+  }, [draftProposals, draftSearchQuery]);
 
   const getStatusBadgeClass = (status: ProposalStatus) => {
     switch (status) {
@@ -181,7 +209,24 @@ const Proposals = () => {
     setShowSiteDropdown(false);
   };
 
-  const handleAddProposal = () => {
+  const createStageId = () => {
+    return `proposal_stage_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  };
+
+  const normalizeProposalStages = (stages: ProjectStage[], projectCode: string): ProjectStage[] => {
+    return stages.map((stage, index) => ({
+      ...stage,
+      id: stage.id || `${projectCode}-stage-${index + 1}`,
+      projectCode,
+      order: stage.order ?? index + 1,
+      status: stage.status || 'Not Started',
+      files: stage.files || [],
+      units: stage.units || [],
+    }));
+  };
+
+  const handleAddProposal = (mode: 'draft' | 'active') => {
+    const isDraft = mode === 'draft';
     if (!formData.contactId || !formData.siteName.trim() || !formData.description.trim()) {
       toast({
         title: "Validation Error",
@@ -225,7 +270,7 @@ const Proposals = () => {
       description: formData.description,
       estimatedValue: formData.estimatedValue ? parseFloat(formData.estimatedValue) : undefined,
       notes: formData.notes || undefined,
-      status: formData.status,
+      status: isDraft ? 'Draft' : 'Sent',
       stages: proposalStages.length > 0 ? proposalStages : undefined,
       createdBy: user?.email || 'unknown',
     });
@@ -276,7 +321,15 @@ const Proposals = () => {
       status: proposal.status,
       notes: proposal.notes || '',
     });
-    setProposalStages(proposal.stages || []);
+    const normalizedStages = (proposal.stages || []).map((stage, index) => ({
+      ...stage,
+      id: stage.id || createStageId(),
+      order: stage.order ?? index + 1,
+      status: stage.status || 'Not Started',
+      files: stage.files || [],
+      units: stage.units || [],
+    }));
+    setProposalStages(normalizedStages);
     setIsEditModalOpen(true);
   };
 
@@ -302,10 +355,11 @@ const Proposals = () => {
 
     if (existingProject) {
       // Project exists - this is additional stage acceptance
-      const stagesToAdd = selectedProposal.stages?.filter(s =>
+      const normalizedStages = normalizeProposalStages(selectedProposal.stages || [], existingProject.projectCode);
+      const stagesToAdd = normalizedStages.filter(s =>
         selectedStagesForAcceptance.includes(s.name) &&
         !existingProject.stages.some(es => es.name === s.name)
-      ) || [];
+      );
 
       if (stagesToAdd.length > 0) {
         // Add stages to existing project
@@ -387,9 +441,8 @@ const Proposals = () => {
     const projectCode = `${statePrefix}${String(nextNumber).padStart(4, '0')}`;
 
     // Filter stages based on selection
-    const stagesToInclude = selectedProposal.stages
-      ? selectedProposal.stages.filter(s => selectedStagesForAcceptance.includes(s.name))
-      : [];
+    const normalizedStages = normalizeProposalStages(selectedProposal.stages || [], projectCode);
+    const stagesToInclude = normalizedStages.filter(s => selectedStagesForAcceptance.includes(s.name));
 
     // Determine if all stages were accepted
     const allStagesAccepted = !selectedProposal.stages ||
@@ -433,21 +486,21 @@ const Proposals = () => {
 
   // Calculate stats
   const stats = useMemo(() => {
-    const pending = proposals.filter(p => ['Draft', 'Sent', 'Under Review'].includes(p.status)).length;
-    const accepted = proposals.filter(p => p.status === 'Accepted' || p.status === 'Part Acceptance').length;
-    const totalValue = proposals.reduce((sum, p) => {
+    const pending = activeProposals.filter(p => ['Sent', 'Under Review'].includes(p.status)).length;
+    const accepted = activeProposals.filter(p => p.status === 'Accepted' || p.status === 'Part Acceptance').length;
+    const totalValue = activeProposals.reduce((sum, p) => {
       if (p.stages) {
         return sum + p.stages.reduce((stageSum, s) => stageSum + (s.price || 0), 0);
       }
       return sum;
     }, 0);
-    return { total: proposals.length, pending, accepted, totalValue };
-  }, [proposals]);
+    return { total: activeProposals.length, pending, accepted, totalValue };
+  }, [activeProposals]);
 
   // Get count for each status
   const getStatusCount = (status: ProposalStatus | 'All') => {
-    if (status === 'All') return proposals.length;
-    return proposals.filter(p => p.status === status).length;
+    if (status === 'All') return activeProposals.length;
+    return activeProposals.filter(p => p.status === status).length;
   };
 
   // Copy proposals to clipboard
@@ -759,6 +812,135 @@ const Proposals = () => {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (window.confirm(`Delete proposal ${proposal.proposalNumber}?`)) {
+                                      deleteProposal(proposal.id);
+                                    }
+                                  }}
+                                  title="Delete"
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Drafts Section */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-lg">
+                  Drafts ({filteredDrafts.length})
+                </CardTitle>
+                <div className="w-full sm:max-w-sm">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search drafts..."
+                      value={draftSearchQuery}
+                      onChange={(e) => setDraftSearchQuery(e.target.value)}
+                      className="pl-9 h-9"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {filteredDrafts.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">
+                  <FileText className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                  <p>No drafts found</p>
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-x-auto">
+                  <Table className="border-collapse w-full">
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="border-b border-r border-border/30 font-semibold">Proposal #</TableHead>
+                        <TableHead className="border-b border-r border-border/30 font-semibold">Client</TableHead>
+                        <TableHead className="border-b border-r border-border/30 font-semibold">Site</TableHead>
+                        <TableHead className="border-b border-r border-border/30 font-semibold max-w-[200px]">Description</TableHead>
+                        <TableHead className="border-b border-r border-border/30 font-semibold w-28 text-right">Value</TableHead>
+                        <TableHead className="border-b border-r border-border/30 font-semibold w-28">Created</TableHead>
+                        {isConsultant && <TableHead className="border-b border-border/30 font-semibold w-24 text-center">Actions</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredDrafts.map((proposal) => (
+                        <TableRow
+                          key={proposal.id}
+                          className="cursor-pointer hover:bg-muted/50 border-b border-border/30 transition-colors"
+                          onClick={() => {
+                            setSelectedProposal(proposal);
+                            setIsDetailModalOpen(true);
+                          }}
+                        >
+                          <TableCell className="border-r border-border/30 font-medium">{proposal.proposalNumber}</TableCell>
+                          <TableCell className="border-r border-border/30">
+                            {proposal.clientContact ? (
+                              (() => {
+                                const clientContact = contacts.find(c => c.email === proposal.clientContact || `${c.firstName} ${c.lastName}` === proposal.clientName);
+                                return clientContact ? (
+                                  <span className="font-medium">{clientContact.firstName} {clientContact.lastName}</span>
+                                ) : (
+                                  <span className="font-medium">{proposal.clientName}</span>
+                                );
+                              })()
+                            ) : (
+                              <span className="font-medium">{proposal.clientName}</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="border-r border-border/30">
+                            <div>
+                              <div className="font-medium">{proposal.siteName}</div>
+                              {proposal.state && (
+                                <div className="text-xs text-muted-foreground">{proposal.state}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="border-r border-border/30 max-w-[200px]">
+                            <span className="line-clamp-2 text-sm">{proposal.description}</span>
+                          </TableCell>
+                          <TableCell className="border-r border-border/30 text-right font-medium">
+                            {proposal.stages && proposal.stages.some(s => s.price !== undefined) ? (
+                              <span className="text-primary">
+                                ${proposal.stages.reduce((sum, s) => sum + (s.price || 0), 0).toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="border-r border-border/30 text-sm">
+                            {new Date(proposal.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          {isConsultant && (
+                            <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex gap-1 justify-center">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditModal(proposal);
+                                  }}
+                                  title="Edit"
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Delete draft ${proposal.proposalNumber}?`)) {
                                       deleteProposal(proposal.id);
                                     }
                                   }}
@@ -1171,6 +1353,7 @@ const Proposals = () => {
                   className="w-full mt-2"
                   onClick={() => {
                     setProposalStages([...proposalStages, {
+                      id: createStageId(),
                       name: '',
                       status: 'Not Started',
                       units: [],
@@ -1224,9 +1407,20 @@ const Proposals = () => {
             }}>
               Cancel
             </Button>
-            <Button onClick={isEditModalOpen ? handleEditProposal : handleAddProposal}>
-              {isEditModalOpen ? 'Update Proposal' : 'Create Proposal'}
-            </Button>
+            {isEditModalOpen ? (
+              <Button onClick={handleEditProposal}>
+                Update Proposal
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => handleAddProposal('draft')}>
+                  Save Draft
+                </Button>
+                <Button onClick={() => handleAddProposal('active')}>
+                  Create Proposal
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

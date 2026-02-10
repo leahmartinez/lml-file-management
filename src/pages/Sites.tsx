@@ -233,6 +233,36 @@ const SitesPage = () => {
   const [editingSite, setEditingSite] = useState<Site | null>(null);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
+  const normalizeProjectStages = (project: Project) => {
+    if (!project.stages || project.stages.length === 0) {
+      return null;
+    }
+    let needsUpdate = false;
+    const normalizedStages = project.stages.map((stage, index) => {
+      const normalizedId = stage.id || `${project.projectCode}-stage-${index + 1}`;
+      const normalizedOrder = stage.order ?? index + 1;
+      if (stage.id !== normalizedId || stage.order !== normalizedOrder || stage.projectCode !== project.projectCode) {
+        needsUpdate = true;
+      }
+      return {
+        ...stage,
+        id: normalizedId,
+        order: normalizedOrder,
+        projectCode: project.projectCode,
+      };
+    });
+
+    if (!needsUpdate) {
+      return null;
+    }
+
+    return {
+      ...project,
+      stages: normalizedStages,
+      updatedAt: new Date().toISOString(),
+    };
+  };
+
   // Consolidated site details editing state
   const [isEditingSiteDetails, setIsEditingSiteDetails] = useState(false);
   const [editSiteFormData, setEditSiteFormData] = useState({
@@ -283,6 +313,16 @@ const SitesPage = () => {
       setSelectedSiteContacts(getSiteContacts(selectedSite.building) || []);
     }
   }, [selectedSite, getSiteContacts]);
+
+  // Ensure stage IDs are present and unique before assignments are stored
+  useEffect(() => {
+    if (!selectedProject) return;
+    const normalized = normalizeProjectStages(selectedProject);
+    if (normalized) {
+      setSelectedProject(normalized);
+      updateProject(selectedProject.projectCode, normalized);
+    }
+  }, [selectedProject, updateProject]);
 
   // Debounce search query to avoid excessive filtering calculations
   useEffect(() => {

@@ -42,6 +42,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isUnavailable, setIsUnavailable] = useState(false);
 
   useEffect(() => {
     // Load Google Maps API
@@ -64,14 +65,22 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         return;
       }
 
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        setIsUnavailable(true);
+        return;
+      }
+
       // Load the script
       const script = document.createElement('script');
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
       script.onload = () => {
         setIsLoaded(true);
+      };
+      script.onerror = () => {
+        setIsUnavailable(true);
       };
       document.head.appendChild(script);
     };
@@ -148,16 +157,21 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={isLoaded ? placeholder : 'Loading Google Maps...'}
+        placeholder={isLoaded ? placeholder : isUnavailable ? 'Enter address...' : 'Loading Google Maps...'}
         required={required}
         className={className}
-        disabled={disabled || !isLoaded}
+        disabled={disabled || (!isLoaded && !isUnavailable)}
         autoComplete="off"
       />
-      {!isLoaded && (
+      {!isLoaded && !isUnavailable && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
         </div>
+      )}
+      {isUnavailable && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Address autocomplete is unavailable. Enter the address manually.
+        </p>
       )}
     </div>
   );

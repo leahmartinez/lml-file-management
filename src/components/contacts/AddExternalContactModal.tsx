@@ -144,8 +144,9 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
       newErrors.category = 'Category is required';
     }
 
-    // Validate email format if provided
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Invalid email format';
     }
 
@@ -564,7 +565,7 @@ export const AddExternalContactModal: React.FC<AddExternalContactModalProps> = (
           {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">
-              Email
+              Email *
             </Label>
             <Input
               id="email"
