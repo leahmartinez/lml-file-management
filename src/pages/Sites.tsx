@@ -96,7 +96,7 @@ const SitesPage = () => {
   const { user } = useAuth();
   const { profile, fetchMyProfile } = useProfile();
   const { contacts, fetchContacts } = useContacts();
-  const { getSiteContacts, updateSiteContacts } = useContactAssignments();
+  const { getSiteContacts, updateSiteContacts, addSiteContact, removeSiteContact } = useContactAssignments();
   const { getStageConsultants, updateStageConsultants } = useStageConsultants();
   const { addNotification } = useNotifications(user?.email);
 
@@ -1725,9 +1725,9 @@ const SitesPage = () => {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          const updated = selectedSiteContacts.filter(e => e !== contactEmail);
-                                          setSelectedSiteContacts(updated);
-                                          updateSiteContacts(selectedSite!.building, updated);
+                                          if (!selectedSite) return;
+                                          setSelectedSiteContacts((prev) => prev.filter(e => e !== contactEmail));
+                                          removeSiteContact(selectedSite.building, contactEmail);
                                         }}
                                         className="ml-1 text-xs hover:text-red-600"
                                         title="Remove"
@@ -1766,10 +1766,10 @@ const SitesPage = () => {
                                     <button
                                       key={contact.id}
                                       onClick={() => {
+                                        if (!selectedSite) return;
                                         if (!selectedSiteContacts.includes(contact.email)) {
-                                          const updated = [...selectedSiteContacts, contact.email];
-                                          setSelectedSiteContacts(updated);
-                                          updateSiteContacts(selectedSite!.building, updated);
+                                          setSelectedSiteContacts((prev) => [...prev, contact.email]);
+                                          addSiteContact(selectedSite.building, contact.email);
                                         }
                                         setContactSearchQuery("");
                                         setShowContactDropdown(false);

@@ -127,6 +127,12 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         if (types.includes('locality')) {
           components.locality = component.long_name;
         }
+        if (!components.locality && (types.includes('postal_town') || types.includes('sublocality') || types.includes('sublocality_level_1'))) {
+          components.locality = component.long_name;
+        }
+        if (!components.locality && types.includes('administrative_area_level_2')) {
+          components.locality = component.long_name;
+        }
         if (types.includes('administrative_area_level_1')) {
           components.administrativeArea = component.short_name;
         }
