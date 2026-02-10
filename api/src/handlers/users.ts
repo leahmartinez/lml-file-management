@@ -16,11 +16,6 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
       return addCorsHeaders(unauthorized(), request.headers.get('origin') || undefined);
     }
 
-    // Check authorization
-    if (!hasRole(currentUser, ['admin', 'consultant'])) {
-      return addCorsHeaders(forbidden('Only admins can manage users'), request.headers.get('origin') || undefined);
-    }
-
     if (request.method === 'GET') {
       // List all users
       const users = await getAllUsers();
@@ -41,6 +36,10 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
       return addCorsHeaders(success(safeUsers), request.headers.get('origin') || undefined);
 
     } else if (request.method === 'POST') {
+      // Check authorization for user creation
+      if (!hasRole(currentUser, ['admin', 'consultant'])) {
+        return addCorsHeaders(forbidden('Only admins can manage users'), request.headers.get('origin') || undefined);
+      }
       // Create user
       const body = await request.json() as any;
       const { email, password, role, sites, mustChangePassword } = body;

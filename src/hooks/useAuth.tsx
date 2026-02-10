@@ -146,12 +146,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const user = JSON.parse(storedUser);
             authLog("useAuth: Restored user from localStorage:", user);
             setUser(user);
-            // Load users list for admin
-            if (user.role === 'admin') {
-              refreshUsers().catch((error) => {
-                errorLog("useAuth: Failed to refresh users on app mount:", error);
-              });
-            }
+            // Load users list for contact directory
+            refreshUsers().catch((error) => {
+              errorLog("useAuth: Failed to refresh users on app mount:", error);
+            });
           } catch (error) {
             authLog("useAuth: Failed to parse stored user");
             clearAuthState();
@@ -183,13 +181,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           lastLogin: profile.lastLogin,
         });
 
-        // Load all users if admin - NON-BLOCKING on app mount
-        // Fire-and-forget: fetch users in background after profile loads
-        if (profile.role === 'admin') {
-          refreshUsers().catch((error) => {
-            errorLog("useAuth: Failed to refresh users on app mount:", error);
-          });
-        }
+        // Load all users for contact directory (non-blocking)
+        refreshUsers().catch((error) => {
+          errorLog("useAuth: Failed to refresh users on app mount:", error);
+        });
       } catch (error) {
         authLog("useAuth: No valid token or failed to load profile");
         // Clear invalid token
@@ -283,15 +278,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(loggedInUser);
 
-      // Load all users if admin - NON-BLOCKING to prevent login delay
-      // Use fire-and-forget pattern: fetch users in background after login completes
-      if (loggedInUser.role === 'admin') {
-        // Don't await refreshUsers() - this prevents adding 1.5-3s delay to login
-        // Instead, call it as a side effect that happens asynchronously after login
-        refreshUsers().catch((error) => {
-          errorLog("useAuth: Failed to refresh users after login:", error);
-        });
-      }
+      // Load all users (non-blocking) for contact directory
+      refreshUsers().catch((error) => {
+        errorLog("useAuth: Failed to refresh users after login:", error);
+      });
 
       return loggedInUser;
     } catch (error: any) {
