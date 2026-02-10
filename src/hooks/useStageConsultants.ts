@@ -6,6 +6,9 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
+import { dataSourceConfig } from '@/config/dataSource';
+import { useProjects } from './useData';
+import { projectsApi } from '@/services/apiService';
 
 interface StageConsultantAssignments {
   [stageId: string]: string[]; // stageId -> consultant emails[]
@@ -13,10 +16,25 @@ interface StageConsultantAssignments {
 
 export const useStageConsultants = () => {
   const { toast } = useToast();
+  const { data: projects } = useProjects();
+  const isApi = dataSourceConfig.type === 'api';
   const [assignments, setAssignments] = useState<StageConsultantAssignments>({});
 
   // Load assignments from localStorage on mount
   useEffect(() => {
+    if (isApi) {
+      const nextAssignments: StageConsultantAssignments = {};
+      projects.forEach(project => {
+        project.stages?.forEach(stage => {
+          if (stage.consultantEmails && stage.consultantEmails.length > 0) {
+            nextAssignments[stage.id] = stage.consultantEmails;
+          }
+        });
+      });
+      setAssignments(nextAssignments);
+      return;
+    }
+
     const stored = localStorage.getItem('stageConsultantAssignments');
     if (stored) {
       try {
@@ -29,7 +47,7 @@ export const useStageConsultants = () => {
     } else {
       console.log('[useStageConsultants] No consultant assignments found in localStorage');
     }
-  }, []);
+  }, [isApi, projects]);
 
   /**
    * Get assigned consultants for a stage
@@ -42,6 +60,43 @@ export const useStageConsultants = () => {
    * Update consultants assigned to a stage
    */
   const updateStageConsultants = useCallback((stageId: string, consultantEmails: string[]) => {
+    if (isApi) {
+      const project = projects.find(p => p.stages?.some(stage => stage.id === stageId));
+      if (!project) {
+        toast({
+          title: "Error",
+          description: "Unable to locate project for this stage.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const updatedStages = project.stages.map(stage =>
+        stage.id === stageId ? { ...stage, consultantEmails } : stage
+      );
+
+      (async () => {
+        try {
+          await projectsApi.update({ projectCode: project.projectCode, stages: updatedStages });
+          setAssignments(prev => ({
+            ...prev,
+            [stageId]: consultantEmails,
+          }));
+          toast({
+            title: "Success",
+            description: `Updated ${consultantEmails.length} consultant(s) for stage`,
+          });
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to update stage consultants",
+            variant: "destructive",
+          });
+        }
+      })();
+      return;
+    }
+
     setAssignments(prev => {
       const updated = {
         ...prev,
@@ -55,7 +110,7 @@ export const useStageConsultants = () => {
       title: "Success",
       description: `Updated ${consultantEmails.length} consultant(s) for stage`,
     });
-  }, [toast]);
+  }, [toast, isApi, projects]);
 
   /**
    * Add a consultant to a stage

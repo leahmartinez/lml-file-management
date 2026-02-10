@@ -133,13 +133,13 @@ app.http("sites-delete", {
 });
 
 app.http("sites", {
-  methods: ["GET", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "OPTIONS"],
   route: "sites",
   handler: sitesHandler,
 });
 
 app.http("projects", {
-  methods: ["GET", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "OPTIONS"],
   route: "projects",
   handler: projectsHandler,
 });

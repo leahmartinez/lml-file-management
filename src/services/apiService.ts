@@ -439,6 +439,58 @@ export const businessesApi = {
 };
 
 /**
+ * Sites API - Manage sites
+ */
+export const sitesApi = {
+  async create(site: any): Promise<any> {
+    return apiRequest<any>('/sites', {
+      method: 'POST',
+      body: JSON.stringify(site),
+    });
+  },
+
+  async update(site: any): Promise<any> {
+    return apiRequest<any>('/sites', {
+      method: 'PUT',
+      body: JSON.stringify(site),
+    });
+  },
+
+  async delete(siteId: string): Promise<void> {
+    await apiRequest<void>('/sites/delete', {
+      method: 'DELETE',
+      body: JSON.stringify({ siteId }),
+    });
+  },
+};
+
+/**
+ * Projects API - Manage projects and stages
+ */
+export const projectsApi = {
+  async create(project: any): Promise<any> {
+    return apiRequest<any>('/projects', {
+      method: 'POST',
+      body: JSON.stringify(project),
+    });
+  },
+
+  async update(project: any): Promise<any> {
+    return apiRequest<any>('/projects', {
+      method: 'PUT',
+      body: JSON.stringify(project),
+    });
+  },
+
+  async delete(projectCode: string): Promise<void> {
+    await apiRequest<void>('/projects/delete', {
+      method: 'DELETE',
+      body: JSON.stringify({ projectCode }),
+    });
+  },
+};
+
+/**
  * Initialize database (for setup)
  */
 export const initApi = {

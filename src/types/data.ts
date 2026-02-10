@@ -120,6 +120,7 @@ export interface ProjectStage {
   description?: string; // Stage description
   status: ProjectStageStatus; // Status of this stage
   price?: number; // Price/cost for this stage
+  consultantEmails?: string[]; // Consultant emails assigned to this stage
   projectType?: ProjectType; // JW Summary - stage-level type (overrides project type)
   customProjectType?: string; // Custom type when projectType === 'Other'
   plannedSiteVisitDate?: string; // ISO date string - when consultant plans to visit site
@@ -187,6 +188,7 @@ export interface Project {
  * Site - A consulting site location
  */
 export interface Site {
+  siteId?: string;
   building: string; // Site identifier/name
   address?: string;
   state?: ProjectState; // Australian state

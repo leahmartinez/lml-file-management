@@ -52,6 +52,7 @@ export interface SiteEntity extends TableEntity {
   createdAt: string;
   createdBy?: string;
   projectCodes: string; // JSON stringified array of project codes
+  contactEmails?: string; // JSON stringified array of contact emails
 }
 
 // Project entity structure
@@ -70,6 +71,7 @@ export interface ProjectEntity extends TableEntity {
   customProjectType?: string;
   createdAt: string;
   createdBy?: string;
+  contactEmails?: string; // JSON stringified array of contact emails
 }
 
 // Stage entity structure
@@ -82,6 +84,8 @@ export interface StageEntity extends TableEntity {
   status: string;
   price?: number;
   description?: string;
+  plannedSiteVisitDate?: string;
+  consultantEmails?: string; // JSON stringified array of consultant emails
   createdAt: string;
   createdBy?: string;
 }
@@ -249,6 +253,57 @@ export async function getAllSites(): Promise<SiteEntity[]> {
 }
 
 /**
+ * Get site by id
+ */
+export async function getSiteById(siteId: string): Promise<SiteEntity | null> {
+  if (IS_LOCAL) {
+    return localDb.getSiteByIdLocal(siteId);
+  }
+
+  try {
+    const table = getSitesTable();
+    const entity = await table.getEntity<SiteEntity>('SITE', siteId);
+    return entity;
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Create site
+ */
+export async function createSite(entity: SiteEntity): Promise<SiteEntity> {
+  if (IS_LOCAL) {
+    return localDb.createSiteLocal(entity);
+  }
+
+  const table = getSitesTable();
+  await table.createEntity(entity);
+  return entity;
+}
+
+/**
+ * Update site
+ */
+export async function updateSite(siteId: string, updates: Partial<SiteEntity>): Promise<SiteEntity> {
+  if (IS_LOCAL) {
+    return localDb.updateSiteLocal(siteId, updates);
+  }
+
+  const table = getSitesTable();
+  const existing = await table.getEntity<SiteEntity>('SITE', siteId);
+  const updated: SiteEntity = {
+    ...existing,
+    ...updates,
+  };
+  await table.updateEntity(updated, 'Merge');
+  return updated;
+}
+
+/**
  * Get all projects
  */
 export async function getAllProjects(): Promise<ProjectEntity[]> {
@@ -270,6 +325,37 @@ export async function getAllProjects(): Promise<ProjectEntity[]> {
 }
 
 /**
+ * Create project
+ */
+export async function createProject(entity: ProjectEntity): Promise<ProjectEntity> {
+  if (IS_LOCAL) {
+    return localDb.createProjectLocal(entity);
+  }
+
+  const table = getProjectsTable();
+  await table.createEntity(entity);
+  return entity;
+}
+
+/**
+ * Update project
+ */
+export async function updateProject(projectCode: string, updates: Partial<ProjectEntity>): Promise<ProjectEntity> {
+  if (IS_LOCAL) {
+    return localDb.updateProjectLocal(projectCode, updates);
+  }
+
+  const table = getProjectsTable();
+  const existing = await table.getEntity<ProjectEntity>('PROJECT', projectCode);
+  const updated: ProjectEntity = {
+    ...existing,
+    ...updates,
+  };
+  await table.updateEntity(updated, 'Merge');
+  return updated;
+}
+
+/**
  * Get stages for a project
  */
 export async function getStagesByProject(projectCode: string): Promise<StageEntity[]> {
@@ -288,6 +374,34 @@ export async function getStagesByProject(projectCode: string): Promise<StageEnti
   }
 
   return stages;
+}
+
+/**
+ * Upsert stages for a project
+ */
+export async function upsertStages(projectCode: string, stages: StageEntity[]): Promise<void> {
+  if (IS_LOCAL) {
+    return localDb.upsertStagesLocal(projectCode, stages);
+  }
+
+  const table = getStagesTable();
+
+  for (const stage of stages) {
+    const entity: StageEntity = {
+      ...stage,
+      partitionKey: projectCode,
+      rowKey: stage.stageId,
+    };
+    try {
+      await table.createEntity(entity);
+    } catch (error: any) {
+      if (error.statusCode === 409) {
+        await table.updateEntity(entity, 'Merge');
+      } else {
+        throw error;
+      }
+    }
+  }
 }
 
 /**

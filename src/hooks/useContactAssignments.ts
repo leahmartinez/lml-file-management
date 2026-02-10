@@ -5,6 +5,9 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
+import { dataSourceConfig } from '@/config/dataSource';
+import { useSites, useProjects } from './useData';
+import { projectsApi, sitesApi } from '@/services/apiService';
 
 interface ContactAssignments {
   sites: Record<string, string[]>; // siteName -> email[]
@@ -13,6 +16,9 @@ interface ContactAssignments {
 
 export const useContactAssignments = () => {
   const { toast } = useToast();
+  const { data: sites } = useSites();
+  const { data: projects } = useProjects();
+  const isApi = dataSourceConfig.type === 'api';
   const [assignments, setAssignments] = useState<ContactAssignments>({
     sites: {},
     projects: {},
@@ -20,6 +26,22 @@ export const useContactAssignments = () => {
 
   // Load assignments from localStorage on mount
   useEffect(() => {
+    if (isApi) {
+      const nextAssignments: ContactAssignments = { sites: {}, projects: {} };
+      sites.forEach(site => {
+        if (site.contacts && site.contacts.length > 0) {
+          nextAssignments.sites[site.building] = site.contacts;
+        }
+      });
+      projects.forEach(project => {
+        if (project.contacts && project.contacts.length > 0) {
+          nextAssignments.projects[project.projectCode] = project.contacts;
+        }
+      });
+      setAssignments(nextAssignments);
+      return;
+    }
+
     const stored = localStorage.getItem('contactAssignments');
     if (stored) {
       try {
@@ -28,7 +50,7 @@ export const useContactAssignments = () => {
         console.error('Error loading contact assignments:', e);
       }
     }
-  }, []);
+  }, [isApi, sites, projects]);
 
   /**
    * Get assigned contacts for a site
@@ -48,6 +70,36 @@ export const useContactAssignments = () => {
    * Update contacts assigned to a site
    */
   const updateSiteContacts = useCallback((siteName: string, contactEmails: string[]) => {
+    if (isApi) {
+      (async () => {
+        try {
+          await sitesApi.update({
+            siteId: siteName,
+            building: siteName,
+            contacts: contactEmails,
+          });
+          setAssignments(prev => ({
+            ...prev,
+            sites: {
+              ...prev.sites,
+              [siteName]: contactEmails,
+            },
+          }));
+          toast({
+            title: "Success",
+            description: `Updated ${contactEmails.length} contact(s) for site`,
+          });
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || 'Failed to update site contacts',
+            variant: "destructive",
+          });
+        }
+      })();
+      return;
+    }
+
     setAssignments(prev => {
       const updated = {
         ...prev,
@@ -64,12 +116,41 @@ export const useContactAssignments = () => {
       title: "Success",
       description: `Updated ${contactEmails.length} contact(s) for site`,
     });
-  }, [toast]);
+  }, [toast, isApi]);
 
   /**
    * Update contacts assigned to a project
    */
   const updateProjectContacts = useCallback((projectCode: string, contactEmails: string[]) => {
+    if (isApi) {
+      (async () => {
+        try {
+          await projectsApi.update({
+            projectCode,
+            contacts: contactEmails,
+          });
+          setAssignments(prev => ({
+            ...prev,
+            projects: {
+              ...prev.projects,
+              [projectCode]: contactEmails,
+            },
+          }));
+          toast({
+            title: "Success",
+            description: `Updated ${contactEmails.length} contact(s) for project`,
+          });
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || 'Failed to update project contacts',
+            variant: "destructive",
+          });
+        }
+      })();
+      return;
+    }
+
     setAssignments(prev => {
       const updated = {
         ...prev,
@@ -86,7 +167,7 @@ export const useContactAssignments = () => {
       title: "Success",
       description: `Updated ${contactEmails.length} contact(s) for project`,
     });
-  }, [toast]);
+  }, [toast, isApi]);
 
   /**
    * Add a contact to a site

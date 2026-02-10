@@ -2,6 +2,8 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Project, ProjectStage, ProjectStageStatus } from '@/types/data';
 import { useProjects } from './useData';
 import { toast } from '@/hooks/use-toast';
+import { dataSourceConfig } from '@/config/dataSource';
+import { projectsApi } from '@/services/apiService';
 
 /**
  * Hook for managing projects (edit code, description, status, etc.)
@@ -9,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
  */
 export const useProjectManagement = () => {
   const { data: sourceProjects, refetch } = useProjects();
+  const isApi = dataSourceConfig.type === 'api';
   const [customProjects, setCustomProjects] = useState<Project[]>(() => {
     const stored = localStorage.getItem('customProjects');
     if (!stored) return [];
@@ -23,10 +26,13 @@ export const useProjectManagement = () => {
   });
   // No longer tracking soft-deleted projects - all deletions are permanent on backend
   const persistCustomProjects = useCallback((updated: Project[]) => {
+    if (isApi) {
+      return;
+    }
     setCustomProjects(updated);
     localStorage.setItem('customProjects', JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('customProjectsUpdated'));
-  }, []);
+  }, [isApi]);
   const getProjectForUpdate = useCallback((projectCode: string) => {
     return (
       customProjects.find(p => p.projectCode === projectCode) ||
@@ -36,6 +42,15 @@ export const useProjectManagement = () => {
 
   // Update project code
   const updateProjectCode = useCallback((projectCode: string, newCode: string) => {
+    if (isApi) {
+      toast({
+        title: "Not supported",
+        description: "Project code changes are not supported in API mode.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const project = sourceProjects.find(p => p.projectCode === projectCode) ||
                     customProjects.find(p => p.projectCode === projectCode);
     if (!project) return;
@@ -75,10 +90,30 @@ export const useProjectManagement = () => {
       title: "Success",
       description: `Project code updated to ${newCode}`,
     });
-  }, [customProjects, sourceProjects, persistCustomProjects]);
+  }, [customProjects, sourceProjects, persistCustomProjects, isApi]);
 
   // Update project description
   const updateProjectDescription = useCallback((projectCode: string, newDescription: string) => {
+    if (isApi) {
+      (async () => {
+        try {
+          await projectsApi.update({ projectCode, description: newDescription });
+          await refetch?.();
+          toast({
+            title: "Success",
+            description: "Project description updated",
+          });
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || 'Failed to update project description',
+            variant: "destructive",
+          });
+        }
+      })();
+      return;
+    }
+
     const project = sourceProjects.find(p => p.projectCode === projectCode);
     if (!project) return;
 
@@ -101,10 +136,30 @@ export const useProjectManagement = () => {
       title: "Success",
       description: "Project description updated",
     });
-  }, [customProjects, sourceProjects, persistCustomProjects]);
+  }, [customProjects, sourceProjects, persistCustomProjects, isApi, refetch]);
 
   // Update project status
   const updateProjectStatus = useCallback((projectCode: string, newStatus: string) => {
+    if (isApi) {
+      (async () => {
+        try {
+          await projectsApi.update({ projectCode, status: newStatus });
+          await refetch?.();
+          toast({
+            title: "Success",
+            description: `Project status updated to ${newStatus}`,
+          });
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || 'Failed to update project status',
+            variant: "destructive",
+          });
+        }
+      })();
+      return;
+    }
+
     const project = sourceProjects.find(p => p.projectCode === projectCode);
     if (!project) return;
 
@@ -127,7 +182,7 @@ export const useProjectManagement = () => {
       title: "Success",
       description: `Project status updated to ${newStatus}`,
     });
-  }, [customProjects, sourceProjects, persistCustomProjects]);
+  }, [customProjects, sourceProjects, persistCustomProjects, isApi, refetch]);
 
   // Update stage status
   const updateStageStatus = useCallback((projectCode: string, stageId: string, newStatus: ProjectStageStatus) => {
@@ -140,6 +195,26 @@ export const useProjectManagement = () => {
         stage.id === stageId ? { ...stage, status: newStatus } : stage
       ),
     };
+
+    if (isApi) {
+      (async () => {
+        try {
+          await projectsApi.update({ projectCode, stages: updated.stages });
+          await refetch?.();
+          toast({
+            title: "Success",
+            description: `Stage status updated to ${newStatus}`,
+          });
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || 'Failed to update stage status',
+            variant: "destructive",
+          });
+        }
+      })();
+      return;
+    }
 
     const existingCustom = customProjects.find(p => p.projectCode === projectCode);
     if (existingCustom) {
@@ -155,7 +230,7 @@ export const useProjectManagement = () => {
       title: "Success",
       description: `Stage status updated to ${newStatus}`,
     });
-  }, [customProjects, getProjectForUpdate, persistCustomProjects]);
+  }, [customProjects, getProjectForUpdate, persistCustomProjects, isApi, refetch]);
 
   // Update stage planned site visit date
   const updateStageSiteVisitDate = useCallback((projectCode: string, stageId: string, newDate: string) => {
@@ -168,6 +243,26 @@ export const useProjectManagement = () => {
         stage.id === stageId ? { ...stage, plannedSiteVisitDate: newDate || undefined } : stage
       ),
     };
+
+    if (isApi) {
+      (async () => {
+        try {
+          await projectsApi.update({ projectCode, stages: updated.stages });
+          await refetch?.();
+          toast({
+            title: "Success",
+            description: newDate ? "Site visit date updated" : "Site visit date cleared",
+          });
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || 'Failed to update site visit date',
+            variant: "destructive",
+          });
+        }
+      })();
+      return;
+    }
 
     const existingCustom = customProjects.find(p => p.projectCode === projectCode);
     if (existingCustom) {
@@ -183,10 +278,14 @@ export const useProjectManagement = () => {
       title: "Success",
       description: newDate ? "Site visit date updated" : "Site visit date cleared",
     });
-  }, [customProjects, getProjectForUpdate, persistCustomProjects]);
+  }, [customProjects, getProjectForUpdate, persistCustomProjects, isApi, refetch]);
 
   // Get merged projects (source projects with custom overrides)
   const getMergedProjects = useCallback((): Project[] => {
+    if (isApi) {
+      return sourceProjects;
+    }
+
     const merged: Project[] = [];
     // Filter out null/undefined projects before creating map
     const customMap = new Map(
@@ -227,7 +326,7 @@ export const useProjectManagement = () => {
     });
 
     return merged;
-  }, [sourceProjects, customProjects]);
+  }, [sourceProjects, customProjects, isApi]);
 
   // Add a new project
   const addProject = useCallback((project: Project) => {
@@ -242,6 +341,26 @@ export const useProjectManagement = () => {
       return false;
     }
 
+    if (isApi) {
+      (async () => {
+        try {
+          await projectsApi.create(project);
+          await refetch?.();
+          toast({
+            title: "Success",
+            description: `Project "${project.projectCode}" has been added`,
+          });
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || 'Failed to add project',
+            variant: "destructive",
+          });
+        }
+      })();
+      return true;
+    }
+
     const updated = [...customProjects, project];
     persistCustomProjects(updated);
 
@@ -250,10 +369,26 @@ export const useProjectManagement = () => {
       description: `Project "${project.projectCode}" has been added`,
     });
     return true;
-  }, [customProjects, getMergedProjects, persistCustomProjects]);
+  }, [customProjects, getMergedProjects, persistCustomProjects, isApi, refetch]);
 
   // Update entire project (useful for stages, files, etc.)
   const updateProject = useCallback((projectCode: string, updatedProject: Project) => {
+    if (isApi) {
+      (async () => {
+        try {
+          await projectsApi.update({ projectCode, ...updatedProject });
+          await refetch?.();
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || 'Failed to update project',
+            variant: "destructive",
+          });
+        }
+      })();
+      return;
+    }
+
     const existingCustom = customProjects.find(p => p.projectCode === projectCode);
     if (existingCustom) {
       const updated_list = customProjects.map(p =>
@@ -264,7 +399,7 @@ export const useProjectManagement = () => {
       // Project doesn't exist in custom, add it
       persistCustomProjects([...customProjects, updatedProject]);
     }
-  }, [customProjects, persistCustomProjects]);
+  }, [customProjects, persistCustomProjects, isApi, refetch, toast]);
 
   // Delete a project (permanent backend deletion)
   const deleteProject = useCallback(async (projectCode: string) => {
@@ -280,19 +415,23 @@ export const useProjectManagement = () => {
     }
 
     try {
-      // Call backend DELETE endpoint
-      const response = await fetch('/api/projects/delete', {
-        method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('jwt_token') || ''}`,
-          },
-        body: JSON.stringify({ projectCode }),
-      });
+      if (isApi) {
+        await projectsApi.delete(projectCode);
+      } else {
+        // Call backend DELETE endpoint
+        const response = await fetch('/api/projects/delete', {
+          method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('jwt_token') || ''}`,
+            },
+          body: JSON.stringify({ projectCode }),
+        });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete project');
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to delete project');
+        }
       }
 
       // Track deleted project codes in localStorage (for mock data filtering in local dev mode)
@@ -325,10 +464,12 @@ export const useProjectManagement = () => {
         localStorage.setItem('_renamedProjectCodes', JSON.stringify(renamedCodes));
       }
 
-      // Remove from custom projects if it exists there
-      const customUpdated = customProjects.filter(p => p.projectCode !== projectCode);
-      if (customUpdated.length !== customProjects.length) {
-        persistCustomProjects(customUpdated);
+      if (!isApi) {
+        // Remove from custom projects if it exists there
+        const customUpdated = customProjects.filter(p => p.projectCode !== projectCode);
+        if (customUpdated.length !== customProjects.length) {
+          persistCustomProjects(customUpdated);
+        }
       }
 
       toast({
@@ -348,17 +489,18 @@ export const useProjectManagement = () => {
       });
       return false;
     }
-  }, [customProjects, refetch, persistCustomProjects]);
+  }, [customProjects, refetch, persistCustomProjects, isApi]);
 
   // Clean up old deletedProjects from localStorage (for backward compatibility)
   // This can be removed in a future version
   useEffect(() => {
+    if (isApi) return;
     const stored = localStorage.getItem('deletedProjects');
     if (stored) {
       localStorage.removeItem('deletedProjects');
       console.log('[useProjectManagement] Cleaned up legacy soft-delete tracking');
     }
-  }, []);
+  }, [isApi]);
 
   // Clean up customProjects that don't exist in sourceProjects
   // This removes stale mock projects when using real CSV data
@@ -366,6 +508,7 @@ export const useProjectManagement = () => {
   const cleanupDoneRef = useRef(false);
 
   useEffect(() => {
+    if (isApi) return;
     if (sourceProjects.length === 0 || cleanupDoneRef.current) return;
 
     const sourceProjectCodes = new Set(sourceProjects.map(p => p.projectCode));
@@ -401,9 +544,10 @@ export const useProjectManagement = () => {
     }
 
     cleanupDoneRef.current = true;
-  }, [sourceProjects, persistCustomProjects]);
+  }, [sourceProjects, persistCustomProjects, isApi]);
 
   useEffect(() => {
+    if (isApi) return;
     const handleCustomProjectsUpdate = () => {
       try {
         const stored = localStorage.getItem('customProjects');
@@ -419,7 +563,7 @@ export const useProjectManagement = () => {
 
     window.addEventListener('customProjectsUpdated', handleCustomProjectsUpdate);
     return () => window.removeEventListener('customProjectsUpdated', handleCustomProjectsUpdate);
-  }, []);
+  }, [isApi]);
 
   // Memoize merged projects so downstream useMemo dependencies work correctly
   // and deleted projects are immediately filtered out

@@ -80,12 +80,62 @@ export async function getAllSitesLocal(): Promise<SiteEntity[]> {
   return Array.from(sites.values());
 }
 
+export async function getSiteByIdLocal(siteId: string): Promise<SiteEntity | null> {
+  return sites.get(siteId) || null;
+}
+
+export async function createSiteLocal(site: SiteEntity): Promise<SiteEntity> {
+  sites.set(site.siteId, site);
+  return site;
+}
+
+export async function updateSiteLocal(siteId: string, updates: Partial<SiteEntity>): Promise<SiteEntity> {
+  const existing = sites.get(siteId);
+  if (!existing) {
+    throw new Error('Site not found');
+  }
+  const updated = { ...existing, ...updates };
+  sites.set(siteId, updated);
+  return updated;
+}
+
 export async function getAllProjectsLocal(): Promise<ProjectEntity[]> {
   return Array.from(projects.values());
 }
 
+export async function createProjectLocal(project: ProjectEntity): Promise<ProjectEntity> {
+  projects.set(project.projectCode, project);
+  return project;
+}
+
+export async function updateProjectLocal(projectCode: string, updates: Partial<ProjectEntity>): Promise<ProjectEntity> {
+  const existing = projects.get(projectCode);
+  if (!existing) {
+    throw new Error('Project not found');
+  }
+  const updated = { ...existing, ...updates };
+  projects.set(projectCode, updated);
+  return updated;
+}
+
 export async function getStagesByProjectLocal(projectCode: string): Promise<StageEntity[]> {
   return Array.from(stages.values()).filter(stage => stage.projectCode === projectCode);
+}
+
+export async function upsertStagesLocal(projectCode: string, stageList: StageEntity[]): Promise<void> {
+  stageList.forEach(stage => {
+    const stageId = stage.stageId || stage.rowKey;
+    if (!stageId) {
+      return;
+    }
+    stages.set(stageId, {
+      ...stage,
+      projectCode,
+      partitionKey: projectCode,
+      rowKey: stageId,
+      stageId,
+    });
+  });
 }
 
 export async function getAllContactsLocal(): Promise<ContactEntity[]> {

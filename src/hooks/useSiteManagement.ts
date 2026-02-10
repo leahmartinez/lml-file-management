@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { Site } from '@/types/data';
 import { useSites } from './useData';
 import { toast } from '@/hooks/use-toast';
+import { dataSourceConfig } from '@/config/dataSource';
+import { sitesApi } from '@/services/apiService';
 
 /**
  * Hook for managing sites (add, edit, delete)
@@ -9,15 +11,51 @@ import { toast } from '@/hooks/use-toast';
  */
 export const useSiteManagement = () => {
   const { data: csvSites, refetch } = useSites();
+  const isApi = dataSourceConfig.type === 'api';
   const [customSites, setCustomSites] = useState<Site[]>(() => {
     const stored = localStorage.getItem('customSites');
     return stored ? JSON.parse(stored) : [];
   });
 
   // Get all sites (CSV + custom)
-  const allSites = [...csvSites, ...customSites];
+  const allSites = isApi ? [...csvSites] : [...csvSites, ...customSites];
 
   const addSite = useCallback((site: Omit<Site, 'projects' | 'assets'>) => {
+    if (isApi) {
+      (async () => {
+        try {
+          // Check if site already exists
+          if (allSites.some(s => s.building.toLowerCase() === site.building.toLowerCase())) {
+            toast({
+              title: "Error",
+              description: `A site with the name "${site.building}" already exists`,
+              variant: "destructive",
+            });
+            return;
+          }
+
+          await sitesApi.create({
+            ...site,
+            siteId: site.building,
+            projectCodes: [],
+            contacts: site.contacts || [],
+          });
+          await refetch?.();
+          toast({
+            title: "Success",
+            description: `Site "${site.building}" has been added`,
+          });
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || 'Failed to add site',
+            variant: "destructive",
+          });
+        }
+      })();
+      return;
+    }
+
     const newSite: Site = {
       ...site,
       projects: [],
@@ -42,9 +80,34 @@ export const useSiteManagement = () => {
       title: "Success",
       description: `Site "${site.building}" has been added`,
     });
-  }, [customSites, allSites]);
+  }, [customSites, allSites, isApi, refetch]);
 
   const updateSite = useCallback((updatedSite: Site) => {
+    if (isApi) {
+      (async () => {
+        try {
+          await sitesApi.update({
+            ...updatedSite,
+            siteId: updatedSite.siteId || updatedSite.building,
+            contacts: updatedSite.contacts || [],
+            projectCodes: (updatedSite.projects || []).map(p => p.projectCode),
+          });
+          await refetch?.();
+          toast({
+            title: "Success",
+            description: `Site "${updatedSite.building}" has been updated`,
+          });
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: error.message || 'Failed to update site',
+            variant: "destructive",
+          });
+        }
+      })();
+      return;
+    }
+
     // Check if it's a CSV site (read-only) or custom site
     const isCsvSite = csvSites.some(s => s.building === updatedSite.building);
     
@@ -76,7 +139,7 @@ export const useSiteManagement = () => {
       title: "Success",
       description: `Site "${updatedSite.building}" has been updated`,
     });
-  }, [customSites, csvSites]);
+  }, [customSites, csvSites, isApi, refetch]);
 
   const deleteSite = useCallback(async (building: string) => {
     try {
@@ -88,6 +151,16 @@ export const useSiteManagement = () => {
           description: "Invalid site name",
           variant: "destructive",
         });
+        return;
+      }
+
+      if (isApi) {
+        await sitesApi.delete(building);
+        toast({
+          title: "Success",
+          description: `Site "${building}" has been permanently deleted`,
+        });
+        refetch?.();
         return;
       }
 
@@ -153,10 +226,14 @@ export const useSiteManagement = () => {
         variant: "destructive",
       });
     }
-  }, [customSites, refetch]);
+  }, [customSites, refetch, isApi]);
 
   // Get merged sites (CSV sites with custom overrides)
   const getMergedSites = useCallback((): Site[] => {
+    if (isApi) {
+      return csvSites;
+    }
+
     const merged: Site[] = [];
     const customMap = new Map(customSites.map(s => [s.building, s]));
 
@@ -180,7 +257,7 @@ export const useSiteManagement = () => {
     customMap.forEach(site => merged.push(site));
 
     return merged;
-  }, [csvSites, customSites]);
+  }, [csvSites, customSites, isApi]);
 
   return {
     sites: getMergedSites(),
