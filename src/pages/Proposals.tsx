@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { useProposals } from '@/hooks/useProposals';
@@ -12,6 +12,7 @@ import { Proposal, ProposalStatus, Project, Site, ProjectStage, ProjectState, Ex
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { AddressAutocomplete, AddressComponents } from '@/components/ui/AddressAutocomplete';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -105,6 +106,36 @@ const Proposals = () => {
       )
       .slice(0, 10); // Limit to 10 suggestions
   }, [sitesData, formData.siteSearch]);
+
+  // Handle address autocomplete selection
+  const handleAddressChange = useCallback((address: string, placeDetails?: AddressComponents) => {
+    if (placeDetails) {
+      // User selected from Google Places autocomplete - auto-fill all fields
+      // Map Google state abbreviations to full names
+      const stateMapping: { [key: string]: string } = {
+        'VIC': 'Victoria',
+        'NSW': 'NSW',
+        'QLD': 'Queensland',
+        'SA': 'South Australia',
+        'WA': 'Western Australia',
+        'TAS': 'Tasmania',
+        'NT': 'Northern Territory',
+        'ACT': 'Australian Capital Territory',
+      };
+      const mappedState = stateMapping[placeDetails.administrativeArea || ''] || placeDetails.administrativeArea || '';
+
+      setFormData(prev => ({
+        ...prev,
+        siteAddress: address,
+        city: placeDetails.locality || '',
+        state: mappedState,
+        postcode: placeDetails.postalCode || '',
+      }));
+    } else {
+      // User is typing manually
+      setFormData(prev => ({ ...prev, siteAddress: address }));
+    }
+  }, []);
 
   // Generate proposal number when opening add modal
   const openAddModal = () => {
@@ -1176,14 +1207,23 @@ const Proposals = () => {
             {/* Site Address Fields - read-only if existing site selected */}
             <div>
               <Label htmlFor="siteAddress">Site Address {!formData.existingSiteBuilding && '*'}</Label>
-              <Input
-                id="siteAddress"
-                value={formData.siteAddress}
-                onChange={(e) => setFormData({ ...formData, siteAddress: e.target.value })}
-                placeholder="123 Main Street"
-                disabled={!!formData.existingSiteBuilding}
-                className={formData.existingSiteBuilding ? 'bg-muted' : ''}
-              />
+              {formData.existingSiteBuilding ? (
+                <Input
+                  id="siteAddress"
+                  value={formData.siteAddress}
+                  readOnly
+                  disabled
+                  className="bg-muted"
+                />
+              ) : (
+                <AddressAutocomplete
+                  id="siteAddress"
+                  value={formData.siteAddress}
+                  onChange={handleAddressChange}
+                  placeholder="Start typing an address..."
+                  countryRestrict="au"
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-4">
