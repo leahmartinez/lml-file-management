@@ -36,13 +36,30 @@ export const useProjectManagement = () => {
 
   // Update project code
   const updateProjectCode = useCallback((projectCode: string, newCode: string) => {
-    const project = sourceProjects.find(p => p.projectCode === projectCode);
+    const project = sourceProjects.find(p => p.projectCode === projectCode) ||
+                    customProjects.find(p => p.projectCode === projectCode);
     if (!project) return;
 
     const updated: Project = {
       ...project,
       projectCode: newCode,
+      // Track the original project code for proper merging
+      _originalProjectCode: (project as any)._originalProjectCode || projectCode,
     };
+
+    // Track renamed project codes so we can filter out the old source project
+    const renamedCodes = (() => {
+      try {
+        const stored = localStorage.getItem('_renamedProjectCodes');
+        return stored ? JSON.parse(stored) : {};
+      } catch (e) {
+        return {};
+      }
+    })();
+    // Map original code to new code
+    const originalCode = (project as any)._originalProjectCode || projectCode;
+    renamedCodes[originalCode] = newCode;
+    localStorage.setItem('_renamedProjectCodes', JSON.stringify(renamedCodes));
 
     const existingCustom = customProjects.find(p => p.projectCode === projectCode);
     if (existingCustom) {
@@ -178,8 +195,23 @@ export const useProjectManagement = () => {
         .map(p => [p.projectCode, p])
     );
 
+    // Get renamed project codes to filter out old source projects
+    const renamedCodes: Record<string, string> = (() => {
+      try {
+        const stored = localStorage.getItem('_renamedProjectCodes');
+        return stored ? JSON.parse(stored) : {};
+      } catch (e) {
+        return {};
+      }
+    })();
+
     // Add source projects, using custom overrides if they exist
     sourceProjects.forEach(sourceProject => {
+      // Skip source projects that have been renamed (we'll use the custom one with new code)
+      if (renamedCodes[sourceProject.projectCode]) {
+        return;
+      }
+
       const customOverride = customMap.get(sourceProject.projectCode);
       if (customOverride) {
         merged.push(customOverride);
@@ -189,7 +221,7 @@ export const useProjectManagement = () => {
       }
     });
 
-    // Add remaining custom projects
+    // Add remaining custom projects (includes renamed projects with new codes)
     customMap.forEach(project => {
       merged.push(project);
     });
@@ -275,6 +307,22 @@ export const useProjectManagement = () => {
       if (!deleted.includes(projectCode)) {
         deleted.push(projectCode);
         localStorage.setItem('_deletedProjectCodes', JSON.stringify(deleted));
+      }
+
+      // Clean up renamed codes tracking if this project was renamed
+      const renamedCodes = (() => {
+        try {
+          const stored = localStorage.getItem('_renamedProjectCodes');
+          return stored ? JSON.parse(stored) : {};
+        } catch (e) {
+          return {};
+        }
+      })();
+      // Find and remove any rename entry that points to this project code
+      const originalCode = Object.keys(renamedCodes).find(k => renamedCodes[k] === projectCode);
+      if (originalCode) {
+        delete renamedCodes[originalCode];
+        localStorage.setItem('_renamedProjectCodes', JSON.stringify(renamedCodes));
       }
 
       // Remove from custom projects if it exists there
