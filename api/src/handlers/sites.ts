@@ -15,7 +15,7 @@ export async function sitesHandler(request: HttpRequest, context: InvocationCont
     }
 
     if (request.method === "POST" || request.method === "PUT") {
-      const body = await request.json().catch(() => ({}));
+      const body = (await request.json().catch(() => ({}))) as any;
       const siteId = (body.siteId || body.building || "").toString().trim();
       const building = (body.building || siteId || "").toString().trim();
 

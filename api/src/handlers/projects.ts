@@ -79,7 +79,7 @@ export async function projectsHandler(request: HttpRequest, context: InvocationC
     }
 
     if (request.method === "POST" || request.method === "PUT") {
-      const body = await request.json().catch(() => ({}));
+      const body = (await request.json().catch(() => ({}))) as any;
       const projectCode = (body.projectCode || "").toString().trim();
       const building = (body.building || "").toString().trim();
       const siteId = (body.siteId || building || "").toString().trim();
