@@ -7,6 +7,7 @@
 
 import { TableClient, TableEntity } from "@azure/data-tables";
 import * as localDb from "./localMockDb";
+import { safeParseJsonArray } from "../utils/json";
 
 // Check if running locally
 const IS_LOCAL = !process.env.AZURE_STORAGE_CONNECTION_STRING || 
@@ -461,7 +462,7 @@ export async function renameProjectCode(
   });
 
   for await (const site of siteEntities) {
-    const codes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
+    const codes = safeParseJsonArray(site.projectCodes, []);
     if (Array.isArray(codes) && codes.includes(oldCode)) {
       const updatedCodes = codes.map((code: string) => (code === oldCode ? newCode : code));
       await updateSite(site.siteId, { projectCodes: JSON.stringify(updatedCodes) });
@@ -931,7 +932,7 @@ export async function deleteSite(siteId: string): Promise<void> {
     }
 
     // Step 2: Parse project codes from the site
-    const projectCodes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
+    const projectCodes = safeParseJsonArray(site.projectCodes, []);
 
     // Step 3: Delete all projects and their stages
     for (const projectCode of projectCodes) {

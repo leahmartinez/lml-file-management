@@ -1,9 +1,24 @@
+/**
+ * Suspend User Handler
+ *
+ * SECURITY:
+ * - Rate limited (admin rate limit)
+ * - Input validated with Zod schema
+ * - Requires authentication and admin/consultant role
+ * - Prevents self-suspension
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from '../database/tableStorage';
 import { getAuthenticatedUser, hasRole } from '../utils/auth';
 import { success, error, forbidden, notFound, addCorsHeaders, unauthorized } from '../utils/response';
+import { validateRequestBody, userSuspendSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-export async function usersSuspendHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function usersSuspendHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -21,37 +36,37 @@ export async function usersSuspendHandler(request: HttpRequest, context: Invocat
       return addCorsHeaders(forbidden('Only admins can suspend users'), request.headers.get('origin') || undefined);
     }
 
-    const body = await request.json() as any;
-    const { email } = body;
-
-    if (!email) {
-      return addCorsHeaders(error('Email is required'), request.headers.get('origin') || undefined);
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, userSuspendSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const { email } = validation.data;
+    // email is already normalized by schema transform
 
-    // Prevent self-suspension
-    if (normalizedEmail === currentUser.email.toLowerCase()) {
+    // SECURITY: Prevent self-suspension
+    if (email === currentUser.email.toLowerCase()) {
       return addCorsHeaders(error('Cannot suspend your own account'), request.headers.get('origin') || undefined);
     }
 
     // Check if user exists
-    const existing = await getUserByEmail(normalizedEmail);
+    const existing = await getUserByEmail(email);
     if (!existing) {
       return addCorsHeaders(notFound('User not found'), request.headers.get('origin') || undefined);
     }
 
-    context.log('Suspending user account:', normalizedEmail);
+    context.log('Suspending user account:', email);
 
     // Update user status to suspended
-    await updateUser(normalizedEmail, {
+    await updateUser(email, {
       accountStatus: 'suspended',
     });
 
     return addCorsHeaders(
       success({
         message: 'User account suspended successfully',
-        email: normalizedEmail,
+        email,
       }),
       request.headers.get('origin') || undefined
     );
@@ -61,6 +76,12 @@ export async function usersSuspendHandler(request: HttpRequest, context: Invocat
     return addCorsHeaders(error('Server error', 500), request.headers.get('origin') || undefined);
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (admin rate limit)
+export const usersSuspendHandler = withRateLimit(
+  usersSuspendHandlerImpl,
+  RATE_LIMITS.ADMIN
+);
 
 // Default export for function.json
 export default usersSuspendHandler;

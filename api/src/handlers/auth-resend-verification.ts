@@ -1,10 +1,24 @@
+/**
+ * Resend Verification Email Handler
+ *
+ * SECURITY:
+ * - Rate limited to prevent abuse (10 requests per 15 min)
+ * - Input validated with Zod schema
+ * - Consistent response to prevent user enumeration
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from '../database/tableStorage';
 import { generateSecureToken, generateTokenExpiry } from '../utils/auth';
 import { sendVerificationEmail } from '../utils/email';
 import { success, error, addCorsHeaders } from '../utils/response';
+import { validateRequestBody, resendVerificationSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-export async function authResendVerificationHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function authResendVerificationHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -13,22 +27,19 @@ export async function authResendVerificationHandler(request: HttpRequest, contex
 
     context.log('Resend verification email attempt');
 
-    const body = await request.json() as { email: string };
-    const { email } = body;
-
-    if (!email) {
-      return addCorsHeaders(
-        error('Email is required', 400),
-        request.headers.get('origin') || undefined
-      );
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, resendVerificationSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const { email } = validation.data;
+    // email is already normalized by schema transform
 
     // Get user
-    const user = await getUserByEmail(normalizedEmail);
+    const user = await getUserByEmail(email);
     if (!user) {
-      // Don't reveal if user exists or not (security best practice)
+      // SECURITY: Don't reveal if user exists or not
       return addCorsHeaders(
         success({
           message: 'If an account with this email exists and is not verified, a new verification email has been sent.',
@@ -45,20 +56,20 @@ export async function authResendVerificationHandler(request: HttpRequest, contex
       );
     }
 
-    context.log('Generating new verification token for:', normalizedEmail);
+    context.log('Generating new verification token for:', email);
 
     // Generate new verification token
     const verificationToken = generateSecureToken();
     const verificationExpiry = generateTokenExpiry(24);
 
     // Update user with new token
-    await updateUser(normalizedEmail, {
+    await updateUser(email, {
       emailVerificationToken: verificationToken,
       emailVerificationExpiry: verificationExpiry,
     });
 
     // Send verification email
-    await sendVerificationEmail(normalizedEmail, verificationToken, context);
+    await sendVerificationEmail(email, verificationToken, context);
 
     return addCorsHeaders(
       success({
@@ -75,6 +86,12 @@ export async function authResendVerificationHandler(request: HttpRequest, contex
     );
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (10 requests per 15 minutes)
+export const authResendVerificationHandler = withRateLimit(
+  authResendVerificationHandlerImpl,
+  RATE_LIMITS.AUTH_VERIFY
+);
 
 // Default export for function.json
 export default authResendVerificationHandler;

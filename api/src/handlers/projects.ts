@@ -13,6 +13,7 @@ import { addCorsHeaders, success, unauthorized, error } from "../utils/response"
 import { getAuthenticatedUser } from "../utils/auth";
 import { validateRequestBody, createProjectSchema, updateProjectSchema, isValidationFailure } from '../utils/validation';
 import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
+import { safeParseJsonArray } from '../utils/json';
 
 const DEFAULT_STAGE_ORDER: Record<string, number> = {
   Feasibility: 1,
@@ -77,7 +78,7 @@ function mapStageToEntity(projectCode: string, stage: any) {
 }
 
 function mapStageFromEntity(stage: any) {
-  const consultantEmails = stage.consultantEmails ? JSON.parse(stage.consultantEmails) : [];
+  const consultantEmails = safeParseJsonArray(stage.consultantEmails, []);
   return {
     id: stage.stageId,
     name: stage.name,
@@ -158,7 +159,7 @@ async function projectsHandlerImpl(
           contactEmails: JSON.stringify([]),
         });
       } else {
-        const projectCodes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
+        const projectCodes = safeParseJsonArray(site.projectCodes, []);
         if (!projectCodes.includes(projectCode)) {
           projectCodes.push(projectCode);
           await updateSite(siteId, { projectCodes: JSON.stringify(projectCodes) });
@@ -224,7 +225,7 @@ async function projectsHandlerImpl(
           ? stages.map(stage => mapStageFromEntity(stage))
           : buildDefaultStages(project.projectCode);
 
-        const contactEmails = project.contactEmails ? JSON.parse(project.contactEmails) : [];
+        const contactEmails = safeParseJsonArray(project.contactEmails, []);
 
         return {
           projectCode: project.projectCode,

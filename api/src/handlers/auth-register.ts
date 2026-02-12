@@ -1,15 +1,25 @@
+/**
+ * Registration Handler
+ *
+ * SECURITY:
+ * - Rate limited to prevent spam registrations (3 per hour)
+ * - Input validated with Zod schema
+ * - Password strength enforced
+ * - Email normalized to prevent duplicates
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, createUser } from '../database/tableStorage';
 import { hashPassword, generateSecureToken, generateTokenExpiry } from '../utils/auth';
 import { sendVerificationEmail } from '../utils/email';
 import { success, error, addCorsHeaders } from '../utils/response';
+import { validateRequestBody, registerSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-interface RegisterRequest {
-  email: string;
-  password: string;
-}
-
-export async function authRegisterHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function authRegisterHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -18,37 +28,17 @@ export async function authRegisterHandler(request: HttpRequest, context: Invocat
 
     context.log('User registration attempt');
 
-    const body = await request.json() as RegisterRequest;
-    const { email, password } = body;
-
-    if (!email || !password) {
-      return addCorsHeaders(
-        error('Email and password are required', 400),
-        request.headers.get('origin') || undefined
-      );
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, registerSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return addCorsHeaders(
-        error('Invalid email format', 400),
-        request.headers.get('origin') || undefined
-      );
-    }
-
-    // Validate password strength
-    if (password.length < 8) {
-      return addCorsHeaders(
-        error('Password must be at least 8 characters long', 400),
-        request.headers.get('origin') || undefined
-      );
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
+    const { email, password } = validation.data;
+    // email is already normalized (lowercase, trimmed) by schema transform
 
     // Check if user already exists
-    const existingUser = await getUserByEmail(normalizedEmail);
+    const existingUser = await getUserByEmail(email);
     if (existingUser) {
       return addCorsHeaders(
         error('An account with this email already exists', 409),
@@ -56,7 +46,7 @@ export async function authRegisterHandler(request: HttpRequest, context: Invocat
       );
     }
 
-    context.log('Creating new user:', normalizedEmail);
+    context.log('Creating new user:', email);
 
     // Hash password
     const passwordHash = await hashPassword(password);
@@ -67,7 +57,7 @@ export async function authRegisterHandler(request: HttpRequest, context: Invocat
 
     // Create user with pending status
     await createUser({
-      email: normalizedEmail,
+      email,
       passwordHash,
       role: 'site_manager',
       sites: [],
@@ -81,12 +71,12 @@ export async function authRegisterHandler(request: HttpRequest, context: Invocat
     context.log('User created, sending verification email');
 
     // Send verification email
-    await sendVerificationEmail(normalizedEmail, verificationToken, context);
+    await sendVerificationEmail(email, verificationToken, context);
 
     return addCorsHeaders(
       success({
         message: 'Registration successful! Please check your email to verify your account.',
-        email: normalizedEmail,
+        email,
       }),
       request.headers.get('origin') || undefined
     );
@@ -99,6 +89,12 @@ export async function authRegisterHandler(request: HttpRequest, context: Invocat
     );
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (3 registrations per hour)
+export const authRegisterHandler = withRateLimit(
+  authRegisterHandlerImpl,
+  RATE_LIMITS.AUTH_REGISTER
+);
 
 // Default export for function.json
 export default authRegisterHandler;

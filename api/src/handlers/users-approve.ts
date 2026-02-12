@@ -1,10 +1,24 @@
+/**
+ * Approve User Handler
+ *
+ * SECURITY:
+ * - Rate limited (admin rate limit)
+ * - Input validated with Zod schema
+ * - Requires authentication and admin/consultant role
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from '../database/tableStorage';
 import { getAuthenticatedUser, hasRole } from '../utils/auth';
 import { sendAccountApprovedEmail } from '../utils/email';
 import { success, error, forbidden, notFound, addCorsHeaders, unauthorized } from '../utils/response';
+import { validateRequestBody, userApproveSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-export async function usersApproveHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function usersApproveHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -22,17 +36,17 @@ export async function usersApproveHandler(request: HttpRequest, context: Invocat
       return addCorsHeaders(forbidden('Only admins can approve users'), request.headers.get('origin') || undefined);
     }
 
-    const body = await request.json() as any;
-    const { email } = body;
-
-    if (!email) {
-      return addCorsHeaders(error('Email is required'), request.headers.get('origin') || undefined);
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, userApproveSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const { email } = validation.data;
+    // email is already normalized by schema transform
 
     // Check if user exists
-    const existing = await getUserByEmail(normalizedEmail);
+    const existing = await getUserByEmail(email);
     if (!existing) {
       return addCorsHeaders(notFound('User not found'), request.headers.get('origin') || undefined);
     }
@@ -53,20 +67,20 @@ export async function usersApproveHandler(request: HttpRequest, context: Invocat
       );
     }
 
-    context.log('Approving user account:', normalizedEmail);
+    context.log('Approving user account:', email);
 
     // Update user status to active
-    await updateUser(normalizedEmail, {
+    await updateUser(email, {
       accountStatus: 'active',
     });
 
     // Send account approved email
-    await sendAccountApprovedEmail(normalizedEmail, context);
+    await sendAccountApprovedEmail(email, context);
 
     return addCorsHeaders(
       success({
         message: 'User account approved successfully',
-        email: normalizedEmail,
+        email,
       }),
       request.headers.get('origin') || undefined
     );
@@ -76,6 +90,12 @@ export async function usersApproveHandler(request: HttpRequest, context: Invocat
     return addCorsHeaders(error('Server error', 500), request.headers.get('origin') || undefined);
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (admin rate limit)
+export const usersApproveHandler = withRateLimit(
+  usersApproveHandlerImpl,
+  RATE_LIMITS.ADMIN
+);
 
 // Default export for function.json
 export default usersApproveHandler;

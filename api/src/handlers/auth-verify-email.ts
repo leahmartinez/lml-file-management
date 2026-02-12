@@ -1,14 +1,23 @@
+/**
+ * Email Verification Handler
+ *
+ * SECURITY:
+ * - Rate limited to prevent token brute forcing (10 attempts per 15 min)
+ * - Input validated with Zod schema
+ * - Tokens cleared after successful verification
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from '../database/tableStorage';
 import { isTokenExpired } from '../utils/auth';
 import { success, error, addCorsHeaders } from '../utils/response';
+import { validateRequestBody, verifyEmailSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-interface VerifyEmailRequest {
-  email: string;
-  token: string;
-}
-
-export async function authVerifyEmailHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function authVerifyEmailHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -17,20 +26,17 @@ export async function authVerifyEmailHandler(request: HttpRequest, context: Invo
 
     context.log('Email verification attempt');
 
-    const body = await request.json() as VerifyEmailRequest;
-    const { email, token } = body;
-
-    if (!email || !token) {
-      return addCorsHeaders(
-        error('Email and verification token are required', 400),
-        request.headers.get('origin') || undefined
-      );
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, verifyEmailSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const { email, token } = validation.data;
+    // email is already normalized by schema transform
 
     // Get user
-    const user = await getUserByEmail(normalizedEmail);
+    const user = await getUserByEmail(email);
     if (!user) {
       return addCorsHeaders(
         error('User not found', 404),
@@ -62,10 +68,10 @@ export async function authVerifyEmailHandler(request: HttpRequest, context: Invo
       );
     }
 
-    context.log('Email verified successfully:', normalizedEmail);
+    context.log('Email verified successfully:', email);
 
     // Update user - mark email as verified and clear token
-    await updateUser(normalizedEmail, {
+    await updateUser(email, {
       emailVerified: true,
       emailVerificationToken: undefined,
       emailVerificationExpiry: undefined,
@@ -86,6 +92,12 @@ export async function authVerifyEmailHandler(request: HttpRequest, context: Invo
     );
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (10 attempts per 15 minutes)
+export const authVerifyEmailHandler = withRateLimit(
+  authVerifyEmailHandlerImpl,
+  RATE_LIMITS.AUTH_VERIFY
+);
 
 // Default export for function.json
 export default authVerifyEmailHandler;

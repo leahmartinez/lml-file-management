@@ -1,8 +1,31 @@
 /**
  * HTTP Response utilities
+ *
+ * SECURITY: All responses include security headers per OWASP recommendations
+ * @see https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html
  */
 
 import { HttpResponseInit } from "@azure/functions";
+
+/**
+ * Standard security headers applied to all responses
+ *
+ * SECURITY:
+ * - X-Content-Type-Options: Prevents MIME type sniffing
+ * - X-Frame-Options: Prevents clickjacking
+ * - X-XSS-Protection: Legacy XSS filter (for older browsers)
+ * - Strict-Transport-Security: Forces HTTPS
+ * - Referrer-Policy: Controls referrer information leakage
+ * - Permissions-Policy: Restricts browser features
+ */
+const SECURITY_HEADERS: Record<string, string> = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+};
 
 /**
  * Success response
@@ -72,11 +95,13 @@ export function addCorsHeaders(response: HttpResponseInit | { status: number }, 
   const isAllowed = requestOrigin && allowedOrigins.some(o => o.trim() === requestOrigin);
   const corsOrigin = isAllowed ? requestOrigin : (allowedOrigins[0] || '*');
 
+  // SECURITY: Combine CORS headers with security headers
   const corsHeaders = {
     'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-LML-Token',
     'Access-Control-Allow-Credentials': 'true',
+    ...SECURITY_HEADERS,
   };
 
   // Handle simple status-only responses (for OPTIONS preflight requests)

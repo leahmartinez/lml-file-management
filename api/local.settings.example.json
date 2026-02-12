@@ -1,0 +1,31 @@
+{
+  "_comment": "Copy this file to local.settings.json and fill in your actual values. NEVER commit local.settings.json to version control.",
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+
+    "_comment_storage": "Azure Storage connection string - get from Azure Portal > Storage Account > Access Keys",
+    "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=your-account;AccountKey=your-key;EndpointSuffix=core.windows.net",
+
+    "_comment_jwt": "JWT signing secret - generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"",
+    "JWT_SECRET": "generate-a-secure-64-character-random-string-using-crypto-randomBytes",
+
+    "_comment_cors": "Comma-separated list of allowed origins for CORS",
+    "ALLOWED_ORIGINS": "http://localhost:5173,http://localhost:8080",
+
+    "_comment_email": "Azure Communication Services for sending emails (optional)",
+    "AZURE_COMMUNICATION_CONNECTION_STRING": "your-communication-services-connection-string",
+    "SENDER_EMAIL": "noreply@yourdomain.com",
+    "APP_URL": "http://localhost:5173",
+
+    "FUNCTIONS_EXTENSION_VERSION": "~4",
+    "AzureWebJobsFeatureFlags": "EnableWorkerIndexing",
+    "AzureWebJobsScriptRoot": "dist"
+  },
+  "Host": {
+    "CORS": "*",
+    "CORSCredentials": false
+  },
+  "ConnectionStrings": {}
+}

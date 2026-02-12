@@ -6,6 +6,7 @@
 
 import { UserEntity, ProjectEntity, SiteEntity, StageEntity, ContactEntity, BusinessEntity } from "./tableStorage";
 import bcrypt from 'bcryptjs';
+import { safeParseJsonArray } from "../utils/json";
 
 // In-memory stores
 let users: Map<string, UserEntity> = new Map();
@@ -170,7 +171,7 @@ export async function renameProjectLocal(
 
   let sitesUpdated = 0;
   for (const [siteId, site] of sites.entries()) {
-    const codes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
+    const codes = safeParseJsonArray(site.projectCodes, []);
     if (Array.isArray(codes) && codes.includes(oldCode)) {
       const updatedCodes = codes.map((code: string) => (code === oldCode ? newCode : code));
       sites.set(siteId, { ...site, projectCodes: JSON.stringify(updatedCodes) });
@@ -456,7 +457,7 @@ export async function deleteSiteLocal(siteId: string): Promise<void> {
     }
 
     // Step 2: Parse project codes from the site
-    const projectCodes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
+    const projectCodes = safeParseJsonArray(site.projectCodes, []);
 
     // Step 3: Delete all projects and their stages
     for (const projectCode of projectCodes) {

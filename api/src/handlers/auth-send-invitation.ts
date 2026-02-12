@@ -1,16 +1,25 @@
+/**
+ * Send Invitation Handler
+ *
+ * SECURITY:
+ * - Rate limited to prevent spam invitations (20 per hour)
+ * - Input validated with Zod schema
+ * - Requires authentication and admin/consultant role
+ * - Email normalized to prevent duplicates
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, createUser } from '../database/tableStorage';
 import { getAuthenticatedUser, hasRole, hashPassword, generateSecureToken, generateTokenExpiry } from '../utils/auth';
 import { sendInvitationEmail } from '../utils/email';
 import { success, error, addCorsHeaders, forbidden, unauthorized } from '../utils/response';
+import { validateRequestBody, sendInvitationSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-interface SendInvitationRequest {
-  email: string;
-  role: string;
-  sites: string[];
-}
-
-export async function authSendInvitationHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function authSendInvitationHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -30,29 +39,17 @@ export async function authSendInvitationHandler(request: HttpRequest, context: I
 
     context.log('Invitation request from:', currentUser.email);
 
-    const body = await request.json() as SendInvitationRequest;
-    const { email, role, sites } = body;
-
-    if (!email || !role) {
-      return addCorsHeaders(
-        error('Email and role are required', 400),
-        request.headers.get('origin') || undefined
-      );
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, sendInvitationSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return addCorsHeaders(
-        error('Invalid email format', 400),
-        request.headers.get('origin') || undefined
-      );
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
+    const { email, role, sites } = validation.data;
+    // email is already normalized by schema transform
 
     // Check if user already exists
-    const existingUser = await getUserByEmail(normalizedEmail);
+    const existingUser = await getUserByEmail(email);
     if (existingUser) {
       return addCorsHeaders(
         error('A user with this email already exists', 409),
@@ -60,7 +57,7 @@ export async function authSendInvitationHandler(request: HttpRequest, context: I
       );
     }
 
-    context.log('Creating invitation for:', normalizedEmail);
+    context.log('Creating invitation for:', email);
 
     // Generate invitation token (7 days expiry)
     const invitationToken = generateSecureToken();
@@ -70,7 +67,7 @@ export async function authSendInvitationHandler(request: HttpRequest, context: I
     const tempPasswordHash = await hashPassword(generateSecureToken());
 
     await createUser({
-      email: normalizedEmail,
+      email,
       passwordHash: tempPasswordHash,
       role,
       sites: sites || [],
@@ -85,12 +82,12 @@ export async function authSendInvitationHandler(request: HttpRequest, context: I
     context.log('User invitation created, sending email');
 
     // Send invitation email
-    await sendInvitationEmail(normalizedEmail, invitationToken, role, context);
+    await sendInvitationEmail(email, invitationToken, role, context);
 
     return addCorsHeaders(
       success({
         message: 'Invitation sent successfully',
-        email: normalizedEmail,
+        email,
       }),
       request.headers.get('origin') || undefined
     );
@@ -104,6 +101,12 @@ export async function authSendInvitationHandler(request: HttpRequest, context: I
     );
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (20 invitations per hour)
+export const authSendInvitationHandler = withRateLimit(
+  authSendInvitationHandlerImpl,
+  RATE_LIMITS.AUTH_INVITATION
+);
 
 // Default export for function.json
 export default authSendInvitationHandler;

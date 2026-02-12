@@ -1,14 +1,24 @@
+/**
+ * Forgot Password Handler
+ *
+ * SECURITY:
+ * - Rate limited to prevent abuse (3 requests per hour)
+ * - Input validated with Zod schema
+ * - Consistent response to prevent user enumeration
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from '../database/tableStorage';
 import { generateSecureToken, generateTokenExpiry } from '../utils/auth';
 import { sendPasswordResetEmail } from '../utils/email';
 import { success, error, addCorsHeaders } from '../utils/response';
+import { validateRequestBody, forgotPasswordSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-interface ForgotPasswordRequest {
-  email: string;
-}
-
-export async function authForgotPasswordHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function authForgotPasswordHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -17,22 +27,19 @@ export async function authForgotPasswordHandler(request: HttpRequest, context: I
 
     context.log('Password reset request');
 
-    const body = await request.json() as ForgotPasswordRequest;
-    const { email } = body;
-
-    if (!email) {
-      return addCorsHeaders(
-        error('Email is required', 400),
-        request.headers.get('origin') || undefined
-      );
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, forgotPasswordSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const { email } = validation.data;
+    // email is already normalized by schema transform
 
     // Get user
-    const user = await getUserByEmail(normalizedEmail);
+    const user = await getUserByEmail(email);
 
-    // Always return success to prevent email enumeration attacks
+    // SECURITY: Always return success to prevent email enumeration attacks
     if (!user) {
       context.log('User not found, but returning success for security');
       return addCorsHeaders(
@@ -43,20 +50,20 @@ export async function authForgotPasswordHandler(request: HttpRequest, context: I
       );
     }
 
-    context.log('Generating password reset token for:', normalizedEmail);
+    context.log('Generating password reset token for:', email);
 
     // Generate password reset token (expires in 1 hour)
     const resetToken = generateSecureToken();
     const resetExpiry = generateTokenExpiry(1);
 
     // Update user with reset token
-    await updateUser(normalizedEmail, {
+    await updateUser(email, {
       passwordResetToken: resetToken,
       passwordResetExpiry: resetExpiry,
     });
 
     // Send password reset email
-    await sendPasswordResetEmail(normalizedEmail, resetToken, context);
+    await sendPasswordResetEmail(email, resetToken, context);
 
     return addCorsHeaders(
       success({
@@ -73,6 +80,12 @@ export async function authForgotPasswordHandler(request: HttpRequest, context: I
     );
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (3 requests per hour)
+export const authForgotPasswordHandler = withRateLimit(
+  authForgotPasswordHandlerImpl,
+  RATE_LIMITS.AUTH_PASSWORD_RESET
+);
 
 // Default export for function.json
 export default authForgotPasswordHandler;

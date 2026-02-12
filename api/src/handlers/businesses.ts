@@ -1,14 +1,28 @@
+/**
+ * Businesses Handler (List, Create, Update, Delete)
+ *
+ * SECURITY:
+ * - Rate limited (standard for GET, write for POST/PUT/DELETE)
+ * - Input validated with Zod schema for POST/PUT
+ * - Requires authentication
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import crypto from "crypto";
 import { addCorsHeaders, success, unauthorized, error } from "../utils/response";
 import { getAuthenticatedUser } from "../utils/auth";
 import { getAllBusinesses, createBusiness, updateBusiness, deleteBusiness, BusinessEntity } from "../database/tableStorage";
+import { validateRequestBody, businessSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-export async function businessesHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function businessesHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     if (request.method === "OPTIONS") {
       return addCorsHeaders({ status: 200 }, request.headers.get("origin") || undefined);
@@ -24,14 +38,17 @@ export async function businessesHandler(request: HttpRequest, context: Invocatio
       return addCorsHeaders(success(businesses), request.headers.get("origin") || undefined);
     }
 
-    const body = (await request.json()) as Partial<BusinessEntity>;
-
     if (request.method === "POST") {
-      if (!body.name) {
-        return addCorsHeaders(error("Business name is required", 400), request.headers.get("origin") || undefined);
+      // SECURITY: Validate input using Zod schema
+      const validation = await validateRequestBody(request, businessSchema);
+      if (isValidationFailure(validation)) {
+        return validation.error;
       }
+
+      const body = validation.data;
       const id = body.id || `biz_${crypto.randomUUID()}`;
       const createdAt = nowIso();
+
       const entity: BusinessEntity = {
         partitionKey: "BUSINESS",
         rowKey: id,
@@ -51,15 +68,25 @@ export async function businessesHandler(request: HttpRequest, context: Invocatio
         createdAt,
         updatedAt: createdAt,
       };
+
       const created = await createBusiness(entity);
       return addCorsHeaders(success(created, 201), request.headers.get("origin") || undefined);
     }
 
     if (request.method === "PUT") {
+      // SECURITY: Validate input using Zod schema
+      const validation = await validateRequestBody(request, businessSchema);
+      if (isValidationFailure(validation)) {
+        return validation.error;
+      }
+
+      const body = validation.data;
       const id = body.id || request.query.get("id");
+
       if (!id) {
         return addCorsHeaders(error("Business id is required", 400), request.headers.get("origin") || undefined);
       }
+
       const updated = await updateBusiness(id, {
         ...body,
         updatedAt: nowIso(),
@@ -82,5 +109,11 @@ export async function businessesHandler(request: HttpRequest, context: Invocatio
     return addCorsHeaders(error("Failed to process businesses request", 500), request.headers.get("origin") || undefined);
   }
 }
+
+// SECURITY: Wrap handler with rate limiting
+export const businessesHandler = withRateLimit(
+  businessesHandlerImpl,
+  RATE_LIMITS.STANDARD
+);
 
 export default businessesHandler;

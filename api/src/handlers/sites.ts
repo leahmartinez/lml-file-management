@@ -13,6 +13,7 @@ import { addCorsHeaders, success, unauthorized, error } from "../utils/response"
 import { getAuthenticatedUser } from "../utils/auth";
 import { validateRequestBody, createSiteSchema, updateSiteSchema, isValidationFailure } from '../utils/validation';
 import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
+import { safeParseJsonArray } from '../utils/json';
 
 async function sitesHandlerImpl(
   request: HttpRequest,
@@ -121,8 +122,8 @@ async function sitesHandlerImpl(
         state: updated.state,
         postcode: updated.postcode,
         createdAt: updated.createdAt,
-        projectCodes: hasProjectCodes ? body.projectCodes : (updated.projectCodes ? JSON.parse(updated.projectCodes) : []),
-        contacts: hasContacts ? (body.contacts || body.contactEmails || []) : (updated.contactEmails ? JSON.parse(updated.contactEmails) : []),
+        projectCodes: hasProjectCodes ? body.projectCodes : safeParseJsonArray(updated.projectCodes, []),
+        contacts: hasContacts ? (body.contacts || body.contactEmails || []) : safeParseJsonArray(updated.contactEmails, []),
         projects: [],
         assets: [],
       }), request.headers.get("origin") || undefined);
@@ -132,8 +133,8 @@ async function sitesHandlerImpl(
     const sites = await getAllSites();
 
     const payload = sites.map(site => {
-      const projectCodes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
-      const contactEmails = site.contactEmails ? JSON.parse(site.contactEmails) : [];
+      const projectCodes = safeParseJsonArray(site.projectCodes, []);
+      const contactEmails = safeParseJsonArray(site.contactEmails, []);
       return {
         siteId: site.siteId,
         building: site.building,

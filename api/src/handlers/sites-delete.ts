@@ -1,9 +1,23 @@
+/**
+ * Sites Delete Handler
+ *
+ * SECURITY:
+ * - Rate limited (admin rate limit)
+ * - Input validated with Zod schema
+ * - Requires authentication and admin role
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { deleteSite } from '../database/tableStorage';
 import { getAuthenticatedUser, hasRole } from '../utils/auth';
 import { success, error, forbidden, notFound, addCorsHeaders, unauthorized } from '../utils/response';
+import { validateRequestBody, deleteSiteSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-export async function sitesDeleteHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function sitesDeleteHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -21,19 +35,21 @@ export async function sitesDeleteHandler(request: HttpRequest, context: Invocati
       return addCorsHeaders(forbidden('Only admins can delete sites'), request.headers.get('origin') || undefined);
     }
 
-    const body = await request.json() as any;
-
-    // Get siteId from body or query params
-    const siteId = body.siteId || request.query.get('siteId');
-
-    if (!siteId) {
-      return addCorsHeaders(error('siteId parameter required'), request.headers.get('origin') || undefined);
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, deleteSiteSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
+
+    const { siteId } = validation.data;
 
     // Delete site and all its projects and stages
     await deleteSite(siteId);
 
-    return addCorsHeaders(success({ message: `Site ${siteId} and all its projects deleted successfully` }), request.headers.get('origin') || undefined);
+    return addCorsHeaders(
+      success({ message: `Site ${siteId} and all its projects deleted successfully` }),
+      request.headers.get('origin') || undefined
+    );
 
   } catch (err: any) {
     context.error('Delete site error:', err);
@@ -44,6 +60,12 @@ export async function sitesDeleteHandler(request: HttpRequest, context: Invocati
     return addCorsHeaders(error('Server error', 500), request.headers.get('origin') || undefined);
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (admin rate limit)
+export const sitesDeleteHandler = withRateLimit(
+  sitesDeleteHandlerImpl,
+  RATE_LIMITS.ADMIN
+);
 
 // Default export for function.json
 export default sitesDeleteHandler;

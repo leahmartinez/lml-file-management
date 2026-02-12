@@ -1,15 +1,24 @@
+/**
+ * Reset Password Handler
+ *
+ * SECURITY:
+ * - Rate limited to prevent brute force token guessing (3 requests per hour)
+ * - Input validated with Zod schema
+ * - Password strength enforced
+ * - Tokens cleared after successful reset
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from '../database/tableStorage';
 import { hashPassword, isTokenExpired } from '../utils/auth';
 import { success, error, addCorsHeaders } from '../utils/response';
+import { validateRequestBody, resetPasswordSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-interface ResetPasswordRequest {
-  email: string;
-  token: string;
-  newPassword: string;
-}
-
-export async function authResetPasswordHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function authResetPasswordHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -18,28 +27,17 @@ export async function authResetPasswordHandler(request: HttpRequest, context: In
 
     context.log('Password reset attempt');
 
-    const body = await request.json() as ResetPasswordRequest;
-    const { email, token, newPassword } = body;
-
-    if (!email || !token || !newPassword) {
-      return addCorsHeaders(
-        error('Email, token, and new password are required', 400),
-        request.headers.get('origin') || undefined
-      );
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, resetPasswordSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
 
-    // Validate password strength
-    if (newPassword.length < 8) {
-      return addCorsHeaders(
-        error('Password must be at least 8 characters long', 400),
-        request.headers.get('origin') || undefined
-      );
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
+    const { email, token, newPassword } = validation.data;
+    // email is already normalized by schema transform
 
     // Get user
-    const user = await getUserByEmail(normalizedEmail);
+    const user = await getUserByEmail(email);
     if (!user) {
       return addCorsHeaders(
         error('Invalid or expired password reset token', 400),
@@ -49,7 +47,7 @@ export async function authResetPasswordHandler(request: HttpRequest, context: In
 
     // Check if token matches
     if (user.passwordResetToken !== token) {
-      context.log('Invalid token provided for:', normalizedEmail);
+      context.log('Invalid token provided for:', email);
       return addCorsHeaders(
         error('Invalid or expired password reset token', 400),
         request.headers.get('origin') || undefined
@@ -58,26 +56,26 @@ export async function authResetPasswordHandler(request: HttpRequest, context: In
 
     // Check if token has expired
     if (isTokenExpired(user.passwordResetExpiry)) {
-      context.log('Expired token for:', normalizedEmail);
+      context.log('Expired token for:', email);
       return addCorsHeaders(
         error('Password reset token has expired. Please request a new one.', 400),
         request.headers.get('origin') || undefined
       );
     }
 
-    context.log('Resetting password for:', normalizedEmail);
+    context.log('Resetting password for:', email);
 
     // Hash new password
     const passwordHash = await hashPassword(newPassword);
 
     // Update user - set new password and clear reset token
-    await updateUser(normalizedEmail, {
+    await updateUser(email, {
       passwordHash,
       passwordResetToken: undefined,
       passwordResetExpiry: undefined,
     });
 
-    context.log('Password reset successful for:', normalizedEmail);
+    context.log('Password reset successful for:', email);
 
     return addCorsHeaders(
       success({
@@ -94,6 +92,12 @@ export async function authResetPasswordHandler(request: HttpRequest, context: In
     );
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (3 requests per hour)
+export const authResetPasswordHandler = withRateLimit(
+  authResetPasswordHandlerImpl,
+  RATE_LIMITS.AUTH_PASSWORD_RESET
+);
 
 // Default export for function.json
 export default authResetPasswordHandler;
