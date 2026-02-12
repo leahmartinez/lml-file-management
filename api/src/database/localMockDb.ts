@@ -118,6 +118,69 @@ export async function updateProjectLocal(projectCode: string, updates: Partial<P
   return updated;
 }
 
+export async function renameProjectLocal(
+  oldCode: string,
+  newCode: string
+): Promise<{ project: ProjectEntity; stagesMigrated: number; sitesUpdated: number }> {
+  const existing = projects.get(oldCode);
+  if (!existing) {
+    throw new Error('Project not found');
+  }
+  if (projects.has(newCode)) {
+    throw new Error('Project code already exists');
+  }
+
+  const newProject: ProjectEntity = {
+    ...existing,
+    projectCode: newCode,
+    rowKey: newCode,
+  };
+
+  projects.set(newCode, newProject);
+  projects.delete(oldCode);
+
+  let stagesMigrated = 0;
+  const updatedStages = new Map<string, StageEntity>();
+  for (const [stageId, stage] of stages.entries()) {
+    if (stage.projectCode !== oldCode) {
+      updatedStages.set(stageId, stage);
+      continue;
+    }
+
+    const oldStageId = stage.stageId || stageId;
+    let newStageId = oldStageId;
+    if (typeof oldStageId === 'string') {
+      if (oldStageId.startsWith(`${oldCode}-`)) {
+        newStageId = oldStageId.replace(oldCode, newCode);
+      } else if (oldStageId.includes(oldCode)) {
+        newStageId = oldStageId.replace(oldCode, newCode);
+      }
+    }
+
+    updatedStages.set(newStageId, {
+      ...stage,
+      stageId: newStageId,
+      projectCode: newCode,
+      partitionKey: newCode,
+      rowKey: newStageId,
+    });
+    stagesMigrated += 1;
+  }
+  stages = updatedStages;
+
+  let sitesUpdated = 0;
+  for (const [siteId, site] of sites.entries()) {
+    const codes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
+    if (Array.isArray(codes) && codes.includes(oldCode)) {
+      const updatedCodes = codes.map((code: string) => (code === oldCode ? newCode : code));
+      sites.set(siteId, { ...site, projectCodes: JSON.stringify(updatedCodes) });
+      sitesUpdated += 1;
+    }
+  }
+
+  return { project: newProject, stagesMigrated, sitesUpdated };
+}
+
 export async function getStagesByProjectLocal(projectCode: string): Promise<StageEntity[]> {
   return Array.from(stages.values()).filter(stage => stage.projectCode === projectCode);
 }

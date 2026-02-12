@@ -14,6 +14,7 @@ const PROFILE_FIELDS = [
   "bio",
   "category",
 ];
+const MAX_TEXT_LENGTH = 60000;
 
 function mapUserToProfile(user: any) {
   return {
@@ -54,9 +55,19 @@ export async function userProfileHandler(request: HttpRequest, context: Invocati
       const updates: Record<string, any> = {};
       PROFILE_FIELDS.forEach((field) => {
         if (body[field] !== undefined) {
-          updates[field] = body[field];
+          updates[field] = typeof body[field] === "string" ? body[field].trim() : body[field];
         }
       });
+
+      // Guard against oversized data URLs (Azure Table Storage limit ~64KB per property)
+      if (typeof updates.photo === "string" && updates.photo.startsWith("data:") && updates.photo.length > MAX_TEXT_LENGTH) {
+        context.warn("Profile photo too large for table storage. Skipping photo update.");
+        delete updates.photo;
+      }
+      if (typeof updates.bio === "string" && updates.bio.length > MAX_TEXT_LENGTH) {
+        context.warn("Profile bio too large for table storage. Truncating.");
+        updates.bio = updates.bio.slice(0, MAX_TEXT_LENGTH);
+      }
       updates.updatedAt = new Date().toISOString();
 
       const updated = await updateUser(user.email, updates);

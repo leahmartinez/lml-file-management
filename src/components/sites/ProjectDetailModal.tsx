@@ -19,14 +19,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Check, X, Edit2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ProjectRenameResult, ProjectRenameSummary } from "@/hooks/useProjectManagement";
 
 interface ProjectDetailModalProps {
   project: Project | null;
   isOpen: boolean;
   onClose: () => void;
-  onEditCode?: (newCode: string) => void;
+  onEditCode?: (newCode: string) => Promise<ProjectRenameResult | void>;
   onEditDescription?: (newDescription: string) => void;
   onEditStatus?: (newStatus: ProjectStatus) => void;
   onAddPOFile?: (file: POFile) => void;
@@ -60,6 +71,11 @@ export const ProjectDetailModal = ({
   const [editDescValue, setEditDescValue] = useState(
     project?.description || ""
   );
+  const [confirmRenameOpen, setConfirmRenameOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [renameSummary, setRenameSummary] = useState<ProjectRenameSummary | null>(null);
+  const [pendingCode, setPendingCode] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const handlePOFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,8 +112,15 @@ export const ProjectDetailModal = ({
   }, [project, isEditingDescription]);
 
   const handleSaveCode = () => {
-    if (onEditCode && editCodeValue.trim() && editCodeValue !== project?.projectCode) {
-      onEditCode(editCodeValue.trim());
+    if (!onEditCode) {
+      setIsEditingCode(false);
+      return;
+    }
+    const nextCode = editCodeValue.trim();
+    if (nextCode && nextCode !== project?.projectCode) {
+      setPendingCode(nextCode);
+      setConfirmRenameOpen(true);
+      return;
     }
     setIsEditingCode(false);
   };
@@ -112,6 +135,26 @@ export const ProjectDetailModal = ({
   const handleCancelCode = () => {
     setEditCodeValue(project?.projectCode || "");
     setIsEditingCode(false);
+  };
+
+  const handleConfirmRename = async () => {
+    if (!onEditCode || !pendingCode) {
+      setConfirmRenameOpen(false);
+      return;
+    }
+    setIsRenaming(true);
+    const result = await onEditCode(pendingCode);
+    setIsRenaming(false);
+    setConfirmRenameOpen(false);
+    setIsEditingCode(false);
+
+    if (result && (result as ProjectRenameResult).ok) {
+      const summary = (result as ProjectRenameResult).summary || null;
+      if (summary) {
+        setRenameSummary(summary);
+        setSummaryOpen(true);
+      }
+    }
   };
 
   const handleCancelDescription = () => {
@@ -302,6 +345,68 @@ export const ProjectDetailModal = ({
           </Button>
         </div>
       </DialogContent>
+
+      <AlertDialog open={confirmRenameOpen} onOpenChange={setConfirmRenameOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm project code change</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will rename the project code and update SharePoint folders and files. If SharePoint cannot rename,
+              files may be moved or copied into the new folder. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRenaming}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRename} disabled={isRenaming}>
+              {isRenaming ? "Renaming..." : "Yes, rename"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={summaryOpen} onOpenChange={setSummaryOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Project code updated</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-medium">New code:</span>{" "}
+                  <span className="font-mono">{renameSummary?.newProjectCode}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Stages migrated:</span>{" "}
+                  {renameSummary?.stagesMigrated ?? 0}
+                </div>
+                <div>
+                  <span className="font-medium">Sites updated:</span>{" "}
+                  {renameSummary?.sitesUpdated ?? 0}
+                </div>
+                <div>
+                  <span className="font-medium">SharePoint:</span>{" "}
+                  {renameSummary?.sharepoint?.error
+                    ? "Failed"
+                    : renameSummary?.sharepoint?.renamed
+                      ? "Folder renamed"
+                      : renameSummary?.sharepoint?.migrated
+                        ? "Folder migrated"
+                        : renameSummary?.sharepoint?.created
+                          ? "New folder created"
+                          : "No SharePoint changes"}
+                </div>
+                {renameSummary?.sharepoint?.usedCopyFallback && (
+                  <div className="text-destructive">
+                    Some files were copied to the new folder. Please verify before deleting the old folder.
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };

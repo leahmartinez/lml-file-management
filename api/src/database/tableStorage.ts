@@ -367,6 +367,91 @@ export async function updateProject(projectCode: string, updates: Partial<Projec
 }
 
 /**
+ * Rename project code (migrate project + stages + site references)
+ */
+export async function renameProjectCode(
+  oldCode: string,
+  newCode: string
+): Promise<{ project: ProjectEntity; stagesMigrated: number; sitesUpdated: number }> {
+  if (IS_LOCAL) {
+    return localDb.renameProjectLocal(oldCode, newCode);
+  }
+
+  const projects = getProjectsTable();
+  const stages = getStagesTable();
+  const sites = getSitesTable();
+
+  const existing = await projects.getEntity<ProjectEntity>('PROJECT', oldCode);
+
+  try {
+    await projects.getEntity<ProjectEntity>('PROJECT', newCode);
+    throw new Error('Project code already exists');
+  } catch (error: any) {
+    if (error.statusCode !== 404) {
+      throw error;
+    }
+  }
+
+  const { partitionKey, rowKey, etag, timestamp, ...rest } = existing as any;
+  const newProject: ProjectEntity = {
+    ...rest,
+    partitionKey: 'PROJECT',
+    rowKey: newCode,
+    projectCode: newCode,
+  };
+
+  await projects.createEntity(newProject);
+
+  let stagesMigrated = 0;
+  const stageEntities = stages.listEntities<StageEntity>({
+    queryOptions: { filter: `PartitionKey eq '${oldCode}'` },
+  });
+
+  for await (const stage of stageEntities) {
+    const oldStageId = stage.stageId || stage.rowKey;
+    let newStageId = oldStageId;
+    if (typeof oldStageId === 'string') {
+      if (oldStageId.startsWith(`${oldCode}-`)) {
+        newStageId = oldStageId.replace(oldCode, newCode);
+      } else if (oldStageId.includes(oldCode)) {
+        newStageId = oldStageId.replace(oldCode, newCode);
+      }
+    }
+
+    const { partitionKey: _pk, rowKey: _rk, etag: _etag, timestamp: _ts, ...stageRest } = stage as any;
+    const newStage: StageEntity = {
+      ...stageRest,
+      partitionKey: newCode,
+      rowKey: newStageId,
+      stageId: newStageId,
+      projectCode: newCode,
+    };
+
+    await stages.createEntity(newStage);
+    await stages.deleteEntity(stage.partitionKey, stage.rowKey);
+    stagesMigrated += 1;
+  }
+
+  let sitesUpdated = 0;
+  const siteEntities = sites.listEntities<SiteEntity>({
+    queryOptions: { filter: `PartitionKey eq 'SITE'` },
+  });
+
+  for await (const site of siteEntities) {
+    const codes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
+    if (Array.isArray(codes) && codes.includes(oldCode)) {
+      const updatedCodes = codes.map((code: string) => (code === oldCode ? newCode : code));
+      await updateSite(site.siteId, { projectCodes: JSON.stringify(updatedCodes) });
+      sitesUpdated += 1;
+    }
+  }
+
+  await projects.deleteEntity('PROJECT', oldCode);
+
+  return { project: newProject, stagesMigrated, sitesUpdated };
+}
+
+/**
  * Get stages for a project
  */
 export async function getStagesByProject(projectCode: string): Promise<StageEntity[]> {

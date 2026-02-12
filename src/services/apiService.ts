@@ -488,6 +488,13 @@ export const projectsApi = {
       body: JSON.stringify({ projectCode }),
     });
   },
+
+  async rename(projectCode: string, newProjectCode: string): Promise<any> {
+    return apiRequest<any>('/projects/rename', {
+      method: 'PUT',
+      body: JSON.stringify({ projectCode, newProjectCode }),
+    });
+  },
 };
 
 /**

@@ -471,6 +471,153 @@ class GraphService {
   }
 
   /**
+   * Move an item (file or folder) to another folder
+   */
+  async moveDriveItem(
+    itemId: string,
+    destinationFolderId: string,
+    newName?: string
+  ): Promise<FileMetadata> {
+    try {
+      if (!this.client) throw new Error('Graph client not initialized');
+
+      const response = await this.withRetry(() =>
+        this.client!
+          .api(`/sites/${this.siteId}/drive/items/${itemId}`)
+          .patch({
+            parentReference: {
+              id: destinationFolderId,
+            },
+            ...(newName ? { name: newName } : {}),
+          })
+      );
+
+      return response as FileMetadata;
+    } catch (error) {
+      throw new Error(`Failed to move item ${itemId}: ${error}`);
+    }
+  }
+
+  /**
+   * Rename a project folder (old project code to new project code)
+   * Falls back to creating the new folder if the old one doesn't exist.
+   */
+  async renameProjectFolder(
+    oldProjectCode: string,
+    newProjectCode: string
+  ): Promise<{ renamed: boolean; created: boolean }> {
+    const sharePointSiteUrl = import.meta.env.VITE_SHAREPOINT_SITE_URL;
+    if (!sharePointSiteUrl) {
+      throw new Error('SharePoint site URL is not configured');
+    }
+
+    if (!this.client) {
+      await this.initialize(sharePointSiteUrl);
+    }
+
+    const projectsPath = import.meta.env.VITE_SHAREPOINT_PROJECTS_PATH || '/Projects';
+    const oldPath = `${projectsPath}/${oldProjectCode}`;
+
+    try {
+      const folder = await this.getFolderByPath(oldPath);
+      await this.withRetry(() =>
+        this.client!
+          .api(`/sites/${this.siteId}/drive/items/${folder.id}`)
+          .patch({ name: newProjectCode })
+      );
+      return { renamed: true, created: false };
+    } catch (error: any) {
+      const message = `${error}`;
+      const isNotFound = message.includes('not found') || message.includes('Item does not exist') || message.includes('404');
+      if (!isNotFound) {
+        throw error;
+      }
+    }
+
+    await this.ensureFolder(projectsPath, newProjectCode);
+    return { renamed: false, created: true };
+  }
+
+  /**
+   * Migrate project folder contents if rename fails (moves items to new folder)
+   */
+  async migrateProjectFolder(
+    oldProjectCode: string,
+    newProjectCode: string
+  ): Promise<{ renamed: boolean; created: boolean; migrated: boolean; deletedOld: boolean; usedCopyFallback: boolean }> {
+    const sharePointSiteUrl = import.meta.env.VITE_SHAREPOINT_SITE_URL;
+    if (!sharePointSiteUrl) {
+      throw new Error('SharePoint site URL is not configured');
+    }
+
+    if (!this.client) {
+      await this.initialize(sharePointSiteUrl);
+    }
+
+    const projectsPath = import.meta.env.VITE_SHAREPOINT_PROJECTS_PATH || '/Projects';
+    const oldPath = `${projectsPath}/${oldProjectCode}`;
+
+    let oldFolder: FolderMetadata | null = null;
+    try {
+      oldFolder = await this.getFolderByPath(oldPath);
+    } catch (error: any) {
+      const message = `${error}`;
+      const isNotFound = message.includes('not found') || message.includes('Item does not exist') || message.includes('404');
+      if (isNotFound) {
+        await this.ensureFolder(projectsPath, newProjectCode);
+        return { renamed: false, created: true, migrated: false, deletedOld: false, usedCopyFallback: false };
+      }
+      throw error;
+    }
+
+    try {
+      await this.withRetry(() =>
+        this.client!
+          .api(`/sites/${this.siteId}/drive/items/${oldFolder!.id}`)
+          .patch({ name: newProjectCode })
+      );
+      return { renamed: true, created: false, migrated: false, deletedOld: false, usedCopyFallback: false };
+    } catch (error) {
+      // fall through to manual migration
+    }
+
+    let created = false;
+    let destinationFolder: FolderMetadata | null = null;
+    const newPath = `${projectsPath}/${newProjectCode}`;
+
+    try {
+      destinationFolder = await this.getFolderByPath(newPath);
+    } catch {
+      destinationFolder = await this.createFolder(projectsPath, newProjectCode);
+      created = true;
+    }
+
+    const children = await this.listFiles(oldPath);
+    let usedCopyFallback = false;
+
+    for (const item of children) {
+      try {
+        await this.moveDriveItem(item.id, destinationFolder.id, item.name);
+      } catch (moveError) {
+        usedCopyFallback = true;
+        await this.copyFile(item.id, newPath, item.name);
+      }
+    }
+
+    let deletedOld = false;
+    if (!usedCopyFallback) {
+      try {
+        await this.deleteFile(oldFolder.id);
+        deletedOld = true;
+      } catch (deleteError) {
+        console.warn('Failed to delete old project folder after migration:', deleteError);
+      }
+    }
+
+    return { renamed: false, created, migrated: true, deletedOld, usedCopyFallback };
+  }
+
+  /**
    * Copy a file from one project stage to another
    */
   async copyProjectFile(

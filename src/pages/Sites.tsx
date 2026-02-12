@@ -2121,11 +2121,15 @@ const SitesPage = () => {
         project={selectedProject}
         isOpen={projectDetailModalOpen}
         onClose={() => setProjectDetailModalOpen(false)}
-        onEditCode={(newCode) => {
+        onEditCode={async (newCode) => {
           if (selectedProject) {
-            updateProjectCode(selectedProject.projectCode, newCode);
-            setSelectedProject({ ...selectedProject, projectCode: newCode });
+            const result = await updateProjectCode(selectedProject.projectCode, newCode);
+            if (result.ok) {
+              setSelectedProject({ ...selectedProject, projectCode: newCode });
+            }
+            return result;
           }
+          return { ok: false };
         }}
         onEditDescription={(newDesc) => {
           if (selectedProject) {

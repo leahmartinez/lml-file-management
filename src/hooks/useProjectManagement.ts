@@ -4,6 +4,30 @@ import { useProjects } from './useData';
 import { toast } from '@/hooks/use-toast';
 import { dataSourceConfig } from '@/config/dataSource';
 import { projectsApi } from '@/services/apiService';
+import { graphService } from '@/services/graphService';
+
+export interface SharePointRenameSummary {
+  renamed?: boolean;
+  created?: boolean;
+  migrated?: boolean;
+  deletedOld?: boolean;
+  usedCopyFallback?: boolean;
+  error?: string;
+}
+
+export interface ProjectRenameSummary {
+  projectCode: string;
+  newProjectCode: string;
+  stagesMigrated: number;
+  sitesUpdated: number;
+  sharepoint?: SharePointRenameSummary;
+}
+
+export interface ProjectRenameResult {
+  ok: boolean;
+  summary?: ProjectRenameSummary;
+  error?: string;
+}
 
 /**
  * Hook for managing projects (edit code, description, status, etc.)
@@ -41,19 +65,57 @@ export const useProjectManagement = () => {
   }, [customProjects, sourceProjects]);
 
   // Update project code
-  const updateProjectCode = useCallback((projectCode: string, newCode: string) => {
+  const updateProjectCode = useCallback(async (projectCode: string, newCode: string): Promise<ProjectRenameResult> => {
     if (isApi) {
-      toast({
-        title: "Not supported",
-        description: "Project code changes are not supported in API mode.",
-        variant: "destructive",
-      });
-      return;
+      try {
+        const renameResult = await projectsApi.rename(projectCode, newCode);
+
+        const keysToMove = [
+          `projectUnits_${projectCode}`,
+          `projectFiles_${projectCode}`,
+          `projectComments_${projectCode}`,
+          `stageUpdates_${projectCode}`,
+        ];
+        keysToMove.forEach((key) => {
+          const value = localStorage.getItem(key);
+          if (value !== null) {
+            localStorage.setItem(key.replace(projectCode, newCode), value);
+            localStorage.removeItem(key);
+          }
+        });
+
+        let sharepointSummary: SharePointRenameSummary | undefined;
+        try {
+          sharepointSummary = await graphService.migrateProjectFolder(projectCode, newCode);
+        } catch (error: any) {
+          console.warn('SharePoint folder migration failed:', error);
+          sharepointSummary = { error: error?.message || 'SharePoint migration failed' };
+        }
+
+        await refetch?.();
+        return {
+          ok: true,
+          summary: {
+            projectCode: renameResult.projectCode || projectCode,
+            newProjectCode: renameResult.newProjectCode || newCode,
+            stagesMigrated: renameResult.stagesMigrated ?? 0,
+            sitesUpdated: renameResult.sitesUpdated ?? 0,
+            sharepoint: sharepointSummary,
+          },
+        };
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to rename project",
+          variant: "destructive",
+        });
+        return { ok: false, error: error.message || "Failed to rename project" };
+      }
     }
 
     const project = sourceProjects.find(p => p.projectCode === projectCode) ||
                     customProjects.find(p => p.projectCode === projectCode);
-    if (!project) return;
+    if (!project) return { ok: false, error: "Project not found" };
 
     const updated: Project = {
       ...project,
@@ -90,7 +152,16 @@ export const useProjectManagement = () => {
       title: "Success",
       description: `Project code updated to ${newCode}`,
     });
-  }, [customProjects, sourceProjects, persistCustomProjects, isApi]);
+    return {
+      ok: true,
+      summary: {
+        projectCode,
+        newProjectCode: newCode,
+        stagesMigrated: 0,
+        sitesUpdated: 0,
+      },
+    };
+  }, [customProjects, sourceProjects, persistCustomProjects, isApi, refetch]);
 
   // Update project description
   const updateProjectDescription = useCallback((projectCode: string, newDescription: string) => {
@@ -344,7 +415,11 @@ export const useProjectManagement = () => {
     if (isApi) {
       (async () => {
         try {
-          await projectsApi.create(project);
+          const payload: any = { ...project };
+          if (Array.isArray(payload.stages) && payload.stages.length === 0) {
+            delete payload.stages;
+          }
+          await projectsApi.create(payload);
           await refetch?.();
           toast({
             title: "Success",
@@ -376,7 +451,11 @@ export const useProjectManagement = () => {
     if (isApi) {
       (async () => {
         try {
-          await projectsApi.update({ projectCode, ...updatedProject });
+          const payload: any = { projectCode, ...updatedProject };
+          if (Array.isArray(payload.stages) && payload.stages.length === 0) {
+            delete payload.stages;
+          }
+          await projectsApi.update(payload);
           await refetch?.();
         } catch (error: any) {
           toast({

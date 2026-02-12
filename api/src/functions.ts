@@ -16,6 +16,7 @@ import { usersSuspendHandler } from "./handlers/users-suspend";
 import { usersDeleteHandler } from "./handlers/users-delete";
 import { usersUpdateHandler } from "./handlers/users-update";
 import { projectsDeleteHandler } from "./handlers/projects-delete";
+import { projectsRenameHandler } from "./handlers/projects-rename";
 import { sitesDeleteHandler } from "./handlers/sites-delete";
 import { sitesHandler } from "./handlers/sites";
 import { projectsHandler } from "./handlers/projects";
@@ -138,6 +139,12 @@ app.http("projects-delete", {
   methods: ["DELETE", "OPTIONS"],
   route: "projects/delete",
   handler: projectsDeleteHandler,
+});
+
+app.http("projects-rename", {
+  methods: ["PUT", "OPTIONS"],
+  route: "projects/rename",
+  handler: projectsRenameHandler,
 });
 
 app.http("sites-delete", {

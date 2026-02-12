@@ -79,7 +79,8 @@ export async function projectsHandler(request: HttpRequest, context: InvocationC
     }
 
     if (request.method === "POST" || request.method === "PUT") {
-      const body = (await request.json().catch(() => ({}))) as any;
+      const rawBody = await request.json().catch(() => ({}));
+      const body = (rawBody && typeof rawBody === "object") ? (rawBody as Record<string, any>) : {};
       const projectCode = (body.projectCode || "").toString().trim();
       const building = (body.building || "").toString().trim();
       const siteId = (body.siteId || building || "").toString().trim();
@@ -144,9 +145,11 @@ export async function projectsHandler(request: HttpRequest, context: InvocationC
           }
         }
 
-        if (Array.isArray(body.stages) && body.stages.length > 0) {
-          const stageEntities = body.stages.map((stage: any) => mapStageToEntity(projectCode, stage));
-          await upsertStages(projectCode, stageEntities);
+        if (Array.isArray(body.stages)) {
+          if (body.stages.length > 0) {
+            const stageEntities = body.stages.map((stage: any) => mapStageToEntity(projectCode, stage));
+            await upsertStages(projectCode, stageEntities);
+          }
         } else {
           const defaults = buildDefaultStages(projectCode).map(stage => mapStageToEntity(projectCode, stage));
           await upsertStages(projectCode, defaults);

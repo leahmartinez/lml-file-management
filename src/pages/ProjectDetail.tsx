@@ -23,7 +23,7 @@ export default function ProjectDetail() {
   const { projectCode } = useParams<{ projectCode: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { projects, deleteProject, updateProject } = useProjectManagement();
+  const { projects, deleteProject, updateProject, updateProjectCode } = useProjectManagement();
   const { data: sites = [] } = useSites();
   const [poFiles, setPoFiles] = useState<POFile[]>([]);
   const [projectDetailModalOpen, setProjectDetailModalOpen] = useState(false);
@@ -125,10 +125,17 @@ export default function ProjectDetail() {
     setDeleteDialogOpen(false);
   };
 
-  const handleProjectUpdate = (updatedCode: string, updatedProject: any) => {
-    if (project) {
-      updateProject(updatedCode, updatedProject);
+  const handleProjectUpdate = async (updatedCode: string, updatedProject: any) => {
+    if (!project) return;
+    if (updatedCode !== project.projectCode) {
+      const result = await updateProjectCode(project.projectCode, updatedCode);
+      if (result.ok) {
+        navigate(`/projects/${encodeURIComponent(updatedCode)}`);
+      }
+      return result;
     }
+    updateProject(updatedCode, updatedProject);
+    return { ok: true } as any;
   };
 
   if (!project) {
