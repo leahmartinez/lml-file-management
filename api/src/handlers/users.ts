@@ -1,9 +1,26 @@
+/**
+ * Users Handler (List and Create)
+ *
+ * SECURITY:
+ * - Rate limited (standard for GET, write for POST)
+ * - Input validated with Zod schema for POST
+ * - Requires authentication
+ * - Admin/consultant role required for user creation
+ * - Password hashes never exposed
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getAllUsers, getUserByEmail, createUser } from '../database/tableStorage';
 import { getAuthenticatedUser, hasRole, hashPassword } from '../utils/auth';
 import { success, error, forbidden, addCorsHeaders, unauthorized } from '../utils/response';
+import { safeParseJsonArray } from '../utils/json';
+import { validateRequestBody, createUserSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-export async function usersHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function usersHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -20,11 +37,11 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
       // List all users
       const users = await getAllUsers();
 
-      // Remove password hashes from response
+      // SECURITY: Remove password hashes from response
       const safeUsers = users.map(u => ({
         email: u.email,
         role: u.role,
-        sites: JSON.parse(u.sites || '[]'),
+        sites: safeParseJsonArray(u.sites, []),
         createdAt: u.createdAt,
         lastLogin: u.lastLogin,
         createdBy: u.createdBy,
@@ -40,21 +57,21 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
       if (!hasRole(currentUser, ['admin', 'consultant'])) {
         return addCorsHeaders(forbidden('Only admins can manage users'), request.headers.get('origin') || undefined);
       }
-      // Create user
-      const body = await request.json() as any;
-      const { email, password, role, sites, mustChangePassword } = body;
 
-      if (!email || !password || !role) {
-        return addCorsHeaders(error('Email, password, and role are required'), request.headers.get('origin') || undefined);
+      // SECURITY: Validate input using Zod schema
+      const validation = await validateRequestBody(request, createUserSchema);
+      if (isValidationFailure(validation)) {
+        return validation.error;
       }
 
-      const normalizedEmail = email.toLowerCase().trim();
+      const { email, password, role, sites, mustChangePassword } = validation.data;
+      // email is already normalized by schema transform
 
       // Check if user already exists
-      const existing = await getUserByEmail(normalizedEmail);
+      const existing = await getUserByEmail(email);
       if (existing) {
         return addCorsHeaders(
-          error(`User with email "${normalizedEmail}" already exists`),
+          error(`User with email "${email}" already exists`),
           request.headers.get('origin') || undefined
         );
       }
@@ -64,7 +81,7 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
 
       // Create user
       const newUser = await createUser({
-        email: normalizedEmail,
+        email,
         passwordHash,
         role,
         sites: sites || [],
@@ -78,18 +95,26 @@ export async function usersHandler(request: HttpRequest, context: InvocationCont
         success({
           email: newUser.email,
           role: newUser.role,
-          sites: JSON.parse(newUser.sites || '[]'),
+          sites: safeParseJsonArray(newUser.sites, []),
           createdAt: newUser.createdAt,
         }, 201),
         request.headers.get('origin') || undefined
       );
     }
 
+    return addCorsHeaders(error('Method not allowed', 405), request.headers.get('origin') || undefined);
+
   } catch (err: any) {
     context.error('Users error:', err);
     return addCorsHeaders(error('Server error', 500), request.headers.get('origin') || undefined);
   }
 }
+
+// SECURITY: Wrap handler with rate limiting
+export const usersHandler = withRateLimit(
+  usersHandlerImpl,
+  RATE_LIMITS.STANDARD
+);
 
 // Default export for function.json
 export default usersHandler;

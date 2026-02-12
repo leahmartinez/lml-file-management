@@ -12,6 +12,7 @@ import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functio
 import { getUserByEmail, updateUser } from "../database/tableStorage";
 import { getAuthenticatedUser } from "../utils/auth";
 import { addCorsHeaders, error, success, unauthorized } from "../utils/response";
+import { safeParseJsonArray } from "../utils/json";
 import { validateRequestBody, userProfileUpdateSchema, isValidationFailure } from '../utils/validation';
 import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
@@ -29,7 +30,7 @@ function mapUserToProfile(user: any) {
     photo: user.photo || "",
     bio: user.bio || "",
     category: user.category || "",
-    sites: user.sites ? JSON.parse(user.sites) : [],
+    sites: safeParseJsonArray(user.sites, []),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

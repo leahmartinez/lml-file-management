@@ -2,6 +2,7 @@ import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functio
 import { getUserByEmail, updateUser } from '../database/tableStorage';
 import { getAuthenticatedUser } from '../utils/auth';
 import { success, error, unauthorized, addCorsHeaders } from '../utils/response';
+import { safeParseJsonArray } from '../utils/json';
 
 export async function profileHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
@@ -32,7 +33,7 @@ export async function profileHandler(request: HttpRequest, context: InvocationCo
       success({
         email: user.email,
         role: user.role,
-        sites: JSON.parse(user.sites || '[]'),
+        sites: safeParseJsonArray(user.sites, []),
         lastLogin: new Date().toISOString(),
         createdAt: user.createdAt,
       }),

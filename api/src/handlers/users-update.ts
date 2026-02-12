@@ -1,9 +1,24 @@
+/**
+ * Update User Handler
+ *
+ * SECURITY:
+ * - Rate limited (admin rate limit)
+ * - Input validated with Zod schema
+ * - Requires authentication and admin/consultant role
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from '../database/tableStorage';
 import { getAuthenticatedUser, hasRole, hashPassword } from '../utils/auth';
 import { success, error, forbidden, notFound, addCorsHeaders, unauthorized } from '../utils/response';
+import { safeParseJsonArray } from '../utils/json';
+import { validateRequestBody, updateUserSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-export async function usersUpdateHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function usersUpdateHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -21,22 +36,17 @@ export async function usersUpdateHandler(request: HttpRequest, context: Invocati
       return addCorsHeaders(forbidden('Only admins can update users'), request.headers.get('origin') || undefined);
     }
 
-    const body = await request.json() as any;
-
-    // Get email from body or query params
-    const email = body.email || request.query.get('email');
-
-    if (!email) {
-      return addCorsHeaders(error('Email parameter required'), request.headers.get('origin') || undefined);
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, updateUserSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Extract update fields from body
-    const { role, sites, password, mustChangePassword } = body;
+    const { email, role, sites, password, mustChangePassword } = validation.data;
+    // email is already normalized by schema transform
 
     // Check if user exists
-    const existing = await getUserByEmail(normalizedEmail);
+    const existing = await getUserByEmail(email);
     if (!existing) {
       return addCorsHeaders(notFound('User not found'), request.headers.get('origin') || undefined);
     }
@@ -49,13 +59,13 @@ export async function usersUpdateHandler(request: HttpRequest, context: Invocati
     if (typeof mustChangePassword === 'boolean') updates.mustChangePassword = mustChangePassword;
 
     // Update user
-    const updated = await updateUser(normalizedEmail, updates);
+    const updated = await updateUser(email, updates);
 
     return addCorsHeaders(
       success({
         email: updated.email,
         role: updated.role,
-        sites: JSON.parse(updated.sites || '[]'),
+        sites: safeParseJsonArray(updated.sites, []),
       }),
       request.headers.get('origin') || undefined
     );
@@ -65,6 +75,12 @@ export async function usersUpdateHandler(request: HttpRequest, context: Invocati
     return addCorsHeaders(error('Server error', 500), request.headers.get('origin') || undefined);
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (admin rate limit)
+export const usersUpdateHandler = withRateLimit(
+  usersUpdateHandlerImpl,
+  RATE_LIMITS.ADMIN
+);
 
 // Default export for function.json
 export default usersUpdateHandler;

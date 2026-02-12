@@ -1,42 +1,45 @@
+/**
+ * Login Handler
+ *
+ * SECURITY:
+ * - Rate limited to prevent brute force attacks (5 attempts per 15 minutes)
+ * - Input validated with Zod schema
+ * - Consistent error messages to prevent user enumeration
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from '../database/tableStorage';
 import { verifyPassword, generateToken } from '../utils/auth';
 import { success, error, addCorsHeaders } from '../utils/response';
+import { safeParseJsonArray } from '../utils/json';
+import { validateRequestBody, loginSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export async function authLoginHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function authLoginHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return addCorsHeaders({ status: 200 }, request.headers.get('origin') || undefined);
     }
 
-    context.log('Login attempt - method:', request.method);
-    context.log('Login attempt - origin:', request.headers.get('origin'));
-
-    const body = await request.json() as LoginRequest;
-    const { email, password } = body;
-
-    context.log('Login attempt - email:', email ? email.substring(0, 10) + '...' : 'missing');
-
-    if (!email || !password) {
-      context.log('Login failed - missing email or password');
-      return addCorsHeaders(
-        error('Email and password are required', 400),
-        request.headers.get('origin') || undefined
-      );
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, loginSchema);
+    if (isValidationFailure(validation)) {
+      context.log('Login failed - validation error');
+      return validation.error;
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
-    context.log('Login attempt - normalized email:', normalizedEmail);
+    const { email, password } = validation.data;
+    // email is already normalized (lowercase, trimmed) by schema transform
 
-    const user = await getUserByEmail(normalizedEmail);
+    context.log('Login attempt - email:', email.substring(0, 10) + '...');
+
+    const user = await getUserByEmail(email);
     if (!user) {
-      context.log('Login failed - user not found:', normalizedEmail);
+      context.log('Login failed - user not found:', email);
       return addCorsHeaders(
         error('Invalid email or password', 401),
         request.headers.get('origin') || undefined
@@ -55,7 +58,7 @@ export async function authLoginHandler(request: HttpRequest, context: Invocation
     }
 
     if (!user.emailVerified) {
-      context.log('Login failed - email not verified:', normalizedEmail);
+      context.log('Login failed - email not verified:', email);
       return addCorsHeaders(
         error('Please verify your email address before logging in. Check your inbox for the verification link.', 403),
         request.headers.get('origin') || undefined
@@ -63,7 +66,7 @@ export async function authLoginHandler(request: HttpRequest, context: Invocation
     }
 
     if (user.accountStatus === 'suspended') {
-      context.log('Login failed - account suspended:', normalizedEmail);
+      context.log('Login failed - account suspended:', email);
       return addCorsHeaders(
         error('Your account has been suspended. Please contact your administrator.', 403),
         request.headers.get('origin') || undefined
@@ -71,14 +74,14 @@ export async function authLoginHandler(request: HttpRequest, context: Invocation
     }
 
     if (user.accountStatus === 'pending') {
-      context.log('Login failed - account pending approval:', normalizedEmail);
+      context.log('Login failed - account pending approval:', email);
       return addCorsHeaders(
         error('Your account is pending approval by an administrator. You will receive an email when your account is approved.', 403),
         request.headers.get('origin') || undefined
       );
     }
 
-    context.log('Login successful for:', normalizedEmail);
+    context.log('Login successful for:', email);
 
     const loginTimestamp = new Date().toISOString();
     const updatedUser = await updateUser(user.email, {
@@ -88,7 +91,7 @@ export async function authLoginHandler(request: HttpRequest, context: Invocation
     const token = generateToken({
       email: updatedUser.email,
       role: updatedUser.role,
-      sites: JSON.parse(updatedUser.sites || '[]'),
+      sites: safeParseJsonArray(updatedUser.sites, []),
     });
 
     return addCorsHeaders(
@@ -97,7 +100,7 @@ export async function authLoginHandler(request: HttpRequest, context: Invocation
         user: {
           email: updatedUser.email,
           role: updatedUser.role,
-          sites: JSON.parse(updatedUser.sites || '[]'),
+          sites: safeParseJsonArray(updatedUser.sites, []),
           lastLogin: updatedUser.lastLogin,
           accountStatus: updatedUser.accountStatus,
           mustChangePassword: updatedUser.mustChangePassword || false,
@@ -113,6 +116,12 @@ export async function authLoginHandler(request: HttpRequest, context: Invocation
     );
   }
 }
+
+// SECURITY: Wrap handler with rate limiting (5 attempts per 15 minutes)
+export const authLoginHandler = withRateLimit(
+  authLoginHandlerImpl,
+  RATE_LIMITS.AUTH_LOGIN
+);
 
 // Default export for function.json
 export default authLoginHandler;
