@@ -287,7 +287,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error: any) {
       errorLog("useAuth: Login failed:", error);
       clearAuthState();
-      throw new Error(error?.message || 'Login failed');
+      return null;
     }
   };
 
