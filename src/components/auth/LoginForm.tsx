@@ -103,10 +103,7 @@ const LoginForm = () => {
         )}
       </Button>
       <div className="text-sm text-center text-muted-foreground">
-        Don't have an account?{' '}
-        <Link to="/register" className="text-primary hover:underline">
-          Sign up
-        </Link>
+        Need an account? Contact your administrator.
       </div>
     </form>
   );

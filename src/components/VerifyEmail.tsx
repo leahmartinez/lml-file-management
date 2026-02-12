@@ -124,13 +124,6 @@ export function VerifyEmail() {
           >
             Back to Login
           </Button>
-          <Button
-            variant="ghost"
-            className="w-full"
-            onClick={() => navigate('/register')}
-          >
-            Register Again
-          </Button>
         </CardFooter>
       </Card>
     </div>

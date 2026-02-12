@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense, useEffect } from "react";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/LoginPage";
-import { RegisterForm } from "./components/RegisterForm";
+
 import { VerifyEmail } from "./components/VerifyEmail";
 import { ForgotPassword } from "./components/ForgotPassword";
 import { ResetPassword } from "./components/ResetPassword";
@@ -60,7 +60,6 @@ const AppContent = () => {
         <Routes>
           {/* Public authentication routes */}
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterForm />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />

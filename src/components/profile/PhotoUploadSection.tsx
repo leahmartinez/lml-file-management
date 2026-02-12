@@ -18,6 +18,9 @@ interface PhotoUploadSectionProps {
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_DIMENSION = 256; // Resize to max 256x256 for profile photos
+const JPEG_QUALITY = 0.7; // Compress to ~70% quality
+const MAX_DATA_URL_LENGTH = 60000; // Azure Table Storage property limit safety margin
 
 export const PhotoUploadSection: React.FC<PhotoUploadSectionProps> = ({
   currentPhoto,
@@ -31,19 +34,47 @@ export const PhotoUploadSection: React.FC<PhotoUploadSectionProps> = ({
   const [uploading, setUploading] = useState(false);
 
   /**
-   * Convert file to data URL for persistent storage
+   * Resize and compress image to fit Azure Table Storage property limits.
+   * Returns a JPEG data URL small enough for storage (~40-50KB).
    */
-  const fileToDataUrl = (file: File): Promise<string> => {
+  const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result);
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        // Calculate scaled dimensions
+        let { width, height } = img;
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('Canvas not supported')); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Try progressively lower quality until it fits
+        let quality = JPEG_QUALITY;
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+        while (dataUrl.length > MAX_DATA_URL_LENGTH && quality > 0.1) {
+          quality -= 0.1;
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        if (dataUrl.length > MAX_DATA_URL_LENGTH) {
+          reject(new Error('Image is too large even after compression. Please use a smaller image.'));
+          return;
+        }
+        resolve(dataUrl);
       };
-      reader.onerror = () => {
-        reject(new Error('Failed to read file'));
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load image'));
       };
-      reader.readAsDataURL(file);
+      img.src = objectUrl;
     });
   };
 
@@ -72,7 +103,7 @@ export const PhotoUploadSection: React.FC<PhotoUploadSectionProps> = ({
     setUploading(true);
     try {
       // Convert to data URL
-      const dataUrl = await fileToDataUrl(file);
+      const dataUrl = await compressImage(file);
 
       // Update preview and callback
       setPreviewUrl(dataUrl);
@@ -124,7 +155,7 @@ export const PhotoUploadSection: React.FC<PhotoUploadSectionProps> = ({
 
     setUploading(true);
     try {
-      const dataUrl = await fileToDataUrl(file);
+      const dataUrl = await compressImage(file);
       setPreviewUrl(dataUrl);
       onPhotoChange(dataUrl);
     } catch (err) {
@@ -207,7 +238,7 @@ export const PhotoUploadSection: React.FC<PhotoUploadSectionProps> = ({
                   {uploading ? 'Uploading...' : 'Click to upload or drag and drop'}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG, or WebP up to 5MB
+                  PNG, JPG, or WebP (will be resized to 256x256)
                 </p>
               </div>
             </div>
