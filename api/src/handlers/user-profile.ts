@@ -16,7 +16,7 @@ import { safeParseJsonArray } from "../utils/json";
 import { validateRequestBody, userProfileUpdateSchema, isValidationFailure } from '../utils/validation';
 import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-const MAX_TEXT_LENGTH = 60000;
+const MAX_TEXT_LENGTH = 100000;
 
 function mapUserToProfile(user: any) {
   return {

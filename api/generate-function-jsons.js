@@ -7,8 +7,8 @@ const functions = [
   { name: 'initialize', route: 'initialize', methods: ['GET', 'OPTIONS'], script: '../handlers/initialize.js' },
   { name: 'profile', route: 'profile', methods: ['GET'], script: '../handlers/profile.js' },
   { name: 'users', route: 'users', methods: ['GET', 'POST', 'OPTIONS'], script: '../handlers/users.js' },
-  { name: 'sites', route: 'sites', methods: ['GET', 'OPTIONS'], script: '../handlers/sites.js' },
-  { name: 'projects', route: 'projects', methods: ['GET', 'OPTIONS'], script: '../handlers/projects.js' },
+  { name: 'sites', route: 'sites', methods: ['GET', 'POST', 'PUT', 'OPTIONS'], script: '../handlers/sites.js' },
+  { name: 'projects', route: 'projects', methods: ['GET', 'POST', 'PUT', 'OPTIONS'], script: '../handlers/projects.js' },
   { name: 'contacts', route: 'contacts', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], script: '../handlers/contacts.js' },
   { name: 'businesses', route: 'businesses', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], script: '../handlers/businesses.js' },
   { name: 'auth-login', route: 'auth/login', methods: ['POST', 'OPTIONS'], script: '../handlers/auth-login.js' },
@@ -24,7 +24,10 @@ const functions = [
   { name: 'users-delete', route: 'users/delete', methods: ['DELETE', 'OPTIONS'], script: '../handlers/users-delete.js' },
   { name: 'users-update', route: 'users/update', methods: ['PUT', 'OPTIONS'], script: '../handlers/users-update.js' },
   { name: 'projects-delete', route: 'projects/delete', methods: ['DELETE', 'OPTIONS'], script: '../handlers/projects-delete.js' },
-  { name: 'sites-delete', route: 'sites/delete', methods: ['DELETE', 'OPTIONS'], script: '../handlers/sites-delete.js' }
+  { name: 'sites-delete', route: 'sites/delete', methods: ['DELETE', 'OPTIONS'], script: '../handlers/sites-delete.js' },
+  { name: 'user-profile', route: 'user/profile', methods: ['GET', 'PUT', 'OPTIONS'], script: '../handlers/user-profile.js' },
+  { name: 'projects-rename', route: 'projects/rename', methods: ['PUT', 'OPTIONS'], script: '../handlers/projects-rename.js' },
+  { name: 'profiles', route: 'profiles/{email}', methods: ['GET', 'OPTIONS'], script: '../handlers/profiles.js' }
 ];
 
 // Generate function.json for each function in dist directory

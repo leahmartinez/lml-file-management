@@ -107,10 +107,15 @@ export const projectStatusSchema = z
   .default('Active');
 
 /**
- * Australian state codes
+ * Australian state codes and full names (frontend uses full names, backend stores as-is)
  */
 export const australianStateSchema = z
-  .enum(['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT', ''])
+  .enum([
+    'NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT',
+    'Victoria', 'Queensland', 'South Australia', 'Western Australia',
+    'Northern Territory', 'Tasmania', 'New Zealand',
+    '',
+  ])
   .default('');
 
 /**
@@ -291,29 +296,30 @@ export const stageSchema = z.object({
   createdBy: z.string().max(255).optional(),
 });
 
-export const createProjectSchema = z
-  .object({
-    projectCode: z.string().min(1, 'Project code is required').max(50),
-    building: z.string().min(1, 'Building is required').max(255),
-    siteId: z.string().max(255).optional(),
-    state: australianStateSchema.optional(),
-    status: projectStatusSchema.optional(),
-    invoiceStatus: z.string().max(50).optional(),
-    orderDate: z.string().max(50).optional(),
-    description: longTextSchema.optional(),
-    projectType: z.string().max(100).optional(),
-    customProjectType: z.string().max(100).optional(),
-    address: z.string().max(500).optional(),
-    city: z.string().max(100).optional(),
-    postcode: postcodeSchema,
-    contacts: z.array(emailSchema).optional(),
-    contactEmails: z.array(emailSchema).optional(),
-    stages: z.array(stageSchema).optional(),
-    createdAt: z.string().max(50).optional(),
-  })
-  .strict();
+const projectBaseShape = {
+  projectCode: z.string().min(1, 'Project code is required').max(50),
+  building: z.string().min(1, 'Building is required').max(255),
+  siteId: z.string().max(255).optional(),
+  state: australianStateSchema.optional(),
+  status: projectStatusSchema.optional(),
+  invoiceStatus: z.string().max(50).optional(),
+  orderDate: z.string().max(50).optional(),
+  description: longTextSchema.optional(),
+  projectType: z.string().max(100).optional(),
+  customProjectType: z.string().max(100).optional(),
+  address: z.string().max(500).optional(),
+  city: z.string().max(100).optional(),
+  postcode: postcodeSchema,
+  contacts: z.array(emailSchema).optional(),
+  contactEmails: z.array(emailSchema).optional(),
+  stages: z.array(stageSchema).optional(),
+  createdAt: z.string().max(50).optional(),
+};
 
-export const updateProjectSchema = createProjectSchema.partial().extend({
+export const createProjectSchema = z.object(projectBaseShape).strict();
+
+// Update schema: partial fields, strips unknown keys (frontend sends extra fields like notes, updatedAt, etc.)
+export const updateProjectSchema = z.object(projectBaseShape).partial().extend({
   projectCode: z.string().min(1).max(50),
 });
 
@@ -334,22 +340,23 @@ export const deleteProjectSchema = z
 // SITE SCHEMAS
 // =============================================================================
 
-export const createSiteSchema = z
-  .object({
-    siteId: z.string().min(1).max(255).optional(),
-    building: z.string().min(1, 'Building is required').max(255),
-    address: z.string().max(500).optional().default(''),
-    city: z.string().max(100).optional().default(''),
-    state: australianStateSchema.optional(),
-    postcode: postcodeSchema,
-    projectCodes: z.array(z.string().max(50)).optional(),
-    contacts: z.array(emailSchema).optional(),
-    contactEmails: z.array(emailSchema).optional(),
-    createdAt: z.string().max(50).optional(),
-  })
-  .strict();
+const siteBaseShape = {
+  siteId: z.string().min(1).max(255).optional(),
+  building: z.string().min(1, 'Building is required').max(255),
+  address: z.string().max(500).optional().default(''),
+  city: z.string().max(100).optional().default(''),
+  state: australianStateSchema.optional(),
+  postcode: postcodeSchema,
+  projectCodes: z.array(z.string().max(50)).optional(),
+  contacts: z.array(emailSchema).optional(),
+  contactEmails: z.array(emailSchema).optional(),
+  createdAt: z.string().max(50).optional(),
+};
 
-export const updateSiteSchema = createSiteSchema.partial();
+export const createSiteSchema = z.object(siteBaseShape).strict();
+
+// Update schema: strips unknown keys (frontend may send extra fields)
+export const updateSiteSchema = z.object(siteBaseShape).partial();
 
 export const deleteSiteSchema = z
   .object({
