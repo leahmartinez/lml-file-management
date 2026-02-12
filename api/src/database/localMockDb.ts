@@ -201,6 +201,15 @@ export async function upsertStagesLocal(projectCode: string, stageList: StageEnt
   });
 }
 
+export async function deleteStagesNotInLocal(projectCode: string, keepStageIds: string[]): Promise<void> {
+  const keepSet = new Set(keepStageIds);
+  for (const [stageId, stage] of stages.entries()) {
+    if (stage.projectCode === projectCode && !keepSet.has(stage.stageId || stageId)) {
+      stages.delete(stageId);
+    }
+  }
+}
+
 export async function getAllContactsLocal(): Promise<ContactEntity[]> {
   return Array.from(contacts.values());
 }

@@ -1,9 +1,20 @@
+/**
+ * Projects Rename Handler
+ *
+ * SECURITY:
+ * - Rate limited (write rate limit)
+ * - Input validated with Zod schema
+ * - Requires authentication
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { renameProjectCode } from "../database/tableStorage";
 import { addCorsHeaders, success, unauthorized, error } from "../utils/response";
 import { getAuthenticatedUser } from "../utils/auth";
+import { validateRequestBody, renameProjectSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-export async function projectsRenameHandler(
+async function projectsRenameHandlerImpl(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
@@ -21,15 +32,13 @@ export async function projectsRenameHandler(
       return addCorsHeaders(error("Method not allowed", 405), request.headers.get("origin") || undefined);
     }
 
-    const rawBody = await request.json().catch(() => ({}));
-    const body = (rawBody && typeof rawBody === "object") ? (rawBody as Record<string, any>) : {};
-
-    const oldCode = (body.projectCode || "").toString().trim();
-    const newCode = (body.newProjectCode || "").toString().trim();
-
-    if (!oldCode || !newCode) {
-      return addCorsHeaders(error("Both projectCode and newProjectCode are required", 400), request.headers.get("origin") || undefined);
+    // SECURITY: Validate input using Zod schema
+    const validation = await validateRequestBody(request, renameProjectSchema);
+    if (isValidationFailure(validation)) {
+      return validation.error;
     }
+
+    const { projectCode: oldCode, newProjectCode: newCode } = validation.data;
 
     if (oldCode === newCode) {
       return addCorsHeaders(success({
@@ -58,5 +67,11 @@ export async function projectsRenameHandler(
     return addCorsHeaders(error(message, status), request.headers.get("origin") || undefined);
   }
 }
+
+// SECURITY: Wrap handler with rate limiting
+export const projectsRenameHandler = withRateLimit(
+  projectsRenameHandlerImpl,
+  RATE_LIMITS.WRITE
+);
 
 export default projectsRenameHandler;

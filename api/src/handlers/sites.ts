@@ -1,9 +1,23 @@
+/**
+ * Sites Handler (List, Create, Update)
+ *
+ * SECURITY:
+ * - Rate limited (standard for GET, write for POST/PUT)
+ * - Input validated with Zod schema for POST/PUT
+ * - Requires authentication
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { createSite, getAllSites, getSiteById, updateSite } from "../database/tableStorage";
 import { addCorsHeaders, success, unauthorized, error } from "../utils/response";
 import { getAuthenticatedUser } from "../utils/auth";
+import { validateRequestBody, createSiteSchema, updateSiteSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-export async function sitesHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function sitesHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     if (request.method === "OPTIONS") {
       return addCorsHeaders({ status: 200 }, request.headers.get("origin") || undefined);
@@ -14,75 +28,86 @@ export async function sitesHandler(request: HttpRequest, context: InvocationCont
       return addCorsHeaders(unauthorized(), request.headers.get("origin") || undefined);
     }
 
-    if (request.method === "POST" || request.method === "PUT") {
-      const rawBody = await request.json().catch(() => ({}));
-      const body = (rawBody && typeof rawBody === "object") ? (rawBody as Record<string, any>) : {};
-      const siteId = (body.siteId || body.building || "").toString().trim();
-      const building = (body.building || siteId || "").toString().trim();
-
-      if (!siteId || !building) {
-        return addCorsHeaders(error("Site ID and building are required", 400), request.headers.get("origin") || undefined);
+    if (request.method === "POST") {
+      // SECURITY: Validate input using Zod schema
+      const validation = await validateRequestBody(request, createSiteSchema);
+      if (isValidationFailure(validation)) {
+        return validation.error;
       }
 
-      const hasProjectCodes = Array.isArray(body.projectCodes);
-      const projectCodes = hasProjectCodes ? body.projectCodes : [];
-      const hasContacts = Array.isArray(body.contacts) || Array.isArray(body.contactEmails);
-      const contactEmails = Array.isArray(body.contacts)
-        ? body.contacts
-        : Array.isArray(body.contactEmails)
-          ? body.contactEmails
-          : [];
+      const body = validation.data;
+      const siteId = body.siteId || body.building;
+      const building = body.building;
 
-      if (request.method === "POST") {
-        const existing = await getSiteById(siteId);
-        if (existing) {
-          return addCorsHeaders(error("Site already exists", 409), request.headers.get("origin") || undefined);
-        }
-
-        const entity = {
-          partitionKey: "SITE",
-          rowKey: siteId,
-          siteId,
-          building,
-          address: body.address || "",
-          city: body.city || "",
-          state: body.state || "",
-          postcode: body.postcode || "",
-          createdAt: body.createdAt || new Date().toISOString(),
-          createdBy: user.email,
-          projectCodes: JSON.stringify(projectCodes),
-          contactEmails: JSON.stringify(contactEmails),
-        };
-
-        const created = await createSite(entity);
-        return addCorsHeaders(success({
-          siteId: created.siteId,
-          building: created.building,
-          address: created.address,
-          city: created.city,
-          state: created.state,
-          postcode: created.postcode,
-          createdAt: created.createdAt,
-          projectCodes,
-          contacts: contactEmails,
-          projects: [],
-          assets: [],
-        }), request.headers.get("origin") || undefined);
+      const existing = await getSiteById(siteId);
+      if (existing) {
+        return addCorsHeaders(error("Site already exists", 409), request.headers.get("origin") || undefined);
       }
+
+      const projectCodes = body.projectCodes || [];
+      const contactEmails = body.contacts || body.contactEmails || [];
+
+      const entity = {
+        partitionKey: "SITE",
+        rowKey: siteId,
+        siteId,
+        building,
+        address: body.address || "",
+        city: body.city || "",
+        state: body.state || "",
+        postcode: body.postcode || "",
+        createdAt: body.createdAt || new Date().toISOString(),
+        createdBy: user.email,
+        projectCodes: JSON.stringify(projectCodes),
+        contactEmails: JSON.stringify(contactEmails),
+      };
+
+      const created = await createSite(entity);
+      return addCorsHeaders(success({
+        siteId: created.siteId,
+        building: created.building,
+        address: created.address,
+        city: created.city,
+        state: created.state,
+        postcode: created.postcode,
+        createdAt: created.createdAt,
+        projectCodes,
+        contacts: contactEmails,
+        projects: [],
+        assets: [],
+      }), request.headers.get("origin") || undefined);
+    }
+
+    if (request.method === "PUT") {
+      // SECURITY: Validate input using Zod schema
+      const validation = await validateRequestBody(request, updateSiteSchema);
+      if (isValidationFailure(validation)) {
+        return validation.error;
+      }
+
+      const body = validation.data;
+      const siteId = body.siteId || body.building;
+
+      if (!siteId) {
+        return addCorsHeaders(error("Site ID or building is required", 400), request.headers.get("origin") || undefined);
+      }
+
+      const hasProjectCodes = body.projectCodes !== undefined;
+      const hasContacts = body.contacts !== undefined || body.contactEmails !== undefined;
 
       const updates: any = {};
-
-      if (building) updates.building = building;
+      if (body.building !== undefined) updates.building = body.building;
       if (body.address !== undefined) updates.address = body.address;
       if (body.city !== undefined) updates.city = body.city;
       if (body.state !== undefined) updates.state = body.state;
       if (body.postcode !== undefined) updates.postcode = body.postcode;
 
       if (hasProjectCodes) {
-        updates.projectCodes = JSON.stringify(projectCodes);
+        updates.projectCodes = JSON.stringify(body.projectCodes);
       }
 
       if (hasContacts) {
+        const contactEmails = body.contacts || body.contactEmails || [];
         updates.contactEmails = JSON.stringify(contactEmails);
       }
 
@@ -96,13 +121,14 @@ export async function sitesHandler(request: HttpRequest, context: InvocationCont
         state: updated.state,
         postcode: updated.postcode,
         createdAt: updated.createdAt,
-        projectCodes: hasProjectCodes ? projectCodes : updated.projectCodes ? JSON.parse(updated.projectCodes) : [],
-        contacts: hasContacts ? contactEmails : updated.contactEmails ? JSON.parse(updated.contactEmails) : [],
+        projectCodes: hasProjectCodes ? body.projectCodes : (updated.projectCodes ? JSON.parse(updated.projectCodes) : []),
+        contacts: hasContacts ? (body.contacts || body.contactEmails || []) : (updated.contactEmails ? JSON.parse(updated.contactEmails) : []),
         projects: [],
         assets: [],
       }), request.headers.get("origin") || undefined);
     }
 
+    // GET - list all sites
     const sites = await getAllSites();
 
     const payload = sites.map(site => {
@@ -129,5 +155,11 @@ export async function sitesHandler(request: HttpRequest, context: InvocationCont
     return addCorsHeaders(error("Failed to fetch sites", 500), request.headers.get("origin") || undefined);
   }
 }
+
+// SECURITY: Wrap handler with rate limiting
+export const sitesHandler = withRateLimit(
+  sitesHandlerImpl,
+  RATE_LIMITS.STANDARD
+);
 
 export default sitesHandler;

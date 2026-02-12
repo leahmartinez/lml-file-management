@@ -1,19 +1,20 @@
+/**
+ * User Profile Handler (Get and Update own profile)
+ *
+ * SECURITY:
+ * - Rate limited (standard rate limit)
+ * - Input validated with Zod schema for PUT
+ * - Requires authentication
+ * - Users can only access/modify their own profile
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from "../database/tableStorage";
 import { getAuthenticatedUser } from "../utils/auth";
 import { addCorsHeaders, error, success, unauthorized } from "../utils/response";
+import { validateRequestBody, userProfileUpdateSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
-const PROFILE_FIELDS = [
-  "firstName",
-  "lastName",
-  "position",
-  "phone",
-  "officePhone",
-  "department",
-  "photo",
-  "bio",
-  "category",
-];
 const MAX_TEXT_LENGTH = 60000;
 
 function mapUserToProfile(user: any) {
@@ -34,7 +35,10 @@ function mapUserToProfile(user: any) {
   };
 }
 
-export async function userProfileHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function userProfileHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     if (request.method === "OPTIONS") {
       return addCorsHeaders({ status: 200 }, request.headers.get("origin") || undefined);
@@ -51,23 +55,42 @@ export async function userProfileHandler(request: HttpRequest, context: Invocati
     }
 
     if (request.method === "PUT") {
-      const body = (await request.json().catch(() => ({}))) as any;
-      const updates: Record<string, any> = {};
-      PROFILE_FIELDS.forEach((field) => {
-        if (body[field] !== undefined) {
-          updates[field] = typeof body[field] === "string" ? body[field].trim() : body[field];
-        }
-      });
+      // SECURITY: Validate input using Zod schema
+      const validation = await validateRequestBody(request, userProfileUpdateSchema);
+      if (isValidationFailure(validation)) {
+        return validation.error;
+      }
 
-      // Guard against oversized data URLs (Azure Table Storage limit ~64KB per property)
-      if (typeof updates.photo === "string" && updates.photo.startsWith("data:") && updates.photo.length > MAX_TEXT_LENGTH) {
-        context.warn("Profile photo too large for table storage. Skipping photo update.");
-        delete updates.photo;
+      const body = validation.data;
+      const updates: Record<string, any> = {};
+
+      if (body.firstName !== undefined) updates.firstName = body.firstName;
+      if (body.lastName !== undefined) updates.lastName = body.lastName;
+      if (body.position !== undefined) updates.position = body.position;
+      if (body.phone !== undefined) updates.phone = body.phone;
+      if (body.officePhone !== undefined) updates.officePhone = body.officePhone;
+      if (body.department !== undefined) updates.department = body.department;
+      if (body.category !== undefined) updates.category = body.category;
+
+      // Handle photo with size guard
+      if (body.photo !== undefined) {
+        if (typeof body.photo === "string" && body.photo.startsWith("data:") && body.photo.length > MAX_TEXT_LENGTH) {
+          context.warn("Profile photo too large for table storage. Skipping photo update.");
+        } else {
+          updates.photo = body.photo;
+        }
       }
-      if (typeof updates.bio === "string" && updates.bio.length > MAX_TEXT_LENGTH) {
-        context.warn("Profile bio too large for table storage. Truncating.");
-        updates.bio = updates.bio.slice(0, MAX_TEXT_LENGTH);
+
+      // Handle bio with size guard
+      if (body.bio !== undefined) {
+        if (typeof body.bio === "string" && body.bio.length > MAX_TEXT_LENGTH) {
+          context.warn("Profile bio too large for table storage. Truncating.");
+          updates.bio = body.bio.slice(0, MAX_TEXT_LENGTH);
+        } else {
+          updates.bio = body.bio;
+        }
       }
+
       updates.updatedAt = new Date().toISOString();
 
       const updated = await updateUser(user.email, updates);
@@ -80,5 +103,11 @@ export async function userProfileHandler(request: HttpRequest, context: Invocati
     return addCorsHeaders(error("Server error", 500), request.headers.get("origin") || undefined);
   }
 }
+
+// SECURITY: Wrap handler with rate limiting
+export const userProfileHandler = withRateLimit(
+  userProfileHandlerImpl,
+  RATE_LIMITS.STANDARD
+);
 
 export default userProfileHandler;

@@ -208,6 +208,18 @@ export function getBusinessesTable(): TableClient {
 }
 
 /**
+ * Get or create RateLimits table client
+ * SECURITY: Used for distributed rate limiting across serverless instances
+ */
+let rateLimitsTable: TableClient | null = null;
+export function getRateLimitsTable(): TableClient {
+  if (!rateLimitsTable) {
+    rateLimitsTable = getTableClient("RateLimits");
+  }
+  return rateLimitsTable;
+}
+
+/**
  * Initialize database (create tables if they don't exist)
  */
 export async function initializeDatabase(): Promise<void> {
@@ -215,7 +227,7 @@ export async function initializeDatabase(): Promise<void> {
     await localDb.initializeLocalDatabase();
     return;
   }
-  
+
   try {
     const tables = [
       { name: "Users", client: getUsersTable },
@@ -224,6 +236,7 @@ export async function initializeDatabase(): Promise<void> {
       { name: "Stages", client: getStagesTable },
       { name: "Contacts", client: getContactsTable },
       { name: "Businesses", client: getBusinessesTable },
+      { name: "RateLimits", client: getRateLimitsTable }, // SECURITY: Rate limiting storage
     ];
 
     for (const tableInfo of tables) {
@@ -432,6 +445,16 @@ export async function renameProjectCode(
     stagesMigrated += 1;
   }
 
+  // Clean up any duplicate stages that still reference the old code
+  const newStageEntities = stages.listEntities<StageEntity>({
+    queryOptions: { filter: `PartitionKey eq '${newCode}'` },
+  });
+  for await (const stage of newStageEntities) {
+    if (typeof stage.stageId === 'string' && stage.stageId.includes(oldCode)) {
+      await stages.deleteEntity(stage.partitionKey, stage.rowKey);
+    }
+  }
+
   let sitesUpdated = 0;
   const siteEntities = sites.listEntities<SiteEntity>({
     queryOptions: { filter: `PartitionKey eq 'SITE'` },
@@ -496,6 +519,27 @@ export async function upsertStages(projectCode: string, stages: StageEntity[]): 
       } else {
         throw error;
       }
+    }
+  }
+}
+
+/**
+ * Delete stages for a project that are not in the keep list
+ */
+export async function deleteStagesNotIn(projectCode: string, keepStageIds: string[]): Promise<void> {
+  if (IS_LOCAL) {
+    return localDb.deleteStagesNotInLocal(projectCode, keepStageIds);
+  }
+
+  const table = getStagesTable();
+  const keepSet = new Set(keepStageIds);
+  const entities = table.listEntities<StageEntity>({
+    queryOptions: { filter: `PartitionKey eq '${projectCode}'` },
+  });
+
+  for await (const entity of entities) {
+    if (!keepSet.has(entity.stageId || entity.rowKey)) {
+      await table.deleteEntity(entity.partitionKey, entity.rowKey);
     }
   }
 }
@@ -914,4 +958,3 @@ export async function deleteSite(siteId: string): Promise<void> {
     throw error;
   }
 }
-

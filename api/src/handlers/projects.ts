@@ -1,7 +1,18 @@
+/**
+ * Projects Handler (List, Create, Update)
+ *
+ * SECURITY:
+ * - Rate limited (standard for GET, write for POST/PUT)
+ * - Input validated with Zod schema for POST/PUT
+ * - Requires authentication
+ */
+
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { createProject, createSite, getAllProjects, getSiteById, getStagesByProject, updateProject, updateSite, upsertStages } from "../database/tableStorage";
+import { createProject, createSite, deleteStagesNotIn, getAllProjects, getSiteById, getStagesByProject, updateProject, updateSite, upsertStages } from "../database/tableStorage";
 import { addCorsHeaders, success, unauthorized, error } from "../utils/response";
 import { getAuthenticatedUser } from "../utils/auth";
+import { validateRequestBody, createProjectSchema, updateProjectSchema, isValidationFailure } from '../utils/validation';
+import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 
 const DEFAULT_STAGE_ORDER: Record<string, number> = {
   Feasibility: 1,
@@ -27,7 +38,22 @@ function buildDefaultStages(projectCode: string) {
 }
 
 function mapStageToEntity(projectCode: string, stage: any) {
-  const stageId = stage.stageId || stage.id || `${projectCode}-${stage.name}`;
+  const stageProjectCode = typeof stage.projectCode === "string" ? stage.projectCode.trim() : "";
+  const rawStageId = stage.stageId || stage.id;
+  let stageId = rawStageId;
+  if (typeof stageId === "string") {
+    if (stageId.startsWith(`${projectCode}-`)) {
+      // keep as-is
+    } else if (stageProjectCode && stageId.startsWith(`${stageProjectCode}-`)) {
+      stageId = stageId.replace(stageProjectCode, projectCode);
+    } else if (stageProjectCode && stageId.includes(stageProjectCode)) {
+      stageId = stageId.replace(stageProjectCode, projectCode);
+    } else if (!stageId.includes(projectCode)) {
+      stageId = `${projectCode}-${stage.name || "stage"}`;
+    }
+  } else {
+    stageId = `${projectCode}-${stage.name || "stage"}`;
+  }
   const consultantEmails = Array.isArray(stage.consultantEmails)
     ? stage.consultantEmails
     : Array.isArray(stage.stageConsultantEmails)
@@ -67,7 +93,10 @@ function mapStageFromEntity(stage: any) {
   };
 }
 
-export async function projectsHandler(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+async function projectsHandlerImpl(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   try {
     if (request.method === "OPTIONS") {
       return addCorsHeaders({ status: 200 }, request.headers.get("origin") || undefined);
@@ -78,113 +107,114 @@ export async function projectsHandler(request: HttpRequest, context: InvocationC
       return addCorsHeaders(unauthorized(), request.headers.get("origin") || undefined);
     }
 
-    if (request.method === "POST" || request.method === "PUT") {
-      const rawBody = await request.json().catch(() => ({}));
-      const body = (rawBody && typeof rawBody === "object") ? (rawBody as Record<string, any>) : {};
-      const projectCode = (body.projectCode || "").toString().trim();
-      const building = (body.building || "").toString().trim();
-      const siteId = (body.siteId || building || "").toString().trim();
-
-      if (!projectCode) {
-        return addCorsHeaders(error("Project code is required", 400), request.headers.get("origin") || undefined);
+    if (request.method === "POST") {
+      // SECURITY: Validate input using Zod schema
+      const validation = await validateRequestBody(request, createProjectSchema);
+      if (isValidationFailure(validation)) {
+        return validation.error;
       }
 
-      if (!building && request.method === "POST") {
-        return addCorsHeaders(error("Building is required", 400), request.headers.get("origin") || undefined);
-      }
+      const body = validation.data;
+      const projectCode = body.projectCode;
+      const building = body.building;
+      const siteId = body.siteId || building;
 
-      const hasContacts = Array.isArray(body.contacts) || Array.isArray(body.contactEmails);
-      const contactEmails = Array.isArray(body.contacts)
-        ? body.contacts
-        : Array.isArray(body.contactEmails)
-          ? body.contactEmails
-          : [];
+      const contactEmails = body.contacts || body.contactEmails || [];
 
-      if (request.method === "POST") {
-        const entity = {
-          partitionKey: "PROJECT",
-          rowKey: projectCode,
-          projectCode,
+      const entity = {
+        partitionKey: "PROJECT",
+        rowKey: projectCode,
+        projectCode,
+        siteId,
+        building,
+        state: body.state || "",
+        status: body.status || "Active",
+        invoiceStatus: body.invoiceStatus,
+        orderDate: body.orderDate,
+        description: body.description || "",
+        projectType: body.projectType,
+        customProjectType: body.customProjectType,
+        createdAt: body.createdAt || new Date().toISOString(),
+        createdBy: user.email,
+        contactEmails: JSON.stringify(contactEmails),
+      };
+
+      await createProject(entity);
+
+      let site = await getSiteById(siteId);
+      if (!site) {
+        site = await createSite({
+          partitionKey: "SITE",
+          rowKey: siteId,
           siteId,
           building,
+          address: body.address || "",
+          city: body.city || "",
           state: body.state || "",
-          status: body.status || "Active",
-          invoiceStatus: body.invoiceStatus,
-          orderDate: body.orderDate,
-          description: body.description || "",
-          projectType: body.projectType,
-          customProjectType: body.customProjectType,
-          createdAt: body.createdAt || new Date().toISOString(),
+          postcode: body.postcode || "",
+          createdAt: new Date().toISOString(),
           createdBy: user.email,
-          contactEmails: JSON.stringify(contactEmails),
-        };
-
-        await createProject(entity);
-
-        let site = await getSiteById(siteId);
-        if (!site) {
-          site = await createSite({
-            partitionKey: "SITE",
-            rowKey: siteId,
-            siteId,
-            building,
-            address: body.address || "",
-            city: body.city || "",
-            state: body.state || "",
-            postcode: body.postcode || "",
-            createdAt: new Date().toISOString(),
-            createdBy: user.email,
-            projectCodes: JSON.stringify([projectCode]),
-            contactEmails: JSON.stringify([]),
-          });
-        } else {
-          const projectCodes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
-          if (!projectCodes.includes(projectCode)) {
-            projectCodes.push(projectCode);
-            await updateSite(siteId, { projectCodes: JSON.stringify(projectCodes) });
-          }
+          projectCodes: JSON.stringify([projectCode]),
+          contactEmails: JSON.stringify([]),
+        });
+      } else {
+        const projectCodes = site.projectCodes ? JSON.parse(site.projectCodes) : [];
+        if (!projectCodes.includes(projectCode)) {
+          projectCodes.push(projectCode);
+          await updateSite(siteId, { projectCodes: JSON.stringify(projectCodes) });
         }
-
-        if (Array.isArray(body.stages)) {
-          if (body.stages.length > 0) {
-            const stageEntities = body.stages.map((stage: any) => mapStageToEntity(projectCode, stage));
-            await upsertStages(projectCode, stageEntities);
-          }
-        } else {
-          const defaults = buildDefaultStages(projectCode).map(stage => mapStageToEntity(projectCode, stage));
-          await upsertStages(projectCode, defaults);
-        }
-
-        return addCorsHeaders(success({ projectCode }), request.headers.get("origin") || undefined);
       }
 
-      if (request.method === "PUT") {
-        const updates: any = {};
-        if (body.building !== undefined) updates.building = body.building;
-        if (siteId) updates.siteId = siteId;
-        if (body.state !== undefined) updates.state = body.state;
-        if (body.status !== undefined) updates.status = body.status;
-        if (body.invoiceStatus !== undefined) updates.invoiceStatus = body.invoiceStatus;
-        if (body.orderDate !== undefined) updates.orderDate = body.orderDate;
-        if (body.description !== undefined) updates.description = body.description;
-        if (body.projectType !== undefined) updates.projectType = body.projectType;
-        if (body.customProjectType !== undefined) updates.customProjectType = body.customProjectType;
+      if (Array.isArray(body.stages) && body.stages.length > 0) {
+        const stageEntities = body.stages.map((stage: any) => mapStageToEntity(projectCode, stage));
+        await upsertStages(projectCode, stageEntities);
+      } else {
+        const defaults = buildDefaultStages(projectCode).map(stage => mapStageToEntity(projectCode, stage));
+        await upsertStages(projectCode, defaults);
+      }
 
-        if (hasContacts) {
-          updates.contactEmails = JSON.stringify(contactEmails);
-        }
+      return addCorsHeaders(success({ projectCode }), request.headers.get("origin") || undefined);
+    }
 
-        await updateProject(projectCode, updates);
+    if (request.method === "PUT") {
+      // SECURITY: Validate input using Zod schema
+      const validation = await validateRequestBody(request, updateProjectSchema);
+      if (isValidationFailure(validation)) {
+        return validation.error;
+      }
+
+      const body = validation.data;
+      const projectCode = body.projectCode;
+      const siteId = body.siteId || body.building || "";
+
+      const updates: any = {};
+      if (body.building !== undefined) updates.building = body.building;
+      if (siteId) updates.siteId = siteId;
+      if (body.state !== undefined) updates.state = body.state;
+      if (body.status !== undefined) updates.status = body.status;
+      if (body.invoiceStatus !== undefined) updates.invoiceStatus = body.invoiceStatus;
+      if (body.orderDate !== undefined) updates.orderDate = body.orderDate;
+      if (body.description !== undefined) updates.description = body.description;
+      if (body.projectType !== undefined) updates.projectType = body.projectType;
+      if (body.customProjectType !== undefined) updates.customProjectType = body.customProjectType;
+
+      const contactEmails = body.contacts || body.contactEmails;
+      if (contactEmails !== undefined) {
+        updates.contactEmails = JSON.stringify(contactEmails);
+      }
+
+      await updateProject(projectCode, updates);
 
         if (Array.isArray(body.stages) && body.stages.length > 0) {
           const stageEntities = body.stages.map((stage: any) => mapStageToEntity(projectCode, stage));
           await upsertStages(projectCode, stageEntities);
+          await deleteStagesNotIn(projectCode, stageEntities.map(stage => stage.stageId));
         }
 
         return addCorsHeaders(success({ projectCode }), request.headers.get("origin") || undefined);
       }
-    }
 
+    // GET - list all projects
     const projects = await getAllProjects();
 
     const payload = await Promise.all(
@@ -223,5 +253,11 @@ export async function projectsHandler(request: HttpRequest, context: InvocationC
     return addCorsHeaders(error("Failed to fetch projects", 500), request.headers.get("origin") || undefined);
   }
 }
+
+// SECURITY: Wrap handler with rate limiting
+export const projectsHandler = withRateLimit(
+  projectsHandlerImpl,
+  RATE_LIMITS.STANDARD
+);
 
 export default projectsHandler;
