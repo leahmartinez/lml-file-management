@@ -214,7 +214,7 @@ const UserTable = () => {
                         {getStatusBadge(user.accountStatus, user.emailVerified)}
                       </TableCell>
                       <TableCell>
-                        {user.role === 'admin' || user.role === 'national_manager' ? (
+                        {user.role === 'super_admin' || user.role === 'admin' || user.role === 'national_manager' ? (
                           <span className="text-muted-foreground text-sm">All sites</span>
                         ) : user.sites.length > 0 ? (
                           <div className="flex flex-wrap gap-1">

@@ -14,7 +14,7 @@ import { Mail } from 'lucide-react';
 const AddUserForm = () => {
   const { allUsers, refreshUsers } = useAuth();
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'national_manager' | 'site_manager' | 'admin' | 'consultant'>('site_manager');
+  const [role, setRole] = useState<'super_admin' | 'national_manager' | 'site_manager' | 'admin' | 'consultant'>('site_manager');
   const [selectedSites, setSelectedSites] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,7 +67,7 @@ const AddUserForm = () => {
       await authApi.sendInvitation(
         email.trim(),
         role,
-        role === 'national_manager' || role === 'admin' || role === 'consultant' ? [] : selectedSites
+        role === 'national_manager' || role === 'admin' || role === 'super_admin' || role === 'consultant' ? [] : selectedSites
       );
 
       // Refresh users list to show the new pending user
@@ -142,10 +142,12 @@ const AddUserForm = () => {
                 <SelectItem value="site_manager">Site Manager</SelectItem>
                 <SelectItem value="national_manager">National Manager</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="super_admin">Super Admin</SelectItem>
                 <SelectItem value="consultant">Consultant (LML)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">
+              {role === 'super_admin' && 'Super admins have full access plus can edit all user profiles and manage system settings'}
               {role === 'admin' && 'Admins have full access to all sites and features'}
               {role === 'national_manager' && 'National managers can view all sites'}
               {role === 'site_manager' && 'Site managers can only view assigned sites'}

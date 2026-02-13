@@ -27,7 +27,7 @@ const functions = [
   { name: 'sites-delete', route: 'sites/delete', methods: ['DELETE', 'OPTIONS'], script: '../handlers/sites-delete.js' },
   { name: 'user-profile', route: 'user/profile', methods: ['GET', 'PUT', 'OPTIONS'], script: '../handlers/user-profile.js' },
   { name: 'projects-rename', route: 'projects/rename', methods: ['PUT', 'OPTIONS'], script: '../handlers/projects-rename.js' },
-  { name: 'profiles', route: 'profiles/{email}', methods: ['GET', 'OPTIONS'], script: '../handlers/profiles.js' }
+  { name: 'profiles', route: 'profiles/{email}', methods: ['GET', 'PUT', 'OPTIONS'], script: '../handlers/profiles.js' }
 ];
 
 // Generate function.json for each function in dist directory

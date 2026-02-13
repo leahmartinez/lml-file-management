@@ -112,7 +112,7 @@ const SitesPage = () => {
   // Site and project selection states
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const isConsultant = user?.role === 'admin' || user?.role === 'user';
+  const isConsultant = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'user';
   const isSubconsultant = user?.role === 'subconsultant';
 
   const assignedProjectCodes = useMemo(() => {

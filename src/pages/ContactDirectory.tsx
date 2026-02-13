@@ -56,7 +56,7 @@ const ContactDirectory: React.FC = () => {
   const [previousView, setPreviousView] = useState<{ type: 'contact' | 'business'; id: string } | null>(null);
 
   // Check if user is admin or consultant (can add external contacts)
-  const canAddContacts = user?.role === 'admin' || user?.role === 'user' || user?.role === 'consultant';
+  const canAddContacts = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'user' || user?.role === 'consultant';
 
   /**
    * Load contacts, categories, and businesses on component mount

@@ -56,7 +56,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose }) => {
     try {
       const updates: any = {
         role,
-        sites: role === 'national_manager' || role === 'admin' || role === 'consultant' ? [] : selectedSites,
+        sites: role === 'national_manager' || role === 'admin' || role === 'super_admin' || role === 'consultant' ? [] : selectedSites,
       };
 
       // Only include password if provided
@@ -81,9 +81,9 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose }) => {
     }
   };
 
-  const handleRoleChange = (newRole: 'national_manager' | 'site_manager' | 'admin' | 'consultant') => {
+  const handleRoleChange = (newRole: 'super_admin' | 'national_manager' | 'site_manager' | 'admin' | 'consultant') => {
     setRole(newRole);
-    if (newRole === 'national_manager' || newRole === 'admin' || newRole === 'consultant') {
+    if (newRole === 'national_manager' || newRole === 'admin' || newRole === 'super_admin' || newRole === 'consultant') {
       setSelectedSites([]);
     }
   };
@@ -115,10 +115,12 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose }) => {
                   <SelectItem value="site_manager">Site Manager</SelectItem>
                   <SelectItem value="national_manager">National Manager</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
                   <SelectItem value="consultant">Consultant (LML)</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
+                {role === 'super_admin' && 'Super admins have full access plus can edit all user profiles and manage system settings'}
                 {role === 'admin' && 'Admins have full access to all sites and features'}
                 {role === 'national_manager' && 'National managers can view all sites'}
                 {role === 'site_manager' && 'Site managers can only view assigned sites'}
@@ -135,10 +137,12 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose }) => {
               </div>
             )}
 
-            {(role === 'national_manager' || role === 'admin' || role === 'consultant') && (
+            {(role === 'national_manager' || role === 'admin' || role === 'super_admin' || role === 'consultant') && (
               <div className="p-4 bg-muted rounded-md">
                 <p className="text-sm text-muted-foreground">
-                  {role === 'admin' 
+                  {role === 'super_admin'
+                    ? 'Super admins have access to all sites and can edit all user profiles.'
+                    : role === 'admin'
                     ? 'Admins have access to all sites automatically.'
                     : role === 'consultant'
                     ? 'Consultants have access to all sites and can manage them.'

@@ -88,10 +88,12 @@ export function getAuthenticatedUser(req: HttpRequest): JWTPayload | null {
 }
 
 /**
- * Check if user has required role
+ * Check if user has required role.
+ * super_admin inherits all admin permissions automatically.
  */
 export function hasRole(user: JWTPayload | null, allowedRoles: string[]): boolean {
   if (!user) return false;
+  if (user.role === 'super_admin') return true;
   return allowedRoles.includes(user.role);
 }
 

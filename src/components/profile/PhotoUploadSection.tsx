@@ -35,46 +35,45 @@ export const PhotoUploadSection: React.FC<PhotoUploadSectionProps> = ({
 
   /**
    * Resize and compress image to fit Azure Table Storage property limits.
-   * Returns a JPEG data URL small enough for storage (~40-50KB).
+   * Uses FileReader (data: URL) instead of createObjectURL (blob: URL) to
+   * avoid CSP img-src restrictions that block blob: URLs.
    */
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        // Calculate scaled dimensions
-        let { width, height } = img;
-        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-          const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
-          width = Math.round(width * ratio);
-          height = Math.round(height * ratio);
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { reject(new Error('Canvas not supported')); return; }
-        ctx.drawImage(img, 0, 0, width, height);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+            const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('Canvas not supported')); return; }
+          ctx.drawImage(img, 0, 0, width, height);
 
-        // Try progressively lower quality until it fits
-        let quality = JPEG_QUALITY;
-        let dataUrl = canvas.toDataURL('image/jpeg', quality);
-        while (dataUrl.length > MAX_DATA_URL_LENGTH && quality > 0.1) {
-          quality -= 0.1;
-          dataUrl = canvas.toDataURL('image/jpeg', quality);
-        }
-        if (dataUrl.length > MAX_DATA_URL_LENGTH) {
-          reject(new Error('Image is too large even after compression. Please use a smaller image.'));
-          return;
-        }
-        resolve(dataUrl);
+          let quality = JPEG_QUALITY;
+          let dataUrl = canvas.toDataURL('image/jpeg', quality);
+          while (dataUrl.length > MAX_DATA_URL_LENGTH && quality > 0.1) {
+            quality -= 0.1;
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+          if (dataUrl.length > MAX_DATA_URL_LENGTH) {
+            reject(new Error('Image is too large even after compression. Please use a smaller image.'));
+            return;
+          }
+          resolve(dataUrl);
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = reader.result as string;
       };
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        reject(new Error('Failed to load image'));
-      };
-      img.src = objectUrl;
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
     });
   };
 

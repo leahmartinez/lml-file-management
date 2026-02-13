@@ -355,7 +355,7 @@ export const AssignedWorkMap: React.FC<AssignedWorkMapProps> = ({ rows }) => {
   }, [rows, mapReady]);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full z-0">
       <div
         ref={mapRef}
         className="h-full w-full rounded-lg border border-border overflow-hidden"

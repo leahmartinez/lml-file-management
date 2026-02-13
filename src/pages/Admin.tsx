@@ -42,7 +42,8 @@ const Admin = () => {
     stages: [] as Array<{ name: string; price?: number }>,
   });
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isSuperAdmin = user?.role === 'super_admin';
   const isMasterAdmin = user?.email?.toLowerCase() === 'leah@lmllift.com';
   const isMockAuth = !import.meta.env.PROD && import.meta.env.VITE_USE_MOCK_AUTH === 'true';
   const isLmlEmail = (email: string) => email.trim().toLowerCase().endsWith('@lmllift.com');
@@ -169,7 +170,7 @@ const Admin = () => {
         await authApi.sendInvitation(
           formData.email.trim(),
           formData.role,
-          formData.role === 'national_manager' || formData.role === 'admin' || formData.role === 'consultant'
+          formData.role === 'national_manager' || formData.role === 'admin' || formData.role === 'super_admin' || formData.role === 'consultant'
             ? []
             : formData.sites
         );

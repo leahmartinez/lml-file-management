@@ -31,7 +31,7 @@ const API_BASE_URL = getApiBaseUrl();
 
 export interface ApiUser {
   email: string;
-  role: 'national_manager' | 'site_manager' | 'admin' | 'consultant' | 'user' | 'subconsultant';
+  role: 'super_admin' | 'national_manager' | 'site_manager' | 'admin' | 'consultant' | 'user' | 'subconsultant';
   sites: string[];
   createdAt?: string;
   lastLogin?: string;
@@ -351,6 +351,16 @@ export const profileApi = {
   async getUserProfile(email: string): Promise<any> {
     return apiRequest<any>(`/profiles/${encodeURIComponent(email)}`, {
       method: 'GET',
+    });
+  },
+
+  /**
+   * Update another user's profile (super_admin only)
+   */
+  async updateUserProfile(email: string, updates: any): Promise<any> {
+    return apiRequest<any>(`/profiles/${encodeURIComponent(email)}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
     });
   },
 };

@@ -86,6 +86,7 @@ export const longTextSchema = z
  * User roles enum - matches database schema
  */
 export const userRoleSchema = z.enum([
+  'super_admin',
   'admin',
   'user',
   'subconsultant',

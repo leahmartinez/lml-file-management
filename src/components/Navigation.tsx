@@ -22,7 +22,7 @@ const NavigationComponent = ({ className }: NavigationProps) => {
   // Filter navigation items based on user role
   const allNavItems = navItems.filter(item => {
     if (item.adminOnly) {
-      return user?.role === 'admin';
+      return user?.role === 'admin' || user?.role === 'super_admin';
     }
     return true;
   });
