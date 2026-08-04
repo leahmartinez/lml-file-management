@@ -1,6 +1,7 @@
 /**
  * SharePoint File Browser Component
- * Displays files in a folder with options to open, download, or delete
+ * Displays the contents of one folder - files AND subfolders - with options to
+ * navigate into folders, open/download/delete/copy/rename files.
  */
 
 import React, { useState } from 'react';
@@ -20,18 +21,25 @@ import {
   FileText,
   FileSpreadsheet,
   File,
+  Folder,
   Loader2,
   AlertCircle,
+  Pencil,
+  Copy,
 } from 'lucide-react';
 import { formatFileSize, formatDate } from '@/utils/fileUtils';
+import { InlineNameInput } from './InlineNameInput';
 
 interface SharePointFileBrowserProps {
   files: FileMetadata[];
   isLoading?: boolean;
   error?: string | null;
   onOpenFile?: (file: FileMetadata) => void;
+  onOpenFolder?: (file: FileMetadata) => void;
   onDeleteFile?: (itemId: string) => Promise<void>;
   onDownloadFile?: (file: FileMetadata) => void;
+  onRenameFile?: (itemId: string, newName: string) => Promise<void> | void;
+  onCopyFile?: (file: FileMetadata) => void;
 }
 
 const getFileIcon = (fileName: string) => {
@@ -61,10 +69,14 @@ export const SharePointFileBrowser: React.FC<SharePointFileBrowserProps> = ({
   isLoading = false,
   error,
   onOpenFile,
+  onOpenFolder,
   onDeleteFile,
   onDownloadFile,
+  onRenameFile,
+  onCopyFile,
 }) => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const handleDelete = async (itemId: string) => {
     if (!onDeleteFile) return;
@@ -88,6 +100,12 @@ export const SharePointFileBrowser: React.FC<SharePointFileBrowserProps> = ({
       // Fallback: open in new tab
       window.open(file.webUrl, '_blank');
     }
+  };
+
+  const handleRenameConfirm = async (file: FileMetadata, newName: string) => {
+    if (!onRenameFile) return;
+    await onRenameFile(file.id, newName);
+    setRenamingId(null);
   };
 
   if (error) {
@@ -119,6 +137,14 @@ export const SharePointFileBrowser: React.FC<SharePointFileBrowserProps> = ({
     );
   }
 
+  // Folders first, files after - matches how every native file explorer sorts a listing.
+  const sortedFiles = [...files].sort((a, b) => {
+    const aIsFolder = Boolean(a.folder);
+    const bIsFolder = Boolean(b.folder);
+    if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
   return (
     <div className="border rounded-lg overflow-hidden">
       <Table>
@@ -132,53 +158,92 @@ export const SharePointFileBrowser: React.FC<SharePointFileBrowserProps> = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {files.map((file) => (
-            <TableRow key={file.id} className="hover:bg-muted/50">
-              <TableCell className="w-8">{getFileIcon(file.name)}</TableCell>
-              <TableCell>
-                <button
-                  onClick={() => onOpenFile?.(file)}
-                  className="font-medium text-blue-600 hover:underline truncate"
-                  title={file.name}
-                >
-                  {file.name}
-                </button>
-              </TableCell>
-              <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                {formatFileSize(file.size)}
-              </TableCell>
-              <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                {formatDate(file.lastModifiedDateTime)}
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDownload(file)}
-                    title="Download"
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  {onDeleteFile && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(file.id)}
-                      disabled={deletingId === file.id}
-                      title="Delete"
+          {sortedFiles.map((file) => {
+            const isFolder = Boolean(file.folder);
+            const isRenaming = renamingId === file.id;
+
+            return (
+              <TableRow key={file.id} className="hover:bg-muted/50">
+                <TableCell className="w-8">
+                  {isFolder ? <Folder className="h-4 w-4 text-amber-500" /> : getFileIcon(file.name)}
+                </TableCell>
+                <TableCell>
+                  {isRenaming ? (
+                    <InlineNameInput
+                      initialValue={file.name}
+                      onConfirm={(newName) => handleRenameConfirm(file, newName)}
+                      onCancel={() => setRenamingId(null)}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => (isFolder ? onOpenFolder?.(file) : onOpenFile?.(file))}
+                      className="font-medium text-blue-600 hover:underline truncate text-left"
+                      title={file.name}
                     >
-                      {deletingId === file.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      )}
-                    </Button>
+                      {file.name}
+                    </button>
                   )}
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+                <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                  {isFolder ? '—' : formatFileSize(file.size)}
+                </TableCell>
+                <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                  {formatDate(file.lastModifiedDateTime)}
+                </TableCell>
+                <TableCell className="text-right">
+                  {!isRenaming && (
+                    <div className="flex justify-end gap-1">
+                      {!isFolder && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownload(file)}
+                          title="Download"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {!isFolder && onCopyFile && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onCopyFile(file)}
+                          title="Copy"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onRenameFile && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRenamingId(file.id)}
+                          title="Rename"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onDeleteFile && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(file.id)}
+                          disabled={deletingId === file.id}
+                          title="Delete"
+                        >
+                          {deletingId === file.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

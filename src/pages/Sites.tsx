@@ -864,6 +864,7 @@ const SitesPage = () => {
               // Stage View
               <Suspense fallback={<div>Loading stage...</div>}>
                 <ProjectStageView
+                  key={selectedStage.id}
                   stage={selectedStage}
                   projectCode={selectedProject.projectCode}
                   onBack={() => setSelectedStage(null)}

@@ -15,6 +15,7 @@ import { useAuth } from "./hooks/useAuth.tsx";
 import { usePermissions } from "./hooks/usePermissions";
 import { initializeMockProjectUnits } from "./utils/initMockData";
 import { SharePointAuthProvider } from "./contexts/SharePointAuthContext";
+import { FileClipboardProvider } from "./contexts/FileClipboardContext";
 
 // Code split heavy page components for better initial load performance
 const ContactDirectory = lazy(() => import("./pages/ContactDirectory"));
@@ -189,7 +190,9 @@ const AppContent = () => {
 
 const App = () => (
   <SharePointAuthProvider>
-    <AppContent />
+    <FileClipboardProvider>
+      <AppContent />
+    </FileClipboardProvider>
   </SharePointAuthProvider>
 );
 

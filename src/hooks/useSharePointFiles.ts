@@ -100,6 +100,73 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
   );
 
   /**
+   * Rename a file or folder in place
+   */
+  const renameItem = useCallback(
+    async (itemId: string, newName: string): Promise<FileMetadata | null> => {
+      if (!isAuthenticated || !folderPath) {
+        setError('Not authenticated or folder not specified');
+        return null;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const renamed = await graphService.renameItem(itemId, newName);
+
+        // Refresh file list
+        await fetchFiles(folderPath);
+
+        return renamed;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to rename item';
+        setError(errorMessage);
+        console.error('Error renaming item:', errorMessage);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated, folderPath, fetchFiles]
+  );
+
+  /**
+   * Copy a file to an arbitrary destination folder (not necessarily this hook's folder) -
+   * used for paste-anywhere clipboard behavior.
+   */
+  const copyItemTo = useCallback(
+    async (sourceItemId: string, destFolderPath: string, newName?: string): Promise<FileMetadata | null> => {
+      if (!isAuthenticated) {
+        setError('Not authenticated');
+        return null;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const copiedFile = await graphService.copyFile(sourceItemId, destFolderPath, newName);
+
+        // Refresh file list if the destination is the folder this hook is bound to
+        if (folderPath && destFolderPath === folderPath) {
+          await fetchFiles(folderPath);
+        }
+
+        return copiedFile;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to copy item';
+        setError(errorMessage);
+        console.error('Error copying item:', errorMessage);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated, folderPath, fetchFiles]
+  );
+
+  /**
    * Delete a file
    */
   const deleteFile = useCallback(
@@ -196,6 +263,38 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
   );
 
   /**
+   * Create a new folder inside this hook's folder
+   */
+  const createFolder = useCallback(
+    async (folderName: string): Promise<FileMetadata | null> => {
+      if (!isAuthenticated || !folderPath) {
+        setError('Not authenticated or folder not specified');
+        return null;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const newFolder = await graphService.createFolder(folderPath, folderName);
+
+        // Refresh file list
+        await fetchFiles(folderPath);
+
+        return newFolder;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to create folder';
+        setError(errorMessage);
+        console.error('Error creating folder:', errorMessage);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated, folderPath, fetchFiles]
+  );
+
+  /**
    * Refresh file list
    */
   const refresh = useCallback(async () => {
@@ -212,7 +311,10 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
     uploadFile,
     deleteFile,
     copyFileHere,
+    copyItemTo,
+    renameItem,
     createBlankFile,
+    createFolder,
     refresh,
   };
 };
