@@ -26,6 +26,7 @@ import {
   AlertCircle,
   Pencil,
   Copy,
+  Scissors,
 } from 'lucide-react';
 import { formatFileSize, formatDate } from '@/utils/fileUtils';
 import { InlineNameInput } from './InlineNameInput';
@@ -40,6 +41,7 @@ interface SharePointFileBrowserProps {
   onDownloadFile?: (file: FileMetadata) => void;
   onRenameFile?: (itemId: string, newName: string) => Promise<void> | void;
   onCopyFile?: (file: FileMetadata) => void;
+  onCutFile?: (file: FileMetadata) => void;
 }
 
 const getFileIcon = (fileName: string) => {
@@ -74,6 +76,7 @@ export const SharePointFileBrowser: React.FC<SharePointFileBrowserProps> = ({
   onDownloadFile,
   onRenameFile,
   onCopyFile,
+  onCutFile,
 }) => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -211,6 +214,16 @@ export const SharePointFileBrowser: React.FC<SharePointFileBrowserProps> = ({
                           title="Copy"
                         >
                           <Copy className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onCutFile && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onCutFile(file)}
+                          title="Cut (move)"
+                        >
+                          <Scissors className="h-4 w-4" />
                         </Button>
                       )}
                       {onRenameFile && (

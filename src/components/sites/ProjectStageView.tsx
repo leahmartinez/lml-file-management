@@ -137,7 +137,7 @@ export const ProjectStageView = ({
   // SharePoint hooks - always call them (React rule), but they check the flag internally
   const sharePointAuth = useSharePointAuth();
   const { isAuthenticated, login, error: sharePointAuthError } = sharePointAuth || { isAuthenticated: false, login: () => {}, error: null };
-  const { clipboard, copy: copyToClipboard, clear: clearClipboard } = useFileClipboard();
+  const { clipboard, copy: copyToClipboard, cut: cutToClipboard, clear: clearClipboard } = useFileClipboard();
 
   // SharePoint folder path for this stage's root, and the folder currently being
   // browsed within it (nested folder navigation - see currentSubPath below)
@@ -159,6 +159,7 @@ export const ProjectStageView = ({
     createFolder: createSharePointFolder,
     createBlankFile: createSharePointBlankFile,
     copyItemTo: copyItemToStageFolder,
+    moveItemTo: moveItemToStageFolder,
   } = useSharePointFiles({
     folderPath: activeFolderPath,
     autoFetch: isAuthenticated,
@@ -463,9 +464,22 @@ export const ProjectStageView = ({
   const handlePasteFile = async () => {
     if (!clipboard) return;
     try {
-      const result = await copyItemToStageFolder(clipboard.item.id, activeFolderPath, clipboard.item.name);
-      if (result) {
-        toast({ title: "Success", description: `${clipboard.item.name} pasted here` });
+      if (clipboard.mode === 'move') {
+        if (clipboard.sourceFolderPath === activeFolderPath) {
+          toast({ title: "Already here", description: `${clipboard.item.name} is already in this folder` });
+          clearClipboard();
+          return;
+        }
+        const result = await moveItemToStageFolder(clipboard.item.id, activeFolderPath, clipboard.sourceFolderPath, clipboard.item.name);
+        if (result) {
+          toast({ title: "Success", description: `${clipboard.item.name} moved here` });
+          clearClipboard();
+        }
+      } else {
+        const result = await copyItemToStageFolder(clipboard.item.id, activeFolderPath, clipboard.item.name);
+        if (result) {
+          toast({ title: "Success", description: `${clipboard.item.name} pasted here` });
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -793,7 +807,16 @@ export const ProjectStageView = ({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Files</CardTitle>
+            <div>
+              <CardTitle className="text-lg">Files</CardTitle>
+              {/* Always visible, on both tabs, so it's clear where "Copy to this stage"
+                  (Templates tab) and Paste actually land - not just when browsing Files. */}
+              {isAuthenticated && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Working folder: {stage.name}{currentSubPath.length > 0 ? ` / ${currentSubPath.join(' / ')}` : ''}
+                </p>
+              )}
+            </div>
             <div className="flex gap-2">
               {/* SharePoint Auth/Login Button */}
               {!isAuthenticated && (
@@ -880,12 +903,13 @@ export const ProjectStageView = ({
               )}
 
               {/* Paste Button - shown whenever the clipboard holds a file, regardless of
-                  which stage/project it was copied from */}
+                  which stage/project it was copied (or cut) from. Label reflects whether
+                  this will duplicate the file (copy) or relocate it (cut/move). */}
               {isAuthenticated && canUpload && fileTab === 'sharepoint' && clipboard && (
                 <div className="flex items-center gap-1">
-                  <Button size="sm" variant="outline" onClick={handlePasteFile} className="gap-2" title={`Paste "${clipboard.item.name}"`}>
+                  <Button size="sm" variant="outline" onClick={handlePasteFile} className="gap-2" title={`${clipboard.mode === 'move' ? 'Move' : 'Paste'} "${clipboard.item.name}" into ${activeFolderPath}`}>
                     <ClipboardPaste className="h-4 w-4" />
-                    Paste
+                    {clipboard.mode === 'move' ? 'Move Here' : 'Paste'}
                   </Button>
                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={clearClipboard} title="Clear clipboard">
                     <X className="h-4 w-4" />
@@ -998,6 +1022,10 @@ export const ProjectStageView = ({
                     onCopyFile={canUpload ? (file) => {
                       copyToClipboard(file, activeFolderPath);
                       toast({ title: "Copied", description: `${file.name} copied - paste it anywhere` });
+                    } : undefined}
+                    onCutFile={canUpload ? (file) => {
+                      cutToClipboard(file, activeFolderPath);
+                      toast({ title: "Cut", description: `${file.name} will move here when you paste it elsewhere` });
                     } : undefined}
                   />
                 </>

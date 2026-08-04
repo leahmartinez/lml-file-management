@@ -167,6 +167,43 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
   );
 
   /**
+   * Move a file to an arbitrary destination folder (not necessarily this hook's folder) -
+   * used for "cut and paste anywhere" clipboard behavior. Unlike copyItemTo, this changes
+   * the item's actual location rather than duplicating it.
+   */
+  const moveItemTo = useCallback(
+    async (sourceItemId: string, destFolderPath: string, sourceFolderPath: string, newName?: string): Promise<FileMetadata | null> => {
+      if (!isAuthenticated) {
+        setError('Not authenticated');
+        return null;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const destFolder = await graphService.getFolderByPath(destFolderPath);
+        const movedFile = await graphService.moveDriveItem(sourceItemId, destFolder.id, newName);
+
+        // Refresh whichever list(s) this hook is bound to are affected
+        if (folderPath && (destFolderPath === folderPath || sourceFolderPath === folderPath)) {
+          await fetchFiles(folderPath);
+        }
+
+        return movedFile;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to move item';
+        setError(errorMessage);
+        console.error('Error moving item:', errorMessage);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated, folderPath, fetchFiles]
+  );
+
+  /**
    * Delete a file
    */
   const deleteFile = useCallback(
@@ -312,6 +349,7 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
     deleteFile,
     copyFileHere,
     copyItemTo,
+    moveItemTo,
     renameItem,
     createBlankFile,
     createFolder,
