@@ -14,6 +14,10 @@ interface UseSharePointFilesOptions {
 
 export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
   const { autoFetch = true, folderPath } = options;
+
+  // Check if SharePoint is enabled
+  const sharePointEnabled = import.meta.env.VITE_ENABLE_SHAREPOINT !== 'false';
+
   const { isAuthenticated, getAccessToken } = useSharePointAuth();
 
   const [files, setFiles] = useState<FileMetadata[]>([]);
@@ -25,6 +29,12 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
    */
   const fetchFiles = useCallback(
     async (path?: string) => {
+      // Skip if SharePoint is disabled
+      if (!sharePointEnabled) {
+        console.log('SharePoint integration disabled - skipping file fetch');
+        return;
+      }
+
       if (!isAuthenticated || !path) return;
 
       try {
@@ -45,7 +55,7 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
         setIsLoading(false);
       }
     },
-    [isAuthenticated, getAccessToken]
+    [isAuthenticated, getAccessToken, sharePointEnabled]
   );
 
   /**

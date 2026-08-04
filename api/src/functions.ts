@@ -24,6 +24,10 @@ import { contactsHandler } from "./handlers/contacts";
 import { businessesHandler } from "./handlers/businesses";
 import { userProfileHandler } from "./handlers/user-profile";
 import { profilesHandler } from "./handlers/profiles";
+import { jobTypesHandler } from "./handlers/job-types";
+import { proposalsHandler } from "./handlers/proposals";
+import { alertsHandler } from "./handlers/alerts";
+import { sharepointHandler } from "./handlers/sharepoint";
 
 // Register health check first to test if app is loading
 app.http("health", {
@@ -175,6 +179,30 @@ app.http("businesses", {
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   route: "businesses",
   handler: businessesHandler,
+});
+
+app.http("job-types", {
+  methods: ["GET", "POST", "PATCH", "OPTIONS"],
+  route: "job-types/{*segments}",
+  handler: jobTypesHandler,
+});
+
+app.http("proposals", {
+  methods: ["GET", "PATCH", "OPTIONS"],
+  route: "proposals/{*segments}",
+  handler: proposalsHandler,
+});
+
+app.http("alerts", {
+  methods: ["GET", "PATCH", "OPTIONS"],
+  route: "alerts/{*segments}",
+  handler: alertsHandler,
+});
+
+app.http("sharepoint", {
+  methods: ["GET", "POST", "DELETE", "OPTIONS"],
+  route: "sharepoint/{*segments}",
+  handler: sharepointHandler,
 });
 
 export { app };

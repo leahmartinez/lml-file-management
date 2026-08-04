@@ -4,11 +4,43 @@
  * before deploying to Azure Functions
  */
 
+// Load environment variables from local.settings.json
+import * as path from 'path';
+const localSettingsPath = path.join(__dirname, 'local.settings.json');
+try {
+  const settings = require(localSettingsPath);
+  if (settings.Values) {
+    Object.keys(settings.Values).forEach((key) => {
+      process.env[key] = settings.Values[key];
+    });
+  }
+  console.log('✅ Loaded environment from local.settings.json');
+  if (process.env.SANDBOX_MODE === 'true') {
+    console.log('🏖️  SANDBOX_MODE enabled - Using Azurite for SharePoint');
+  }
+} catch (error) {
+  console.warn('⚠️  Could not load local.settings.json, using existing environment variables');
+}
+
 import express from 'express';
 import cors from 'cors';
-import { initializeDatabase } from './src/database/tableStorage';
-import { getUserByEmail } from './src/database/tableStorage';
+import {
+  getUserByEmailLocal,
+  createUserLocal,
+  updateUserLocal,
+  deleteUserLocal,
+  getAllUsersLocal,
+  initializeLocalDatabase,
+} from './src/database/localMockDb';
 import { verifyPassword, generateToken } from './src/utils/auth';
+import { getSharePointService } from './src/services/sharePointServiceFactory';
+
+// Use local mock database for dev mode
+const getUserByEmail = getUserByEmailLocal;
+const createUser = createUserLocal;
+const updateUser = updateUserLocal;
+const deleteUser = deleteUserLocal;
+const getAllUsers = getAllUsersLocal;
 // Response helpers (simplified for Express)
 function success(data: any) {
   return { status: 200, jsonBody: data };
@@ -17,7 +49,6 @@ function success(data: any) {
 function error(message: string, status: number = 500) {
   return { status, jsonBody: { error: message } };
 }
-import { getAllUsers, createUser, updateUser, deleteUser } from './src/database/tableStorage';
 
 const app = express();
 const PORT = 7071;
@@ -80,6 +111,47 @@ function requireAdmin(req: express.Request, res: express.Response, next: express
 }
 
 // Routes
+
+// GET / - Root welcome page
+app.get('/', (req, res) => {
+  res.json({
+    message: '🚀 LML API Server is running!',
+    version: '1.0.0',
+    mode: process.env.SANDBOX_MODE === 'true' ? 'Sandbox (Local)' : 'Production',
+    endpoints: {
+      auth: [
+        'POST /api/auth/login',
+      ],
+      user: [
+        'GET /api/profile',
+        'GET /api/users',
+        'POST /api/users',
+        'PUT /api/users/:email',
+        'DELETE /api/users/:email',
+      ],
+      sharepoint: [
+        'POST /api/sharepoint/folders',
+        'POST /api/sharepoint/files',
+        'GET /api/sharepoint/folders/:folderId/children',
+        'GET /api/sharepoint/items/:itemId',
+        'GET /api/sharepoint/items/:itemId/download-url',
+        'DELETE /api/sharepoint/items/:itemId',
+      ],
+      utility: [
+        'GET /api/initialize',
+        'GET /health',
+      ],
+    },
+    testUsers: [
+      { email: 'leah@lmllift.com', password: 'password', role: 'admin' },
+    ],
+  });
+});
+
+// GET /health - Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // POST /api/auth/login
 app.post('/api/auth/login', async (req, res) => {
@@ -275,9 +347,9 @@ app.delete('/api/users/:email', requireAuth, requireAdmin, async (req, res) => {
 // GET /api/initialize
 app.get('/api/initialize', async (req, res) => {
   try {
-    await initializeDatabase();
+    await initializeLocalDatabase();
     res.json({
-      message: 'Database initialized successfully',
+      message: 'Local database initialized successfully',
       info: 'Initial admin user: leah@lmllift.com / password',
     });
   } catch (err: any) {
@@ -286,12 +358,111 @@ app.get('/api/initialize', async (req, res) => {
   }
 });
 
+// =============================================================================
+// SHAREPOINT ROUTES
+// =============================================================================
+
+// POST /api/sharepoint/folders - Create folder
+app.post('/api/sharepoint/folders', requireAuth, async (req, res) => {
+  try {
+    const { parentId, folderName } = req.body;
+    const service = getSharePointService();
+    const result = await service.createFolder(parentId || 'root', folderName);
+    res.status(201).json(result);
+  } catch (err: any) {
+    console.error('Create folder error:', err);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+// POST /api/sharepoint/files - Upload file
+app.post('/api/sharepoint/files', requireAuth, async (req, res) => {
+  try {
+    const { parentId, fileName, fileContentBase64, mimeType, workOrderId } = req.body;
+    const currentUser = (req as any).user;
+
+    // Decode base64 to buffer
+    const fileBuffer = Buffer.from(fileContentBase64, 'base64');
+
+    const service = getSharePointService();
+    const result = await service.uploadFile(
+      parentId || 'root',
+      fileName,
+      fileBuffer,
+      mimeType,
+      {
+        originalName: fileName,
+        mimeType,
+        uploadedBy: currentUser.email,
+        workOrderId,
+        createdAt: new Date().toISOString(),
+      }
+    );
+    res.status(201).json(result);
+  } catch (err: any) {
+    console.error('Upload file error:', err);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+// GET /api/sharepoint/folders/:folderId/children - List folder contents
+app.get('/api/sharepoint/folders/:folderId/children', requireAuth, async (req, res) => {
+  try {
+    const { folderId } = req.params;
+    const service = getSharePointService();
+    const result = await service.listFolderChildren(folderId);
+    res.json(result);
+  } catch (err: any) {
+    console.error('List folder error:', err);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+// GET /api/sharepoint/items/:itemId - Get item metadata
+app.get('/api/sharepoint/items/:itemId', requireAuth, async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const service = getSharePointService();
+    const result = await service.getFolderOrFile(itemId);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Get item error:', err);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+// GET /api/sharepoint/items/:itemId/download-url - Get download URL
+app.get('/api/sharepoint/items/:itemId/download-url', requireAuth, async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const service = getSharePointService();
+    const result = await service.getDownloadUrl(itemId);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Get download URL error:', err);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/sharepoint/items/:itemId - Delete item
+app.delete('/api/sharepoint/items/:itemId', requireAuth, async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const service = getSharePointService();
+    await service.deleteItem(itemId);
+    res.status(204).send();
+  } catch (err: any) {
+    console.error('Delete item error:', err);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
 // Start server
 async function start() {
   try {
-    // Initialize database
-    await initializeDatabase();
-    console.log('✅ Database initialized');
+    // Initialize local mock database
+    await initializeLocalDatabase();
+    console.log('✅ Local mock database initialized');
     
     app.listen(PORT, () => {
       console.log('');
@@ -307,9 +478,22 @@ async function start() {
       console.log('   DELETE /api/users/:email');
       console.log('   GET    /api/initialize');
       console.log('');
+      console.log('📁 SharePoint Endpoints:');
+      console.log('   POST   /api/sharepoint/folders');
+      console.log('   POST   /api/sharepoint/files');
+      console.log('   GET    /api/sharepoint/folders/:folderId/children');
+      console.log('   GET    /api/sharepoint/items/:itemId');
+      console.log('   GET    /api/sharepoint/items/:itemId/download-url');
+      console.log('   DELETE /api/sharepoint/items/:itemId');
+      console.log('');
       console.log('🧪 Test users (password: "password"):');
       console.log('   - leah@lmllift.com');
       console.log('');
+      if (process.env.SANDBOX_MODE === 'true') {
+        console.log('🏖️  SANDBOX MODE: Using Azurite (local storage)');
+        console.log('   Make sure Azurite is running: npm run azurite');
+        console.log('');
+      }
       console.log('Press Ctrl+C to stop');
     });
   } catch (err) {

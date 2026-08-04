@@ -308,6 +308,7 @@ const projectBaseShape = {
   description: longTextSchema.optional(),
   projectType: z.string().max(100).optional(),
   customProjectType: z.string().max(100).optional(),
+  reportTemplatesFolderUrl: urlSchema.optional(), // SharePoint link to Report Templates folder
   address: z.string().max(500).optional(),
   city: z.string().max(100).optional(),
   postcode: postcodeSchema,
@@ -405,6 +406,128 @@ export const businessSchema = z
     logo: z.string().max(100000).optional(),
   })
   .strict();
+
+// =============================================================================
+// JOB TYPES SCHEMAS
+// =============================================================================
+
+/**
+ * Schema for creating a new job type
+ * SECURITY: Enforces max lengths to prevent DoS attacks
+ */
+export const createJobTypeSchema = z
+  .object({
+    name: z.string().min(1, 'Job type name is required').max(100, 'Name must be 100 characters or less').transform((val) => val.trim()),
+    description: z.string().max(500, 'Description must be 500 characters or less').optional().transform((val) => val?.trim()),
+  })
+  .strict();
+
+/**
+ * Schema for updating a job type (PATCH)
+ * At least one field must be provided
+ */
+export const updateJobTypeSchema = z
+  .object({
+    name: z.string().min(1, 'Name cannot be empty').max(100, 'Name must be 100 characters or less').optional().transform((val) => val?.trim()),
+    description: z.string().max(500, 'Description must be 500 characters or less').optional().transform((val) => val?.trim()),
+  })
+  .strict()
+  .refine((data) => data.name !== undefined || data.description !== undefined, {
+    message: 'At least one field (name or description) must be provided',
+  });
+
+// =============================================================================
+// PROPOSALS SCHEMAS (for when backend storage is implemented)
+// =============================================================================
+
+export const createProposalSchema = z
+  .object({
+    proposalNumber: z.string().max(50).optional(), // Auto-generated if not provided
+    clientName: z.string().min(1, 'Client name is required').max(255),
+    clientContact: optionalShortTextSchema,
+    siteName: z.string().min(1, 'Site name is required').max(255),
+    siteAddress: z.string().max(500).optional(),
+    state: australianStateSchema.optional(),
+    city: z.string().max(100).optional(),
+    postcode: postcodeSchema,
+    description: longTextSchema,
+    estimatedValue: z.number().min(0).max(999999999).optional(),
+    status: z.enum(['Draft', 'Sent', 'Under Review', 'Accepted', 'Part Acceptance', 'Rejected', 'Expired']).default('Draft'),
+    stages: z.array(stageSchema).optional(),
+    sentDate: z.string().max(50).optional(),
+    expiryDate: z.string().max(50).optional(),
+    notes: longTextSchema.optional(),
+    attachments: z.array(z.string().max(2000)).optional(),
+    // New fields added April 2026
+    jobTypeId: z.string().max(100).optional().default(''),
+    jobTypeName: z.string().max(255).optional().default(''),
+    generalDescription: longTextSchema.optional().default(''),
+    sharePointFolderUrl: urlSchema.optional().default(''),
+  })
+  .strict();
+
+export const updateProposalSchema = z
+  .object({
+    id: z.string().min(1, 'Proposal ID is required').max(100),
+    clientName: z.string().max(255).optional(),
+    clientContact: optionalShortTextSchema,
+    siteName: z.string().max(255).optional(),
+    siteAddress: z.string().max(500).optional(),
+    state: australianStateSchema.optional(),
+    city: z.string().max(100).optional(),
+    postcode: postcodeSchema,
+    description: longTextSchema.optional(),
+    estimatedValue: z.number().min(0).max(999999999).optional(),
+    status: z.enum(['Draft', 'Sent', 'Under Review', 'Accepted', 'Part Acceptance', 'Rejected', 'Expired']).optional(),
+    stages: z.array(stageSchema).optional(),
+    acceptedStageNames: z.array(z.string().max(255)).optional(),
+    sentDate: z.string().max(50).optional(),
+    expiryDate: z.string().max(50).optional(),
+    acceptedDate: z.string().max(50).optional(),
+    rejectedDate: z.string().max(50).optional(),
+    rejectionReason: longTextSchema.optional(),
+    notes: longTextSchema.optional(),
+    attachments: z.array(z.string().max(2000)).optional(),
+    projectCode: z.string().max(50).optional(),
+    // New fields added April 2026
+    jobTypeId: z.string().max(100).optional(),
+    jobTypeName: z.string().max(255).optional(),
+    generalDescription: longTextSchema.optional(),
+    sharePointFolderUrl: urlSchema.optional(),
+  })
+  .strict();
+
+/**
+ * Schema for updating SharePoint folder URL on a proposal
+ * SECURITY: Validates URL format, admin-only endpoint
+ */
+export const updateProposalSharePointUrlSchema = z
+  .object({
+    sharePointFolderUrl: z
+      .string()
+      .url('Invalid SharePoint URL format')
+      .max(2000, 'URL must be 2000 characters or less')
+      .refine(
+        (url) => url.toLowerCase().includes('sharepoint'),
+        'URL must be a SharePoint URL'
+      ),
+  })
+  .strict();
+
+/**
+ * Schema for proposal list query parameters (filtering)
+ * All fields are optional and can be combined
+ */
+export const proposalListQuerySchema = z.object({
+  status: z.string().max(50).optional(),
+  proposalNumber: z.string().max(50).optional(),
+  siteName: z.string().max(255).optional(),
+  buildingName: z.string().max(255).optional(),
+  address: z.string().max(500).optional(),
+  suburb: z.string().max(100).optional(),
+  state: australianStateSchema.optional(),
+  postcode: z.string().max(10).optional(),
+});
 
 // =============================================================================
 // VALIDATION HELPERS
@@ -514,3 +637,53 @@ export function validateQueryParams<T>(
 
   return { success: true, data: result.data };
 }
+
+// =============================================================================
+// ALERTS SCHEMAS
+// =============================================================================
+
+/**
+ * Alert type enum - defines all possible alert types
+ */
+export const alertTypeSchema = z.enum([
+  'STAGE_ASSIGNED',
+  'PROJECT_UPDATED',
+  'PROPOSAL_UPDATED',
+]);
+
+/**
+ * Entity type enum - what kind of entity the alert references
+ */
+export const alertEntityTypeSchema = z.enum([
+  'projectStage',
+  'project',
+  'proposal',
+]);
+
+/**
+ * Schema for creating a new alert
+ * SECURITY: Enforces max lengths, validates email format
+ */
+export const createAlertSchema = z
+  .object({
+    userId: emailSchema, // Alert recipient
+    type: alertTypeSchema,
+    title: z.string().min(1, 'Title is required').max(200, 'Title must be 200 characters or less'),
+    message: z.string().min(1, 'Message is required').max(1000, 'Message must be 1000 characters or less'),
+    entityType: alertEntityTypeSchema,
+    entityId: z.string().min(1, 'Entity ID is required').max(255),
+    projectId: z.string().max(255).optional().default(''),
+    siteId: z.string().max(255).optional().default(''),
+  })
+  .strict();
+
+/**
+ * Schema for alert list query parameters
+ */
+export const alertListQuerySchema = z
+  .object({
+    unreadOnly: z.string().optional(),
+  })
+  .transform((data) => ({
+    unreadOnly: data.unreadOnly === 'true',
+  }));

@@ -2,8 +2,8 @@
  * Simple test script to verify backend logic works
  */
 
-import { initializeDatabase, getUserByEmail, createUser } from './src/database/tableStorage';
-import { hashPassword, verifyPassword, generateToken } from './src/utils/auth';
+import { initializeDatabase, getUserByEmail, createUser } from '../src/database/tableStorage';
+import { hashPassword, verifyPassword, generateToken } from '../src/utils/auth';
 
 async function test() {
   console.log('🧪 Testing Backend Logic...\n');

@@ -182,6 +182,7 @@ export interface Project {
   customProjectType?: string; // Custom type when projectType === 'Other'
   projectValue?: number; // Total project value in dollars (ex GST) from proposal
   primaryClientEmail?: string; // Primary client contact email
+  reportTemplatesFolderUrl?: string; // SharePoint folder URL for report templates
 }
 
 /**
@@ -364,6 +365,19 @@ export interface ProposalTemplate {
 }
 
 /**
+ * Job Type - Type of job/service for a proposal
+ * Defines categories of work offered to clients
+ */
+export interface JobType {
+  id: string;
+  name: string; // Job type name (e.g., "Lift Upgrade", "Maintenance Contract")
+  description?: string; // Job type description
+  isActive: boolean; // Whether this job type is available for selection
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+}
+
+/**
  * Proposal - A proposal for a potential new project
  * Tracks proposals sent to clients that may convert to projects
  */
@@ -377,7 +391,10 @@ export interface Proposal {
   state?: ProjectState;
   city?: string;
   postcode?: string;
-  description: string; // Proposal description/scope
+  description: string; // Proposal description/scope (short summary)
+  generalDescription?: string; // General description (rich text/HTML)
+  jobTypeId?: string; // Job type ID (links to job type)
+  jobTypeName?: string; // Job type name (denormalized)
   estimatedValue?: number; // Total estimated value (calculated from stage pricing)
   status: ProposalStatus;
   stages?: ProjectStage[]; // Proposed project stages with individual pricing
@@ -389,9 +406,32 @@ export interface Proposal {
   rejectionReason?: string;
   notes?: string; // Additional notes
   attachments?: string[]; // File URLs or names
+  sharePointFolderUrl?: string; // SharePoint folder URL for proposal documents
   createdBy: string; // User email who created proposal
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
   projectCode?: string; // Set when converted to project (fully or partially)
+}
+
+/**
+ * Alert Type - Type of alert/notification
+ */
+export type AlertType = 'assignment' | 'mention' | 'stage_update' | 'project_update' | 'general';
+
+/**
+ * Alert - System notification for users
+ * Replaces the old localStorage-based UserNotification system
+ */
+export interface Alert {
+  id: string; // Unique alert ID
+  type: AlertType; // Type of alert
+  title: string; // Alert title/heading
+  message: string; // Alert message content
+  entityType?: string; // Type of entity referenced (e.g., 'project', 'stage')
+  entityId?: string; // ID of the referenced entity
+  projectId?: string; // Project ID (for navigation)
+  siteId?: string; // Site ID (for navigation)
+  isRead: boolean; // Read status
+  createdAt: string; // ISO date string
 }
 

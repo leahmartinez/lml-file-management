@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
+import { UserRole } from "../../shared/constants/roles";
 
 interface NavigationProps {
   className?: string;
@@ -9,7 +10,7 @@ interface NavigationProps {
 const navItems = [
   { label: "My Work", path: "/my-work" },
   { label: "Projects", path: "/sites" },
-  { label: "Dashboard", path: "/dashboard" },
+  { label: "Overview", path: "/dashboard" },
   { label: "Proposals", path: "/proposals" },
   { label: "Contacts", path: "/contact" },
   { label: "Admin", path: "/admin", adminOnly: true },
@@ -17,12 +18,15 @@ const navItems = [
 
 const NavigationComponent = ({ className }: NavigationProps) => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { role } = usePermissions();
 
   // Filter navigation items based on user role
+  // Uses usePermissions' normalized role so legacy role strings (e.g. lowercase
+  // "admin" seeded in local dev data) are still recognized, not just the current
+  // UserRole enum values.
   const allNavItems = navItems.filter(item => {
     if (item.adminOnly) {
-      return user?.role === 'admin' || user?.role === 'super_admin';
+      return role === UserRole.Admin || role === UserRole.AdminStaff;
     }
     return true;
   });

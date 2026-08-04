@@ -6,7 +6,7 @@ import { useSites } from '@/hooks/useData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Upload, Download, Trash2, Building2, Edit } from 'lucide-react';
+import { ArrowLeft, Upload, Download, Trash2, Building2, Edit, ExternalLink } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ProjectDetailModal } from '@/components/sites/ProjectDetailModal';
 import { DeleteConfirmationDialog } from '@/components/dialogs/DeleteConfirmationDialog';
@@ -136,6 +136,11 @@ export default function ProjectDetail() {
     }
     updateProject(updatedCode, updatedProject);
     return { ok: true } as any;
+  };
+
+  const handleReportTemplatesUrlUpdate = (newUrl: string) => {
+    if (!project) return;
+    updateProject(project.projectCode, { ...project, reportTemplatesFolderUrl: newUrl });
   };
 
   if (!project) {
@@ -306,6 +311,28 @@ export default function ProjectDetail() {
                         {new Date(project.createdAt).toLocaleDateString()}
                       </p>
                     </div>
+                  )}
+                </div>
+
+                {/* Report Templates Folder */}
+                <div className="pt-4 border-t">
+                  <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Report Templates Folder
+                  </label>
+                  {project.reportTemplatesFolderUrl ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => window.open(project.reportTemplatesFolderUrl, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open in SharePoint
+                    </Button>
+                  ) : (
+                    <p className="mt-2 text-sm text-muted-foreground italic">
+                      No report templates folder linked
+                    </p>
                   )}
                 </div>
               </CardContent>
@@ -506,6 +533,7 @@ export default function ProjectDetail() {
             // Handle status change
             handleProjectUpdate(project.projectCode, { ...project, status: newStatus });
           }}
+          onEditReportTemplatesFolderUrl={handleReportTemplatesUrlUpdate}
           onAddPOFile={(poFile) => {
             handleAddPOFile({ target: { files: [new File([poFile.url || ''], poFile.name)] } } as any);
           }}

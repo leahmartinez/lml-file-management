@@ -28,16 +28,19 @@ function useMockAuth(): boolean {
   return import.meta.env.VITE_USE_MOCK_AUTH === 'true';
 }
 
+import { UserRole } from '../../shared/constants/roles';
+
 // Updated User interface to match API (uses email instead of username)
 export interface User {
   email: string;
-  role: 'admin' | 'user' | 'subconsultant' | 'site_manager' | 'consultant' | 'national_manager';
+  role: 'admin' | 'user' | 'subconsultant' | 'site_manager' | 'consultant' | 'national_manager' | UserRole;
   sites: string[];
   createdAt?: string;
   lastLogin?: string;
   createdBy?: string;
   password?: string;
   mustChangePassword?: boolean;
+  pairedUserId?: string; // For consultant pairing
 }
 
 interface AuthContextType {

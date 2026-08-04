@@ -10,10 +10,11 @@
 
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from '../database/tableStorage';
-import { getAuthenticatedUser, hasRole } from '../utils/auth';
+import { getAuthenticatedUser, canUserManageUsers } from '../utils/auth';
 import { success, error, forbidden, notFound, addCorsHeaders, unauthorized } from '../utils/response';
 import { validateRequestBody, userSuspendSchema, isValidationFailure } from '../utils/validation';
 import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
+import { UserRole } from '../../shared/constants/roles';
 
 async function usersSuspendHandlerImpl(
   request: HttpRequest,
@@ -31,8 +32,9 @@ async function usersSuspendHandlerImpl(
       return addCorsHeaders(unauthorized(), request.headers.get('origin') || undefined);
     }
 
-    // Check authorization
-    if (!hasRole(currentUser, ['admin', 'consultant'])) {
+    // AUTHORIZATION: Only Admin can suspend users
+    if (!canUserManageUsers(currentUser)) {
+      context.warn(`Access denied: ${currentUser.email} (${currentUser.role}) attempted to suspend user`);
       return addCorsHeaders(forbidden('Only admins can suspend users'), request.headers.get('origin') || undefined);
     }
 
