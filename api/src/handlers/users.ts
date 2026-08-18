@@ -11,11 +11,12 @@
 
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getAllUsers, getUserByEmail, createUser } from '../database/tableStorage';
-import { getAuthenticatedUser, hasRole, hashPassword } from '../utils/auth';
+import { getAuthenticatedUser, canUserManageUsers, hashPassword } from '../utils/auth';
 import { success, error, forbidden, addCorsHeaders, unauthorized } from '../utils/response';
 import { safeParseJsonArray } from '../utils/json';
 import { validateRequestBody, createUserSchema, isValidationFailure } from '../utils/validation';
 import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
+import { UserRole } from '../../shared/constants/roles';
 
 async function usersHandlerImpl(
   request: HttpRequest,
@@ -53,8 +54,9 @@ async function usersHandlerImpl(
       return addCorsHeaders(success(safeUsers), request.headers.get('origin') || undefined);
 
     } else if (request.method === 'POST') {
-      // Check authorization for user creation
-      if (!hasRole(currentUser, ['admin', 'consultant'])) {
+      // AUTHORIZATION: Only Admin can create users
+      if (!canUserManageUsers(currentUser)) {
+        context.warn(`Access denied: ${currentUser.email} (${currentUser.role}) attempted to create user`);
         return addCorsHeaders(forbidden('Only admins can manage users'), request.headers.get('origin') || undefined);
       }
 

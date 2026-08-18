@@ -7,9 +7,9 @@ import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Navigation } from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserPortal } from '@/hooks/useUserPortal';
-import { useNotifications } from '@/hooks/useNotifications';
 import { UserPortalProfileCard } from '@/components/userportal/UserPortalProfileCard';
 import { AssignedWorkTable } from '@/components/userportal/AssignedWorkTable';
 import { AssignedWorkMap } from '@/components/userportal/AssignedWorkMap';
@@ -20,15 +20,9 @@ import { Briefcase } from 'lucide-react';
 
 const UserPortal = () => {
   const { user } = useAuth();
+  const { canSeeMap } = usePermissions();
   const { profile: userProfile, loading: profileLoading, fetchMyProfile, updateProfile } = useProfile();
   const { assignedStages, totalAssigned, loading: portalLoading } = useUserPortal();
-  const {
-    notifications,
-    unreadCount,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
-  } = useNotifications(user?.email);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
 
   // Fetch user profile on mount
@@ -77,10 +71,12 @@ const UserPortal = () => {
                 <CardTitle>Assigned Work</CardTitle>
               </CardHeader>
               <CardContent className="flex-1 min-h-0 flex gap-4 p-4">
-                {/* Map View - Narrower */}
-                <div className="w-1/4 min-w-[280px]">
-                  <AssignedWorkMap rows={assignedStages} />
-                </div>
+                {/* Map View - Hidden for AdminStaff */}
+                {canSeeMap && (
+                  <div className="w-1/4 min-w-[280px]">
+                    <AssignedWorkMap rows={assignedStages} />
+                  </div>
+                )}
 
                 {/* Table View */}
                 <div className="flex-1 min-w-0">
@@ -92,13 +88,7 @@ const UserPortal = () => {
 
           {/* Right Column: Notifications - Wider */}
           <div className="w-[480px] flex-shrink-0 flex flex-col">
-            <UserPortalNotifications
-              notifications={notifications}
-              unreadCount={unreadCount}
-              onMarkAsRead={markAsRead}
-              onMarkAllAsRead={markAllAsRead}
-              onDelete={deleteNotification}
-            />
+            <UserPortalNotifications />
           </div>
         </div>
       </main>

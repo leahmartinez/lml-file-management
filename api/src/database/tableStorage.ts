@@ -81,6 +81,7 @@ export interface ProjectEntity extends TableEntity {
   description?: string;
   projectType?: string;
   customProjectType?: string;
+  reportTemplatesFolderUrl?: string; // SharePoint link to Report Templates folder
   createdAt: string;
   createdBy?: string;
   contactEmails?: string; // JSON stringified array of contact emails
@@ -109,6 +110,8 @@ let projectsTable: TableClient | null = null;
 let stagesTable: TableClient | null = null;
 let contactsTable: TableClient | null = null;
 let businessesTable: TableClient | null = null;
+let jobTypesTable: TableClient | null = null;
+let proposalsTable: TableClient | null = null;
 
 // Contact entity structure (external contacts)
 export interface ContactEntity extends TableEntity {
@@ -149,6 +152,70 @@ export interface BusinessEntity extends TableEntity {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Job Type entity structure
+export interface JobTypeEntity extends TableEntity {
+  partitionKey: string; // "jobTypes"
+  rowKey: string; // UUID (e.g., "jobtype_1234567890123")
+  name: string; // Display name (e.g., "MACA", "Upgrade")
+  description: string; // Additional details about the job type
+  isActive: boolean; // Soft delete flag - true = active, false = archived
+  createdAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
+  createdBy: string; // User email who created this job type
+}
+
+// Proposal entity structure (for when backend storage is implemented)
+export interface ProposalEntity extends TableEntity {
+  partitionKey: string; // "PROPOSAL"
+  rowKey: string; // proposal id (UUID)
+  proposalNumber: string; // PROP-2024-001
+  clientName: string;
+  clientContact?: string;
+  siteName: string;
+  siteAddress?: string;
+  state?: string;
+  city?: string;
+  postcode?: string;
+  description: string;
+  estimatedValue?: number;
+  status: string; // Draft | Sent | Under Review | Accepted | Part Acceptance | Rejected | Expired
+  stages?: string; // JSON stringified ProjectStage[]
+  acceptedStageNames?: string; // JSON stringified string[]
+  sentDate?: string;
+  expiryDate?: string;
+  acceptedDate?: string;
+  rejectedDate?: string;
+  rejectionReason?: string;
+  notes?: string;
+  attachments?: string; // JSON stringified string[]
+  projectCode?: string;
+  // New fields added April 2026
+  jobTypeId: string; // References JobTypes rowKey
+  jobTypeName: string; // Denormalized from JobTypes
+  generalDescription: string; // Rich text/HTML
+  sharePointFolderUrl: string; // SharePoint link to Proposals Templates folder
+  // Standard audit fields
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Alert entity structure
+export interface AlertEntity extends TableEntity {
+  partitionKey: string; // userId (recipient email) - optimized for "get my alerts" queries
+  rowKey: string; // UUID (e.g., "alert_1234567890123_abc123")
+  userId: string; // Same as partitionKey for consistency
+  type: string; // "STAGE_ASSIGNED", "PROJECT_UPDATED", etc.
+  title: string; // Short alert title
+  message: string; // Full alert message
+  entityType: string; // "projectStage", "project", "proposal"
+  entityId: string; // ID of the related entity
+  projectId: string; // For context/linking
+  siteId: string; // For context/linking
+  isRead: boolean; // Read status
+  createdAt: string; // ISO 8601 timestamp
 }
 
 /**
@@ -208,6 +275,29 @@ export function getBusinessesTable(): TableClient {
   return businessesTable;
 }
 
+export function getJobTypesTable(): TableClient {
+  if (!jobTypesTable) {
+    jobTypesTable = getTableClient("JobTypes");
+  }
+  return jobTypesTable;
+}
+
+export function getProposalsTable(): TableClient {
+  if (!proposalsTable) {
+    proposalsTable = getTableClient("Proposals");
+  }
+  return proposalsTable;
+}
+
+let alertsTable: TableClient | null = null;
+
+export function getAlertsTable(): TableClient {
+  if (!alertsTable) {
+    alertsTable = getTableClient("Alerts");
+  }
+  return alertsTable;
+}
+
 /**
  * Get or create RateLimits table client
  * SECURITY: Used for distributed rate limiting across serverless instances
@@ -218,6 +308,18 @@ export function getRateLimitsTable(): TableClient {
     rateLimitsTable = getTableClient("RateLimits");
   }
   return rateLimitsTable;
+}
+
+/**
+ * Get or create SandboxDriveItems table client
+ * Used for SharePoint sandbox mode (local development)
+ */
+let sandboxDriveItemsTable: TableClient | null = null;
+export function getSandboxDriveItemsTable(): TableClient {
+  if (!sandboxDriveItemsTable) {
+    sandboxDriveItemsTable = getTableClient("SandboxDriveItems");
+  }
+  return sandboxDriveItemsTable;
 }
 
 /**
@@ -237,7 +339,10 @@ export async function initializeDatabase(): Promise<void> {
       { name: "Stages", client: getStagesTable },
       { name: "Contacts", client: getContactsTable },
       { name: "Businesses", client: getBusinessesTable },
+      { name: "JobTypes", client: getJobTypesTable },
+      { name: "Alerts", client: getAlertsTable },
       { name: "RateLimits", client: getRateLimitsTable }, // SECURITY: Rate limiting storage
+      { name: "SandboxDriveItems", client: getSandboxDriveItemsTable }, // SharePoint sandbox
     ];
 
     for (const tableInfo of tables) {
@@ -958,4 +1063,366 @@ export async function deleteSite(siteId: string): Promise<void> {
     console.error(`Error deleting site ${siteId}:`, error);
     throw error;
   }
+}
+
+/**
+ * Get all job types
+ */
+export async function getAllJobTypes(): Promise<JobTypeEntity[]> {
+  // Note: Local DB doesn't support job types yet
+  // When needed, add to localMockDb.ts
+
+  const table = getJobTypesTable();
+  const jobTypes: JobTypeEntity[] = [];
+  const entities = table.listEntities<JobTypeEntity>({
+    queryOptions: { filter: `PartitionKey eq 'jobTypes'` }
+  });
+
+  for await (const entity of entities) {
+    jobTypes.push(entity);
+  }
+
+  return jobTypes;
+}
+
+/**
+ * Get all active job types (most common query)
+ */
+export async function getActiveJobTypes(): Promise<JobTypeEntity[]> {
+  const table = getJobTypesTable();
+  const jobTypes: JobTypeEntity[] = [];
+  const entities = table.listEntities<JobTypeEntity>({
+    queryOptions: { filter: `PartitionKey eq 'jobTypes' and isActive eq true` }
+  });
+
+  for await (const entity of entities) {
+    jobTypes.push(entity);
+  }
+
+  return jobTypes;
+}
+
+/**
+ * Get job type by ID
+ */
+export async function getJobTypeById(id: string): Promise<JobTypeEntity | null> {
+  try {
+    const table = getJobTypesTable();
+    const entity = await table.getEntity<JobTypeEntity>('jobTypes', id);
+    return entity;
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Create job type
+ */
+export async function createJobType(data: {
+  name: string;
+  description?: string;
+  createdBy: string;
+}): Promise<JobTypeEntity> {
+  const table = getJobTypesTable();
+  const now = new Date().toISOString();
+
+  const entity: JobTypeEntity = {
+    partitionKey: 'jobTypes',
+    rowKey: `jobtype_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+    name: data.name,
+    description: data.description || '',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: data.createdBy,
+  };
+
+  await table.createEntity(entity);
+  return entity;
+}
+
+/**
+ * Update job type
+ */
+export async function updateJobType(
+  id: string,
+  updates: {
+    name?: string;
+    description?: string;
+    isActive?: boolean;
+  }
+): Promise<JobTypeEntity> {
+  const table = getJobTypesTable();
+  const existing = await table.getEntity<JobTypeEntity>('jobTypes', id);
+
+  const updated: JobTypeEntity = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await table.updateEntity(updated, 'Merge');
+  return updated;
+}
+
+/**
+ * Soft delete job type (set isActive to false)
+ */
+export async function deleteJobType(id: string): Promise<void> {
+  await updateJobType(id, { isActive: false });
+}
+
+/**
+ * Hard delete job type (permanent deletion)
+ * WARNING: Only use if job type has no references
+ */
+export async function hardDeleteJobType(id: string): Promise<void> {
+  const table = getJobTypesTable();
+  await table.deleteEntity('jobTypes', id);
+}
+
+/**
+ * Count proposals that reference a specific job type
+ * Used before deactivating a job type to warn the user about impact
+ */
+export async function countProposalsByJobType(jobTypeId: string): Promise<number> {
+  const table = getProposalsTable();
+  let count = 0;
+
+  const entities = table.listEntities<ProposalEntity>({
+    queryOptions: { filter: `PartitionKey eq 'PROPOSAL' and jobTypeId eq '${jobTypeId}'` }
+  });
+
+  for await (const entity of entities) {
+    count++;
+  }
+
+  return count;
+}
+
+// =============================================================================
+// PROPOSAL CRUD FUNCTIONS
+// =============================================================================
+
+/**
+ * Get all proposals
+ */
+export async function getAllProposals(): Promise<ProposalEntity[]> {
+  const table = getProposalsTable();
+  const proposals: ProposalEntity[] = [];
+
+  const entities = table.listEntities<ProposalEntity>({
+    queryOptions: { filter: `PartitionKey eq 'PROPOSAL'` }
+  });
+
+  for await (const entity of entities) {
+    proposals.push(entity);
+  }
+
+  return proposals;
+}
+
+/**
+ * Get proposal by ID
+ */
+export async function getProposalById(proposalId: string): Promise<ProposalEntity | null> {
+  try {
+    const table = getProposalsTable();
+    const entity = await table.getEntity<ProposalEntity>('PROPOSAL', proposalId);
+    return entity;
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Update proposal
+ */
+export async function updateProposal(
+  proposalId: string,
+  updates: Partial<ProposalEntity>
+): Promise<ProposalEntity> {
+  const table = getProposalsTable();
+  const existing = await table.getEntity<ProposalEntity>('PROPOSAL', proposalId);
+
+  const updated: ProposalEntity = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await table.updateEntity(updated, 'Merge');
+  return updated;
+}
+
+// =============================================================================
+// ALERTS CRUD FUNCTIONS
+// =============================================================================
+
+/**
+ * Get all alerts for a specific user
+ * Ordered by createdAt descending (most recent first)
+ */
+export async function getAllAlertsForUser(userId: string): Promise<AlertEntity[]> {
+  const table = getAlertsTable();
+  const alerts: AlertEntity[] = [];
+
+  // Partition key is userId, so this is an efficient query
+  const entities = table.listEntities<AlertEntity>({
+    queryOptions: { filter: `PartitionKey eq '${userId}'` }
+  });
+
+  for await (const entity of entities) {
+    alerts.push(entity);
+  }
+
+  // Sort by createdAt descending (most recent first)
+  alerts.sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return dateB - dateA;
+  });
+
+  return alerts;
+}
+
+/**
+ * Get unread alerts for a specific user
+ */
+export async function getUnreadAlertsForUser(userId: string): Promise<AlertEntity[]> {
+  const table = getAlertsTable();
+  const alerts: AlertEntity[] = [];
+
+  // Query for unread alerts only
+  const entities = table.listEntities<AlertEntity>({
+    queryOptions: { filter: `PartitionKey eq '${userId}' and isRead eq false` }
+  });
+
+  for await (const entity of entities) {
+    alerts.push(entity);
+  }
+
+  // Sort by createdAt descending (most recent first)
+  alerts.sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return dateB - dateA;
+  });
+
+  return alerts;
+}
+
+/**
+ * Get unread alert count for a specific user
+ */
+export async function getUnreadCountForUser(userId: string): Promise<number> {
+  const table = getAlertsTable();
+  let count = 0;
+
+  const entities = table.listEntities<AlertEntity>({
+    queryOptions: { filter: `PartitionKey eq '${userId}' and isRead eq false` }
+  });
+
+  for await (const entity of entities) {
+    count++;
+  }
+
+  return count;
+}
+
+/**
+ * Create a new alert
+ */
+export async function createAlert(data: {
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  entityType: string;
+  entityId: string;
+  projectId?: string;
+  siteId?: string;
+}): Promise<AlertEntity> {
+  const table = getAlertsTable();
+  const now = new Date().toISOString();
+
+  const entity: AlertEntity = {
+    partitionKey: data.userId,
+    rowKey: `alert_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+    userId: data.userId,
+    type: data.type,
+    title: data.title,
+    message: data.message,
+    entityType: data.entityType,
+    entityId: data.entityId,
+    projectId: data.projectId || '',
+    siteId: data.siteId || '',
+    isRead: false,
+    createdAt: now,
+  };
+
+  await table.createEntity(entity);
+  return entity;
+}
+
+/**
+ * Mark a single alert as read
+ * Returns the updated alert or null if not found or user doesn't own it
+ */
+export async function markAlertAsRead(
+  alertId: string,
+  userId: string
+): Promise<AlertEntity | null> {
+  try {
+    const table = getAlertsTable();
+
+    // Get the alert to verify it belongs to the user
+    const existing = await table.getEntity<AlertEntity>(userId, alertId);
+
+    // Update isRead flag
+    const updated: AlertEntity = {
+      ...existing,
+      isRead: true,
+    };
+
+    await table.updateEntity(updated, 'Merge');
+    return updated;
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Mark all alerts as read for a specific user
+ * Returns the count of alerts marked as read
+ */
+export async function markAllAlertsAsRead(userId: string): Promise<number> {
+  const table = getAlertsTable();
+  let count = 0;
+
+  // Get all unread alerts for the user
+  const entities = table.listEntities<AlertEntity>({
+    queryOptions: { filter: `PartitionKey eq '${userId}' and isRead eq false` }
+  });
+
+  // Update each unread alert
+  for await (const entity of entities) {
+    const updated: AlertEntity = {
+      ...entity,
+      isRead: true,
+    };
+    await table.updateEntity(updated, 'Merge');
+    count++;
+  }
+
+  return count;
 }

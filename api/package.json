@@ -16,17 +16,22 @@
     "prestart": "npm run build",
     "start": "func start",
     "dev": "ts-node server.ts",
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "azurite": "azurite --silent --location azurite --debug azurite/debug.log --skipApiVersionCheck",
+    "azurite:init": "ts-node scripts/initAzurite.ts",
+    "sandbox:seed": "ts-node scripts/seedSandboxDrive.ts"
   },
   "dependencies": {
     "@azure/communication-email": "^1.1.0",
     "@azure/data-tables": "^13.1.0",
     "@azure/functions": "^4.9.0",
+    "@azure/storage-blob": "^12.31.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "ts-node": "^10.9.2",
+    "uuid": "^9.0.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -35,9 +40,9 @@
     "@types/express": "^4.17.25",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.x",
+    "@types/uuid": "^9.0.8",
     "azure-functions-core-tools": "^4",
+    "azurite": "^3.35.0",
     "typescript": "^5.3.0"
   }
 }
-
-

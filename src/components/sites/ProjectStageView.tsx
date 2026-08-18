@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ProjectStage, ProjectStageStatus, ProjectFile, DirectoryContact } from "@/types/data";
+import { ProjectStage, ProjectStageStatus, DirectoryContact } from "@/types/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,24 +22,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ArrowLeft, Plus, Trash2, Download, Edit2, Check, X, Upload, ExternalLink, Loader2, Calendar, RefreshCw, Copy, ChevronRight, FileText, FileSpreadsheet, FolderPlus, File } from "lucide-react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ArrowLeft, Plus, Trash2, Download, Edit2, Check, X, Upload, ExternalLink, Loader2, Calendar } from "lucide-react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
 import { useSharePointAuth } from "@/hooks/useSharePointAuth";
 import { useSharePointFiles } from "@/hooks/useSharePointFiles";
+import { useFileClipboard } from "@/contexts/FileClipboardContext";
+import { ClipboardPaste } from "lucide-react";
 import { SharePointFileBrowser } from "@/components/sharepoint/SharePointFileBrowser";
-import { CreateFileDialog } from "@/components/sharepoint/CreateFileDialog";
-import { graphService } from "@/services/graphService";
+import { InlineNameInput } from "@/components/sharepoint/InlineNameInput";
+import { graphService, FileMetadata } from "@/services/graphService";
 
 const STAGE_STATUSES: ProjectStageStatus[] = [
   "Not Started",
@@ -65,6 +66,48 @@ const getStatusBadgeClass = (status: string) => {
   }
 };
 
+// Breadcrumb trail for folder navigation - "Root / Drawings / Revisions", each segment
+// clickable. Shared by the SharePoint Files tab and the Templates tab.
+const FolderBreadcrumb = ({
+  rootLabel,
+  path,
+  onNavigate,
+}: {
+  rootLabel: string;
+  path: string[];
+  onNavigate: (index: number) => void;
+}) => (
+  <div className="flex items-center gap-1 text-sm flex-wrap">
+    <button
+      onClick={() => onNavigate(-1)}
+      className={
+        path.length === 0
+          ? "font-medium text-foreground cursor-default"
+          : "text-blue-600 hover:underline"
+      }
+      disabled={path.length === 0}
+    >
+      {rootLabel}
+    </button>
+    {path.map((segment, index) => (
+      <span key={index} className="flex items-center gap-1 text-muted-foreground">
+        <ChevronRight className="h-3.5 w-3.5" />
+        <button
+          onClick={() => onNavigate(index)}
+          className={
+            index === path.length - 1
+              ? "font-medium text-foreground cursor-default"
+              : "text-blue-600 hover:underline"
+          }
+          disabled={index === path.length - 1}
+        >
+          {segment}
+        </button>
+      </span>
+    ))}
+  </div>
+);
+
 interface ProjectStageViewProps {
   stage: ProjectStage;
   projectCode: string;
@@ -87,27 +130,64 @@ export const ProjectStageView = ({
   onAssignConsultants,
 }: ProjectStageViewProps) => {
   const { toast } = useToast();
-  const { isAuthenticated, login } = useSharePointAuth();
 
-  // SharePoint folder path for this stage
+  // Check if SharePoint integration is enabled
+  const sharePointEnabled = import.meta.env.VITE_ENABLE_SHAREPOINT !== 'false';
+
+  // SharePoint hooks - always call them (React rule), but they check the flag internally
+  const sharePointAuth = useSharePointAuth();
+  const { isAuthenticated, login, error: sharePointAuthError } = sharePointAuth || { isAuthenticated: false, login: () => {}, error: null };
+  const { clipboard, copy: copyToClipboard, cut: cutToClipboard, clear: clearClipboard } = useFileClipboard();
+
+  // SharePoint folder path for this stage's root, and the folder currently being
+  // browsed within it (nested folder navigation - see currentSubPath below)
   const sharePointFolderPath = `${import.meta.env.VITE_SHAREPOINT_PROJECTS_PATH || '/Projects'}/${projectCode}/${stage.name}`;
+  const [currentSubPath, setCurrentSubPath] = useState<string[]>([]);
+  const activeFolderPath = currentSubPath.length > 0
+    ? `${sharePointFolderPath}/${currentSubPath.join('/')}`
+    : sharePointFolderPath;
 
-  // SharePoint file management
+  // SharePoint file management - bound to whichever folder is currently being browsed
   const {
     files: sharePointFiles,
     isLoading: sharePointLoading,
     error: sharePointError,
     fetchFiles: fetchSharePointFiles,
     deleteFile: deleteSharePointFile,
+    uploadFile: uploadSharePointFile,
+    renameItem: renameSharePointItem,
+    createFolder: createSharePointFolder,
+    createBlankFile: createSharePointBlankFile,
+    copyItemTo: copyItemToStageFolder,
+    moveItemTo: moveItemToStageFolder,
   } = useSharePointFiles({
-    folderPath: sharePointFolderPath,
+    folderPath: activeFolderPath,
     autoFetch: isAuthenticated,
+  });
+
+  const [fileTab, setFileTab] = useState<'sharepoint' | 'templates'>('sharepoint');
+
+  // Templates tab - browses the company-wide /Templates library with the exact same
+  // breadcrumb navigation pattern as the stage's own files (see currentSubPath above)
+  const templatesRootPath = import.meta.env.VITE_SHAREPOINT_TEMPLATE_PATH || '/Templates';
+  const [templatesSubPath, setTemplatesSubPath] = useState<string[]>([]);
+  const templatesActivePath = templatesSubPath.length > 0
+    ? `${templatesRootPath}/${templatesSubPath.join('/')}`
+    : templatesRootPath;
+  const {
+    files: templateFiles,
+    isLoading: templateFilesLoading,
+    error: templateFilesError,
+  } = useSharePointFiles({
+    folderPath: templatesActivePath,
+    autoFetch: isAuthenticated && fileTab === 'templates',
   });
 
   // SharePoint folder initialization
   const [folderInitializing, setFolderInitializing] = useState(false);
-  const [createFileDialogOpen, setCreateFileDialogOpen] = useState(false);
-  const [fileTab, setFileTab] = useState<'sharepoint' | 'uploaded'>('sharepoint');
+  // Real folder webUrl from Graph API - do not hand-build SharePoint URLs, they don't
+  // match SharePoint's actual document-library URL format (library name, Forms/AllItems.aspx, etc).
+  const [stageFolderWebUrl, setStageFolderWebUrl] = useState<string | null>(null);
 
   const [consultantSearchQuery, setConsultantSearchQuery] = useState("");
   const [showConsultantDropdown, setShowConsultantDropdown] = useState(false);
@@ -128,7 +208,8 @@ export const ProjectStageView = ({
       try {
         setFolderInitializing(true);
         await graphService.initialize(import.meta.env.VITE_SHAREPOINT_SITE_URL);
-        await graphService.ensureProjectFolder(projectCode, stage.name);
+        const stageFolder = await graphService.ensureProjectFolder(projectCode, stage.name);
+        setStageFolderWebUrl(stageFolder.webUrl);
 
         // Fetch files after folder is created
         await fetchSharePointFiles(sharePointFolderPath);
@@ -172,14 +253,15 @@ export const ProjectStageView = ({
   const [editDescValue, setEditDescValue] = useState(stage.description || "");
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState(stage.name || "");
-  const [files, setFiles] = useState<ProjectFile[]>(stage.files || []);
-  const [isAddingFile, setIsAddingFile] = useState(false);
-  const [newFileName, setNewFileName] = useState("");
-  const [newFileUrl, setNewFileUrl] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<ProjectStageStatus>(
     stage.status || "Not Started"
   );
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const [copyingTemplateId, setCopyingTemplateId] = useState<string | null>(null);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [creatingFileType, setCreatingFileType] = useState<'docx' | 'xlsx' | 'pptx' | null>(null);
   const [plannedSiteVisitDate, setPlannedSiteVisitDate] = useState<Date | undefined>(
     stage.plannedSiteVisitDate ? new Date(stage.plannedSiteVisitDate) : undefined
   );
@@ -247,56 +329,7 @@ export const ProjectStageView = ({
     });
   };
 
-  const handleAddFile = () => {
-    if (!newFileName.trim() || !newFileUrl.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter both file name and URL",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newFile: ProjectFile = {
-      id: `file_${Date.now()}`,
-      name: newFileName,
-      url: newFileUrl,
-      sharePointUrl: newFileUrl.includes("sharepoint") ? newFileUrl : undefined,
-      stageId: stage.id,
-      projectCode,
-      dateUploaded: new Date().toISOString(),
-      documentType: newFileUrl.includes("sharepoint") ? "sharepoint" : "external_link",
-      uploadedBy: "current-user",
-    };
-
-    const updated: ProjectStage = {
-      ...stage,
-      files: [...files, newFile],
-    };
-    setFiles([...files, newFile]);
-    onStageUpdate?.(updated);
-    setNewFileName("");
-    setNewFileUrl("");
-    setIsAddingFile(false);
-    toast({
-      title: "Success",
-      description: "File added to stage",
-    });
-  };
-
-  const handleDeleteFile = (fileId: string) => {
-    const updated: ProjectStage = {
-      ...stage,
-      files: files.filter((f) => f.id !== fileId),
-    };
-    setFiles(files.filter((f) => f.id !== fileId));
-    onStageUpdate?.(updated);
-    toast({
-      title: "Success",
-      description: "File removed",
-    });
-  };
-
+  // Uploads go straight to the stage's SharePoint folder - no local/base64 copy is kept.
   const handleFileUpload = async (filesToUpload: File[]) => {
     if (!canUpload) {
       toast({
@@ -306,60 +339,42 @@ export const ProjectStageView = ({
       });
       return;
     }
+    if (!isAuthenticated) {
+      toast({
+        title: "Error",
+        description: "Sign in to SharePoint before uploading",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const newFiles: ProjectFile[] = [];
-    let filesProcessed = 0;
-
-    for (const file of filesToUpload) {
-      try {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const dataUrl = e.target?.result as string;
-          const newFile: ProjectFile = {
-            id: `file_${Date.now()}_${Math.random()}`,
-            name: file.name,
-            url: dataUrl,
-            stageId: stage.id,
-            projectCode,
-            dateUploaded: new Date().toISOString(),
-            documentType: "uploaded",
-            uploadedBy: "current-user",
-            fileSize: `${(file.size / 1024).toFixed(2)} KB`,
-            fileType: file.type,
-          };
-          newFiles.push(newFile);
-          filesProcessed++;
-
-          // If this is the last file, update the stage
-          if (filesProcessed === filesToUpload.length) {
-            const updated: ProjectStage = {
-              ...stage,
-              files: [...files, ...newFiles],
-            };
-            setFiles([...files, ...newFiles]);
-            onStageUpdate?.(updated);
-            setIsDragging(false);
-            toast({
-              title: "Success",
-              description: `${newFiles.length} file(s) uploaded`,
-            });
-          }
-        };
-        reader.onerror = () => {
+    setIsUploading(true);
+    let succeeded = 0;
+    try {
+      for (const file of filesToUpload) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await uploadSharePointFile(file.name, arrayBuffer);
+          if (result) succeeded++;
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error(`Upload failed for ${file.name}:`, errorMessage);
           toast({
             title: "Error",
-            description: `Failed to read file: ${file.name}`,
+            description: `Failed to upload ${file.name}: ${errorMessage}`,
             variant: "destructive",
           });
-        };
-        reader.readAsDataURL(file);
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: `Failed to upload file: ${file.name}`,
-          variant: "destructive",
-        });
+        }
       }
+    } finally {
+      setIsUploading(false);
+    }
+
+    if (succeeded > 0) {
+      toast({
+        title: "Success",
+        description: `${succeeded} file(s) uploaded to SharePoint`,
+      });
     }
   };
 
@@ -382,14 +397,126 @@ export const ProjectStageView = ({
 
     const droppedFiles = Array.from(e.dataTransfer?.files || []);
     if (droppedFiles.length > 0) {
-      handleFileUpload(droppedFiles as any);
+      handleFileUpload(droppedFiles);
     }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length > 0) {
-      handleFileUpload(selectedFiles as any);
+      handleFileUpload(selectedFiles);
+    }
+    // Allow re-selecting the same file name after a previous upload
+    e.target.value = '';
+  };
+
+  // Copy a template file from the Templates tab straight into the SharePoint folder
+  // currently being browsed in the Files tab (not necessarily the stage root, if the
+  // user has navigated into a subfolder).
+  const handleCopyTemplateToStage = async (template: FileMetadata) => {
+    if (!canUpload) {
+      toast({
+        title: "Error",
+        description: "You don't have permission to add files to this stage",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCopyingTemplateId(template.id);
+    try {
+      const copied = await copyItemToStageFolder(template.id, activeFolderPath, template.name);
+      if (copied) {
+        toast({
+          title: "Success",
+          description: `${template.name} copied to this stage`,
+        });
+        setFileTab('sharepoint');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Failed to copy template:', errorMessage);
+      toast({
+        title: "Error",
+        description: `Failed to copy template: ${errorMessage}`,
+        variant: "destructive",
+      });
+    } finally {
+      setCopyingTemplateId(null);
+    }
+  };
+
+  // Breadcrumb navigation - "Stage Root / Drawings / Revisions", each segment clickable.
+  // Applies to both the SharePoint Files tab (currentSubPath) and Templates tab (templatesSubPath).
+  const navigateStageBreadcrumb = (index: number) => {
+    // index === -1 means "go to root"
+    setCurrentSubPath((prev) => (index < 0 ? [] : prev.slice(0, index + 1)));
+  };
+  const navigateTemplatesBreadcrumb = (index: number) => {
+    setTemplatesSubPath((prev) => (index < 0 ? [] : prev.slice(0, index + 1)));
+  };
+  const openStageSubfolder = (folder: FileMetadata) => {
+    setCurrentSubPath((prev) => [...prev, folder.name]);
+  };
+  const openTemplatesSubfolder = (folder: FileMetadata) => {
+    setTemplatesSubPath((prev) => [...prev, folder.name]);
+  };
+
+  const handlePasteFile = async () => {
+    if (!clipboard) return;
+    try {
+      if (clipboard.mode === 'move') {
+        if (clipboard.sourceFolderPath === activeFolderPath) {
+          toast({ title: "Already here", description: `${clipboard.item.name} is already in this folder` });
+          clearClipboard();
+          return;
+        }
+        const result = await moveItemToStageFolder(clipboard.item.id, activeFolderPath, clipboard.sourceFolderPath, clipboard.item.name);
+        if (result) {
+          toast({ title: "Success", description: `${clipboard.item.name} moved here` });
+          clearClipboard();
+        }
+      } else {
+        const result = await copyItemToStageFolder(clipboard.item.id, activeFolderPath, clipboard.item.name);
+        if (result) {
+          toast({ title: "Success", description: `${clipboard.item.name} pasted here` });
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Paste failed:', errorMessage);
+      toast({ title: "Error", description: `Failed to paste: ${errorMessage}`, variant: "destructive" });
+    }
+  };
+
+  const handleRenameStageItem = async (itemId: string, newName: string) => {
+    const result = await renameSharePointItem(itemId, newName);
+    if (result) {
+      toast({ title: "Success", description: "Renamed" });
+    }
+  };
+
+  const handleCreateStageFolder = async (name: string) => {
+    setIsCreatingFolder(false);
+    if (!createSharePointFolder) return;
+    const result = await createSharePointFolder(name);
+    if (result) {
+      toast({ title: "Success", description: `Folder "${name}" created` });
+    }
+  };
+
+  const handleCreateStageFile = async (name: string) => {
+    const fileType = creatingFileType;
+    setCreatingFileType(null);
+    if (!fileType) return;
+    try {
+      const result = await createSharePointBlankFile(name, fileType);
+      if (result) {
+        toast({ title: "Success", description: `${name}.${fileType} created` });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Create file error:', errorMessage);
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -680,7 +807,16 @@ export const ProjectStageView = ({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Files</CardTitle>
+            <div>
+              <CardTitle className="text-lg">Files</CardTitle>
+              {/* Always visible, on both tabs, so it's clear where "Copy to this stage"
+                  (Templates tab) and Paste actually land - not just when browsing Files. */}
+              {isAuthenticated && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Working folder: {stage.name}{currentSubPath.length > 0 ? ` / ${currentSubPath.join(' / ')}` : ''}
+                </p>
+              )}
+            </div>
             <div className="flex gap-2">
               {/* SharePoint Auth/Login Button */}
               {!isAuthenticated && (
@@ -695,13 +831,12 @@ export const ProjectStageView = ({
               )}
 
               {/* Open in SharePoint Button */}
-              {isAuthenticated && (
+              {isAuthenticated && stageFolderWebUrl && (
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    const sharePointUrl = `${import.meta.env.VITE_SHAREPOINT_SITE_URL}/${projectCode}/${stage.name}`;
-                    window.open(sharePointUrl, '_blank');
+                    window.open(stageFolderWebUrl, '_blank');
                   }}
                   className="gap-2"
                 >
@@ -710,28 +845,74 @@ export const ProjectStageView = ({
                 </Button>
               )}
 
-              {/* Create New File Button */}
-              {isAuthenticated && (
-                <Button
-                  size="sm"
-                  onClick={() => setCreateFileDialogOpen(true)}
-                  className="gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create New
+              {/* New dropdown - blank Word/Excel/PowerPoint or a folder, named inline (no modal) */}
+              {isAuthenticated && canUpload && fileTab === 'sharepoint' && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      New
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setCreatingFileType('docx')}>
+                      <FileText className="h-4 w-4 mr-2 text-blue-500" />
+                      Word Document
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setCreatingFileType('xlsx')}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2 text-green-500" />
+                      Excel Spreadsheet
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setCreatingFileType('pptx')}>
+                      <File className="h-4 w-4 mr-2 text-orange-500" />
+                      PowerPoint Presentation
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setIsCreatingFolder(true)}>
+                      <FolderPlus className="h-4 w-4 mr-2" />
+                      Folder
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* Upload Button */}
+              {canUpload && isAuthenticated && fileTab === 'sharepoint' && (
+                <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="gap-2">
+                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  Upload Files
                 </Button>
               )}
 
-              {/* Upload/Add Link Buttons (for uploaded files tab) */}
-              {canUpload && !isAddingFile && (
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => fileInputRef.current?.click()} className="gap-2">
-                    <Upload className="h-4 w-4" />
-                    Upload Files
+              {/* Refresh Button - picks up files added directly in SharePoint outside the app */}
+              {isAuthenticated && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    fileTab === 'sharepoint'
+                      ? fetchSharePointFiles(activeFolderPath)
+                      : undefined
+                  }
+                  disabled={sharePointLoading}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${sharePointLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              )}
+
+              {/* Paste Button - shown whenever the clipboard holds a file, regardless of
+                  which stage/project it was copied (or cut) from. Label reflects whether
+                  this will duplicate the file (copy) or relocate it (cut/move). */}
+              {isAuthenticated && canUpload && fileTab === 'sharepoint' && clipboard && (
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="outline" onClick={handlePasteFile} className="gap-2" title={`${clipboard.mode === 'move' ? 'Move' : 'Paste'} "${clipboard.item.name}" into ${activeFolderPath}`}>
+                    <ClipboardPaste className="h-4 w-4" />
+                    {clipboard.mode === 'move' ? 'Move Here' : 'Paste'}
                   </Button>
-                  <Button size="sm" onClick={() => setIsAddingFile(true)} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add Link
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={clearClipboard} title="Clear clipboard">
+                    <X className="h-4 w-4" />
                   </Button>
                 </div>
               )}
@@ -739,6 +920,15 @@ export const ProjectStageView = ({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* SharePoint Auth Error - shown regardless of which sign-in button was clicked */}
+          {!isAuthenticated && sharePointAuthError && (
+            <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+              <p className="text-sm text-destructive break-words">
+                SharePoint sign-in failed: {sharePointAuthError}
+              </p>
+            </div>
+          )}
+
           {/* Hidden file input */}
           <input
             ref={fileInputRef}
@@ -756,11 +946,11 @@ export const ProjectStageView = ({
             </div>
           )}
 
-          {/* Tabs for SharePoint vs Uploaded Files */}
-          <Tabs value={fileTab} onValueChange={(value) => setFileTab(value as 'sharepoint' | 'uploaded')}>
+          {/* Tabs for SharePoint Files vs Company Templates */}
+          <Tabs value={fileTab} onValueChange={(value) => setFileTab(value as 'sharepoint' | 'templates')}>
             <TabsList>
               <TabsTrigger value="sharepoint">SharePoint Files</TabsTrigger>
-              <TabsTrigger value="uploaded">Uploaded Files</TabsTrigger>
+              <TabsTrigger value="templates">Templates</TabsTrigger>
             </TabsList>
 
             {/* SharePoint Files Tab */}
@@ -773,180 +963,106 @@ export const ProjectStageView = ({
                   <Button onClick={login}>Sign in to SharePoint</Button>
                 </div>
               ) : (
-                <SharePointFileBrowser
-                  files={sharePointFiles}
-                  isLoading={sharePointLoading}
-                  error={sharePointError}
-                  onOpenFile={(file) => {
-                    // Open file in new tab
-                    window.open(file.webUrl, '_blank');
-                  }}
-                  onDeleteFile={async (itemId) => {
-                    await deleteSharePointFile(itemId);
-                  }}
-                  onDownloadFile={(file) => {
-                    window.open(file.webUrl, '_blank');
-                  }}
-                />
+                <>
+                  <FolderBreadcrumb
+                    rootLabel={stage.name || 'Stage Root'}
+                    path={currentSubPath}
+                    onNavigate={navigateStageBreadcrumb}
+                  />
+
+                  {/* Drag and Drop Zone - uploads straight to the currently-open SharePoint folder */}
+                  {canUpload && (
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                        isDragging
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-muted-foreground/25 bg-muted/25"
+                      }`}
+                    >
+                      <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm font-medium">Drag and drop files here to upload to SharePoint</p>
+                      <p className="text-xs text-muted-foreground">or click "Upload Files" button above</p>
+                    </div>
+                  )}
+
+                  {isCreatingFolder && (
+                    <InlineNameInput
+                      placeholder="New folder name"
+                      onConfirm={handleCreateStageFolder}
+                      onCancel={() => setIsCreatingFolder(false)}
+                    />
+                  )}
+                  {creatingFileType && (
+                    <InlineNameInput
+                      placeholder={`New ${creatingFileType} file name`}
+                      onConfirm={handleCreateStageFile}
+                      onCancel={() => setCreatingFileType(null)}
+                    />
+                  )}
+
+                  <SharePointFileBrowser
+                    files={sharePointFiles}
+                    isLoading={sharePointLoading}
+                    error={sharePointError}
+                    onOpenFile={(file) => {
+                      // Open file in new tab
+                      window.open(file.webUrl, '_blank');
+                    }}
+                    onOpenFolder={openStageSubfolder}
+                    onDeleteFile={async (itemId) => {
+                      await deleteSharePointFile(itemId);
+                    }}
+                    onDownloadFile={(file) => {
+                      window.open(file.webUrl, '_blank');
+                    }}
+                    onRenameFile={canUpload ? handleRenameStageItem : undefined}
+                    onCopyFile={canUpload ? (file) => {
+                      copyToClipboard(file, activeFolderPath);
+                      toast({ title: "Copied", description: `${file.name} copied - paste it anywhere` });
+                    } : undefined}
+                    onCutFile={canUpload ? (file) => {
+                      cutToClipboard(file, activeFolderPath);
+                      toast({ title: "Cut", description: `${file.name} will move here when you paste it elsewhere` });
+                    } : undefined}
+                  />
+                </>
               )}
             </TabsContent>
 
-            {/* Uploaded Files Tab */}
-            <TabsContent value="uploaded" className="space-y-4">
-              {/* Drag and Drop Zone */}
-              {canUpload && (
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                    isDragging
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-muted-foreground/25 bg-muted/25"
-                  }`}
-                >
-                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm font-medium">Drag and drop files here</p>
-                  <p className="text-xs text-muted-foreground">or click "Upload Files" button</p>
-                </div>
-              )}
-
-              {isAddingFile && (
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-                  <div>
-                    <Label htmlFor="fileName" className="text-sm">
-                      File Name *
-                    </Label>
-                    <Input
-                      id="fileName"
-                      placeholder="e.g., Feasibility_Study.pdf"
-                      value={newFileName}
-                      onChange={(e) => setNewFileName(e.target.value)}
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="fileUrl" className="text-sm">
-                      File URL or SharePoint Link *
-                    </Label>
-                    <Input
-                      id="fileUrl"
-                      placeholder="https://..."
-                      value={newFileUrl}
-                      onChange={(e) => setNewFileUrl(e.target.value)}
-                      className="mt-2"
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Can be a direct file link or SharePoint document URL
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={handleAddFile}>
-                      <Check className="h-4 w-4 mr-2" />
-                      Add File
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setIsAddingFile(false);
-                        setNewFileName("");
-                        setNewFileUrl("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {files.length > 0 ? (
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>File Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Uploaded</TableHead>
-                        <TableHead className="w-20">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {files.map((file) => (
-                        <TableRow key={file.id}>
-                          <TableCell className="font-medium">{file.name}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {file.documentType === "sharepoint"
-                              ? "SharePoint"
-                              : file.documentType === "uploaded"
-                              ? "Uploaded"
-                              : "External Link"}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {new Date(file.dateUploaded).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell className="flex gap-2">
-                            {file.url && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  if (file.url?.startsWith("http")) {
-                                    window.open(file.url, "_blank");
-                                  }
-                                }}
-                                className="px-2"
-                              >
-                                <Download className="h-3 w-3" />
-                              </Button>
-                            )}
-                            {canUpload && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleDeleteFile(file.id)}
-                                className="px-2"
-                              >
-                                <Trash2 className="h-3 w-3 text-red-600" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            {/* Templates Tab - company-wide /Templates library, same navigation pattern as stage files */}
+            <TabsContent value="templates" className="space-y-4">
+              {!isAuthenticated ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">
+                    Sign in to SharePoint to browse templates
+                  </p>
+                  <Button onClick={login}>Sign in to SharePoint</Button>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-4">
-                  {canUpload ? "No files added yet" : "No files for this stage"}
-                </p>
+                <>
+                  <FolderBreadcrumb
+                    rootLabel="Templates"
+                    path={templatesSubPath}
+                    onNavigate={navigateTemplatesBreadcrumb}
+                  />
+                  <SharePointFileBrowser
+                    files={templateFiles}
+                    isLoading={templateFilesLoading}
+                    error={templateFilesError}
+                    onOpenFile={(file) => window.open(file.webUrl, '_blank')}
+                    onOpenFolder={openTemplatesSubfolder}
+                    onDownloadFile={(file) => window.open(file.webUrl, '_blank')}
+                    onCopyFile={canUpload ? handleCopyTemplateToStage : undefined}
+                  />
+                </>
               )}
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
-
-      {/* Create File Dialog */}
-      <CreateFileDialog
-        isOpen={createFileDialogOpen}
-        onClose={() => setCreateFileDialogOpen(false)}
-        onCreateBlank={async (fileName, fileType) => {
-          try {
-            await graphService.createBlankFile(sharePointFolderPath, fileName, fileType);
-            await fetchSharePointFiles(sharePointFolderPath);
-            toast({
-              title: "Success",
-              description: `${fileName} created successfully`,
-            });
-          } catch (error) {
-            toast({
-              title: "Error",
-              description: "Failed to create file",
-              variant: "destructive",
-            });
-          }
-        }}
-      />
 
       <ContactDetailModal
         isOpen={contactDetailOpen}

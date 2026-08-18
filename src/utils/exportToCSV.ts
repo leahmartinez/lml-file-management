@@ -55,7 +55,7 @@ function formatCurrency(value?: number): string {
  * Export dashboard rows to CSV
  */
 export function exportToCSV(options: ExportOptions): void {
-  const { filename = 'projects-dashboard.csv', selectedRows = [], allRows = [] } = options;
+  const { filename = 'projects-overview.csv', selectedRows = [], allRows = [] } = options;
 
   // Use selected rows if available, otherwise use all rows
   const rowsToExport = selectedRows.length > 0 ? selectedRows : allRows;
@@ -137,7 +137,7 @@ export function exportToCSV(options: ExportOptions): void {
  * Export to Excel-compatible TSV format (more robust for Excel)
  */
 export function exportToExcel(options: ExportOptions): void {
-  const { filename = 'projects-dashboard.xlsx', selectedRows = [], allRows = [] } = options;
+  const { filename = 'projects-overview.xlsx', selectedRows = [], allRows = [] } = options;
 
   // Use selected rows if available, otherwise use all rows
   const rowsToExport = selectedRows.length > 0 ? selectedRows : allRows;

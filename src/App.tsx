@@ -12,8 +12,10 @@ import { ForgotPassword } from "./components/ForgotPassword";
 import { ResetPassword } from "./components/ResetPassword";
 import { AcceptInvitation } from "./components/AcceptInvitation";
 import { useAuth } from "./hooks/useAuth.tsx";
+import { usePermissions } from "./hooks/usePermissions";
 import { initializeMockProjectUnits } from "./utils/initMockData";
 import { SharePointAuthProvider } from "./contexts/SharePointAuthContext";
+import { FileClipboardProvider } from "./contexts/FileClipboardContext";
 
 // Code split heavy page components for better initial load performance
 const ContactDirectory = lazy(() => import("./pages/ContactDirectory"));
@@ -42,6 +44,26 @@ const ProtectedRoute = ({ children }) => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+  return children;
+};
+
+/**
+ * Admin-only route guard
+ * Redirects non-admin users to home page
+ */
+const AdminRoute = ({ children }) => {
+  const { user } = useAuth();
+  const { canAccessAdmin } = usePermissions();
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!canAccessAdmin) {
+    // Non-admin users trying to access admin routes are redirected
+    return <Navigate to="/sites" replace />;
+  }
+
   return children;
 };
 
@@ -149,11 +171,11 @@ const AppContent = () => {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <Suspense fallback={<PageLoader />}>
                   <Admin />
                 </Suspense>
-              </ProtectedRoute>
+              </AdminRoute>
             }
           />
 
@@ -168,7 +190,9 @@ const AppContent = () => {
 
 const App = () => (
   <SharePointAuthProvider>
-    <AppContent />
+    <FileClipboardProvider>
+      <AppContent />
+    </FileClipboardProvider>
   </SharePointAuthProvider>
 );
 

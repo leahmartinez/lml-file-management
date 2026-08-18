@@ -35,3 +35,6 @@ coverage/
 .env
 .env.local
 
+# Azurite local storage emulator data
+azurite/
+

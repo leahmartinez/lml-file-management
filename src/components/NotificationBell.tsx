@@ -1,33 +1,57 @@
 /**
  * Notification Bell Component
  * Header component showing notification badge and dropdown menu
+ * Uses the new alerts API system
  */
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell, X } from 'lucide-react';
-import { UserNotification } from '@/hooks/useNotifications';
 import { useNavigate } from 'react-router-dom';
+import { useAlerts, useMarkAlertAsRead, useMarkAllAlertsAsRead } from '@/hooks/useAlerts';
+import { formatDistanceToNow } from 'date-fns';
+import { Alert } from '@/types/data';
 
 interface NotificationBellProps {
   unreadCount: number;
-  notifications: UserNotification[];
-  onMarkAsRead: (notificationId: string) => void;
-  onDelete: (notificationId: string) => void;
-  onMarkAllAsRead: () => void;
 }
 
-export const NotificationBell: React.FC<NotificationBellProps> = ({
-  unreadCount,
-  notifications,
-  onMarkAsRead,
-  onDelete,
-  onMarkAllAsRead,
-}) => {
+export const NotificationBell: React.FC<NotificationBellProps> = ({ unreadCount }) => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
-  const recentNotifications = notifications.slice(0, 5);
+  // Fetch recent alerts (all alerts, showing most recent 5)
+  const { data: alerts = [], isLoading } = useAlerts();
+  const markAsReadMutation = useMarkAlertAsRead();
+  const markAllAsReadMutation = useMarkAllAlertsAsRead();
+
+  // Get the 5 most recent alerts
+  const recentAlerts = alerts.slice(0, 5);
+
+  const handleAlertClick = (alert: Alert) => {
+    // Mark as read when clicking
+    if (!alert.isRead) {
+      markAsReadMutation.mutate(alert.id);
+    }
+
+    // Navigate based on alert context
+    if (alert.projectId) {
+      setIsOpen(false);
+      navigate(`/sites?project=${alert.projectId}`);
+    } else if (alert.siteId) {
+      setIsOpen(false);
+      navigate(`/sites?site=${alert.siteId}`);
+    }
+  };
+
+  const handleMarkAllAsRead = () => {
+    markAllAsReadMutation.mutate();
+  };
+
+  const handleViewAll = () => {
+    setIsOpen(false);
+    navigate('/my-work');
+  };
 
   return (
     <div className="relative">
@@ -66,53 +90,39 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
           {/* Notifications List */}
           <div className="max-h-80 overflow-y-auto">
-            {recentNotifications.length > 0 ? (
+            {isLoading ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                Loading notifications...
+              </div>
+            ) : recentAlerts.length > 0 ? (
               <div className="space-y-1 p-2">
-                {recentNotifications.map((notification) => (
+                {recentAlerts.map((alert) => (
                   <div
-                    key={notification.id}
+                    key={alert.id}
                     className={`p-3 rounded-md border transition-colors cursor-pointer ${
-                      notification.isRead
+                      alert.isRead
                         ? 'bg-background border-border/50 hover:bg-muted/30'
                         : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
                     }`}
-                    onClick={() => {
-                      if (!notification.isRead) {
-                        onMarkAsRead(notification.id);
-                      }
-                      // Could navigate to comment here
-                      // navigate(`/sites?project=${notification.projectCode}`);
-                    }}
+                    onClick={() => handleAlertClick(alert)}
                   >
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {notification.mentionedBy.name}
+                          {alert.title}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {notification.message}
+                          {alert.message}
                         </p>
                       </div>
-                      {!notification.isRead && (
+                      {!alert.isRead && (
                         <div className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0 mt-1" />
                       )}
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">
-                        {new Date(notification.timestamp).toLocaleDateString()}
+                        {formatDistanceToNow(new Date(alert.createdAt), { addSuffix: true })}
                       </p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-5 w-5 p-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(notification.id);
-                        }}
-                        title="Delete"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
                     </div>
                   </div>
                 ))}
@@ -125,14 +135,15 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           </div>
 
           {/* Footer */}
-          {notifications.length > 0 && (
+          {recentAlerts.length > 0 && (
             <div className="border-t border-border p-3 flex gap-2">
               {unreadCount > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="text-xs flex-1"
-                  onClick={() => onMarkAllAsRead()}
+                  onClick={handleMarkAllAsRead}
+                  disabled={markAllAsReadMutation.isPending}
                 >
                   Mark all as read
                 </Button>
@@ -141,10 +152,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 variant="outline"
                 size="sm"
                 className="text-xs flex-1"
-                onClick={() => {
-                  setIsOpen(false);
-                  navigate('/my-work');
-                }}
+                onClick={handleViewAll}
               >
                 View all
               </Button>

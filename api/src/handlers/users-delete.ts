@@ -10,10 +10,11 @@
 
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, deleteUser } from '../database/tableStorage';
-import { getAuthenticatedUser, hasRole } from '../utils/auth';
+import { getAuthenticatedUser, canUserManageUsers } from '../utils/auth';
 import { success, error, forbidden, notFound, addCorsHeaders, unauthorized } from '../utils/response';
 import { validateRequestBody, userDeleteSchema, isValidationFailure } from '../utils/validation';
 import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
+import { UserRole } from '../../shared/constants/roles';
 
 async function usersDeleteHandlerImpl(
   request: HttpRequest,
@@ -31,8 +32,9 @@ async function usersDeleteHandlerImpl(
       return addCorsHeaders(unauthorized(), request.headers.get('origin') || undefined);
     }
 
-    // Check authorization
-    if (!hasRole(currentUser, ['admin', 'consultant'])) {
+    // AUTHORIZATION: Only Admin can delete users
+    if (!canUserManageUsers(currentUser)) {
+      context.warn(`Access denied: ${currentUser.email} (${currentUser.role}) attempted to delete user`);
       return addCorsHeaders(forbidden('Only admins can delete users'), request.headers.get('origin') || undefined);
     }
 

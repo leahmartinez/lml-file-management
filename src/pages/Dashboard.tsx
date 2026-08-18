@@ -107,7 +107,7 @@ const Dashboard = () => {
 
   const handleExportCSV = () => {
     exportToCSV({
-      filename: `projects-dashboard-${new Date().toISOString().split('T')[0]}.csv`,
+      filename: `projects-overview-${new Date().toISOString().split('T')[0]}.csv`,
       selectedRows: selectedRows.length > 0 ? selectedRows : undefined,
       allRows: filteredRows,
     });
@@ -115,7 +115,7 @@ const Dashboard = () => {
 
   const handleExportExcel = () => {
     exportToExcel({
-      filename: `projects-dashboard-${new Date().toISOString().split('T')[0]}.xlsx`,
+      filename: `projects-overview-${new Date().toISOString().split('T')[0]}.xlsx`,
       selectedRows: selectedRows.length > 0 ? selectedRows : undefined,
       allRows: filteredRows,
     });
@@ -162,7 +162,7 @@ const Dashboard = () => {
           <div className="mb-8">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold flex items-center gap-2">Projects Dashboard</h1>
+                <h1 className="text-3xl font-bold flex items-center gap-2">Overview</h1>
                 <p className="text-muted-foreground mt-1">
                   Manage and track all projects with filtering, sorting, and export options
                 </p>

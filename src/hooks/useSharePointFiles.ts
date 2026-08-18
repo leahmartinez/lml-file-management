@@ -14,6 +14,10 @@ interface UseSharePointFilesOptions {
 
 export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
   const { autoFetch = true, folderPath } = options;
+
+  // Check if SharePoint is enabled
+  const sharePointEnabled = import.meta.env.VITE_ENABLE_SHAREPOINT !== 'false';
+
   const { isAuthenticated, getAccessToken } = useSharePointAuth();
 
   const [files, setFiles] = useState<FileMetadata[]>([]);
@@ -25,6 +29,12 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
    */
   const fetchFiles = useCallback(
     async (path?: string) => {
+      // Skip if SharePoint is disabled
+      if (!sharePointEnabled) {
+        console.log('SharePoint integration disabled - skipping file fetch');
+        return;
+      }
+
       if (!isAuthenticated || !path) return;
 
       try {
@@ -45,7 +55,7 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
         setIsLoading(false);
       }
     },
-    [isAuthenticated, getAccessToken]
+    [isAuthenticated, getAccessToken, sharePointEnabled]
   );
 
   /**
@@ -81,6 +91,110 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
         const errorMessage = err instanceof Error ? err.message : 'Failed to upload file';
         setError(errorMessage);
         console.error('Error uploading file:', errorMessage);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated, folderPath, fetchFiles]
+  );
+
+  /**
+   * Rename a file or folder in place
+   */
+  const renameItem = useCallback(
+    async (itemId: string, newName: string): Promise<FileMetadata | null> => {
+      if (!isAuthenticated || !folderPath) {
+        setError('Not authenticated or folder not specified');
+        return null;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const renamed = await graphService.renameItem(itemId, newName);
+
+        // Refresh file list
+        await fetchFiles(folderPath);
+
+        return renamed;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to rename item';
+        setError(errorMessage);
+        console.error('Error renaming item:', errorMessage);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated, folderPath, fetchFiles]
+  );
+
+  /**
+   * Copy a file to an arbitrary destination folder (not necessarily this hook's folder) -
+   * used for paste-anywhere clipboard behavior.
+   */
+  const copyItemTo = useCallback(
+    async (sourceItemId: string, destFolderPath: string, newName?: string): Promise<FileMetadata | null> => {
+      if (!isAuthenticated) {
+        setError('Not authenticated');
+        return null;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const copiedFile = await graphService.copyFile(sourceItemId, destFolderPath, newName);
+
+        // Refresh file list if the destination is the folder this hook is bound to
+        if (folderPath && destFolderPath === folderPath) {
+          await fetchFiles(folderPath);
+        }
+
+        return copiedFile;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to copy item';
+        setError(errorMessage);
+        console.error('Error copying item:', errorMessage);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated, folderPath, fetchFiles]
+  );
+
+  /**
+   * Move a file to an arbitrary destination folder (not necessarily this hook's folder) -
+   * used for "cut and paste anywhere" clipboard behavior. Unlike copyItemTo, this changes
+   * the item's actual location rather than duplicating it.
+   */
+  const moveItemTo = useCallback(
+    async (sourceItemId: string, destFolderPath: string, sourceFolderPath: string, newName?: string): Promise<FileMetadata | null> => {
+      if (!isAuthenticated) {
+        setError('Not authenticated');
+        return null;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const destFolder = await graphService.getFolderByPath(destFolderPath);
+        const movedFile = await graphService.moveDriveItem(sourceItemId, destFolder.id, newName);
+
+        // Refresh whichever list(s) this hook is bound to are affected
+        if (folderPath && (destFolderPath === folderPath || sourceFolderPath === folderPath)) {
+          await fetchFiles(folderPath);
+        }
+
+        return movedFile;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to move item';
+        setError(errorMessage);
+        console.error('Error moving item:', errorMessage);
         return null;
       } finally {
         setIsLoading(false);
@@ -186,6 +300,38 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
   );
 
   /**
+   * Create a new folder inside this hook's folder
+   */
+  const createFolder = useCallback(
+    async (folderName: string): Promise<FileMetadata | null> => {
+      if (!isAuthenticated || !folderPath) {
+        setError('Not authenticated or folder not specified');
+        return null;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const newFolder = await graphService.createFolder(folderPath, folderName);
+
+        // Refresh file list
+        await fetchFiles(folderPath);
+
+        return newFolder;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to create folder';
+        setError(errorMessage);
+        console.error('Error creating folder:', errorMessage);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated, folderPath, fetchFiles]
+  );
+
+  /**
    * Refresh file list
    */
   const refresh = useCallback(async () => {
@@ -202,7 +348,11 @@ export const useSharePointFiles = (options: UseSharePointFilesOptions = {}) => {
     uploadFile,
     deleteFile,
     copyFileHere,
+    copyItemTo,
+    moveItemTo,
+    renameItem,
     createBlankFile,
+    createFolder,
     refresh,
   };
 };

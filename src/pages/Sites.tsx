@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Suspense, lazy } from "react";
+import { useState, useMemo, useEffect, useRef, Suspense, lazy } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Navigation } from "@/components/Navigation";
@@ -85,7 +85,7 @@ const getInitials = (firstName: string, lastName: string, email?: string): strin
 const SitesPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const masterData = useMasterData();
   const { sites: sitesData, addSite, updateSite, deleteSite } = useSiteManagement();
@@ -129,42 +129,48 @@ const SitesPage = () => {
     return allowed;
   }, [getStageConsultants, isSubconsultant, projectsData, user?.email]);
 
-  // Handle URL query parameters for auto-selecting site and project from Dashboard or Notifications
+  // Restore site/project/stage selection from the URL on initial load (covers both
+  // deep links from Dashboard/Notifications and a plain browser refresh while drilled in).
+  // Guarded to run once - after that, the write-back effect below keeps the URL in sync
+  // with state, and we don't want this effect re-firing on every resulting URL change.
+  const hasRestoredFromUrlRef = useRef(false);
   useEffect(() => {
+    if (hasRestoredFromUrlRef.current) return;
+
     const building = searchParams.get('building');
     const projectCode = searchParams.get('projectCode');
     const project = searchParams.get('project');
+    const stageId = searchParams.get('stage');
 
-    if (sitesData && projectsData) {
-      // Case 1: Both building and projectCode provided (from Dashboard)
-      if (building && projectCode) {
-        if (isSubconsultant && !assignedProjectCodes.has(projectCode)) {
-          return;
-        }
-        const site = sitesData.find((s) => s.building === building);
-        if (site) {
-          setSelectedSite(site);
+    if (!sitesData || !projectsData) return;
+    if (!building && !project) return; // nothing to restore
 
-          const selectedProj = projectsData.find((p) => p.projectCode === projectCode && p.building === building);
-          if (selectedProj) {
-            setSelectedProject(selectedProj);
-          }
-        }
-      }
-      // Case 2: Only project code provided (from Notification link)
-      else if (project && !projectCode) {
-        // Find the project by code only
-        const selectedProj = projectsData.find((p) => p.projectCode === project);
-        if (selectedProj) {
-          if (isSubconsultant && !assignedProjectCodes.has(selectedProj.projectCode)) {
-            return;
-          }
-          // Get the building from the found project
-          const site = sitesData.find((s) => s.building === selectedProj.building);
-          if (site) {
-            setSelectedSite(site);
-            setSelectedProject(selectedProj);
-          }
+    hasRestoredFromUrlRef.current = true;
+
+    let site = building ? sitesData.find((s) => s.building === building) : undefined;
+    let selectedProj = projectCode
+      ? projectsData.find((p) => p.projectCode === projectCode && (!building || p.building === building))
+      : project
+      ? projectsData.find((p) => p.projectCode === project)
+      : undefined;
+
+    if (selectedProj && isSubconsultant && !assignedProjectCodes.has(selectedProj.projectCode)) {
+      return;
+    }
+
+    if (!site && selectedProj) {
+      site = sitesData.find((s) => s.building === selectedProj!.building);
+    }
+
+    if (site) {
+      setSelectedSite(site);
+    }
+    if (selectedProj) {
+      setSelectedProject(selectedProj);
+      if (stageId) {
+        const stage = selectedProj.stages?.find((s) => s.id === stageId);
+        if (stage) {
+          setSelectedStage(stage);
         }
       }
     }
@@ -211,6 +217,22 @@ const SitesPage = () => {
   }, [selectedProject]);
 
   const [selectedStage, setSelectedStage] = useState<any>(null);
+
+  // Keep the URL in sync with the current drill-down selection, so a refresh (or a
+  // shared/bookmarked link) restores the same site/project/stage view via the restore
+  // effect above. Must be declared after selectedStage's useState above.
+  useEffect(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (selectedSite) next.set('building', selectedSite.building); else next.delete('building');
+      if (selectedProject) next.set('project', selectedProject.projectCode); else next.delete('project');
+      // Legacy param from the old Dashboard deep-link format - superseded by 'project' above.
+      next.delete('projectCode');
+      if (selectedStage) next.set('stage', selectedStage.id); else next.delete('stage');
+      return next;
+    }, { replace: true });
+  }, [selectedSite, selectedProject, selectedStage, setSearchParams]);
+
   const { updateStageStatus } = useStageManagement(selectedProject?.projectCode || "");
   const { units: siteUnits, addUnit: addSiteUnit, deleteUnit: deleteSiteUnit } = useSiteUnits(selectedSite?.building || "");
   const { comments, addComment, deleteComment, updateComment } = useProjectComments(selectedProject?.projectCode || "");
@@ -842,6 +864,7 @@ const SitesPage = () => {
               // Stage View
               <Suspense fallback={<div>Loading stage...</div>}>
                 <ProjectStageView
+                  key={selectedStage.id}
                   stage={selectedStage}
                   projectCode={selectedProject.projectCode}
                   onBack={() => setSelectedStage(null)}
@@ -2141,6 +2164,18 @@ const SitesPage = () => {
           if (selectedProject) {
             updateProjectStatus(selectedProject.projectCode, newStatus);
             setSelectedProject({ ...selectedProject, status: newStatus });
+          }
+        }}
+        onEditReportTemplatesFolderUrl={(newUrl) => {
+          if (selectedProject) {
+            updateProject(selectedProject.projectCode, {
+              ...selectedProject,
+              reportTemplatesFolderUrl: newUrl,
+            });
+            setSelectedProject({
+              ...selectedProject,
+              reportTemplatesFolderUrl: newUrl,
+            });
           }
         }}
         onAddPOFile={(poFile) => {

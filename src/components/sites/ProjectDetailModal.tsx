@@ -29,7 +29,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
-import { Check, X, Edit2 } from "lucide-react";
+import { Check, X, Edit2, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ProjectRenameResult, ProjectRenameSummary } from "@/hooks/useProjectManagement";
 
@@ -40,6 +40,7 @@ interface ProjectDetailModalProps {
   onEditCode?: (newCode: string) => Promise<ProjectRenameResult | void>;
   onEditDescription?: (newDescription: string) => void;
   onEditStatus?: (newStatus: ProjectStatus) => void;
+  onEditReportTemplatesFolderUrl?: (newUrl: string) => void;
   onAddPOFile?: (file: POFile) => void;
   onDeletePOFile?: (fileId: string) => void;
   proposalNumber?: string; // Show proposal number if available
@@ -60,6 +61,7 @@ export const ProjectDetailModal = ({
   onEditCode,
   onEditDescription,
   onEditStatus,
+  onEditReportTemplatesFolderUrl,
   onAddPOFile,
   onDeletePOFile,
   proposalNumber,
@@ -67,9 +69,13 @@ export const ProjectDetailModal = ({
 }: ProjectDetailModalProps) => {
   const [isEditingCode, setIsEditingCode] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isEditingReportTemplatesUrl, setIsEditingReportTemplatesUrl] = useState(false);
   const [editCodeValue, setEditCodeValue] = useState(project?.projectCode || "");
   const [editDescValue, setEditDescValue] = useState(
     project?.description || ""
+  );
+  const [editReportTemplatesUrlValue, setEditReportTemplatesUrlValue] = useState(
+    project?.reportTemplatesFolderUrl || ""
   );
   const [confirmRenameOpen, setConfirmRenameOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -110,6 +116,12 @@ export const ProjectDetailModal = ({
       setEditDescValue(project.description || "");
     }
   }, [project, isEditingDescription]);
+
+  useEffect(() => {
+    if (project && !isEditingReportTemplatesUrl) {
+      setEditReportTemplatesUrlValue(project.reportTemplatesFolderUrl || "");
+    }
+  }, [project, isEditingReportTemplatesUrl]);
 
   const handleSaveCode = () => {
     if (!onEditCode) {
@@ -160,6 +172,18 @@ export const ProjectDetailModal = ({
   const handleCancelDescription = () => {
     setEditDescValue(project?.description || "");
     setIsEditingDescription(false);
+  };
+
+  const handleSaveReportTemplatesUrl = () => {
+    if (onEditReportTemplatesFolderUrl) {
+      onEditReportTemplatesFolderUrl(editReportTemplatesUrlValue.trim());
+    }
+    setIsEditingReportTemplatesUrl(false);
+  };
+
+  const handleCancelReportTemplatesUrl = () => {
+    setEditReportTemplatesUrlValue(project?.reportTemplatesFolderUrl || "");
+    setIsEditingReportTemplatesUrl(false);
   };
 
   if (!project) return null;
@@ -265,6 +289,70 @@ export const ProjectDetailModal = ({
                     variant="ghost"
                     onClick={() => setIsEditingDescription(true)}
                     className="px-3"
+                  >
+                    <Edit2 className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Report Templates Folder Section */}
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">Report Templates Folder</Label>
+            {isEditingReportTemplatesUrl ? (
+              <div className="space-y-2">
+                <Input
+                  type="url"
+                  value={editReportTemplatesUrlValue}
+                  onChange={(e) => setEditReportTemplatesUrlValue(e.target.value)}
+                  placeholder="Paste SharePoint folder URL..."
+                  className="w-full"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveReportTemplatesUrl}
+                  >
+                    <Check className="h-4 w-4 mr-2" />
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCancelReportTemplatesUrl}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-4 p-3 bg-muted rounded-lg">
+                {editReportTemplatesUrlValue ? (
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <a
+                      href={editReportTemplatesUrlValue}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline truncate"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Open in SharePoint
+                    </a>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground italic">
+                    No report templates folder linked
+                  </span>
+                )}
+                {onEditReportTemplatesFolderUrl && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsEditingReportTemplatesUrl(true)}
+                    className="px-3 flex-shrink-0"
                   >
                     <Edit2 className="h-4 w-4 text-muted-foreground" />
                   </Button>

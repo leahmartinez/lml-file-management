@@ -9,11 +9,12 @@
 
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserByEmail, updateUser } from '../database/tableStorage';
-import { getAuthenticatedUser, hasRole } from '../utils/auth';
+import { getAuthenticatedUser, canUserManageUsers } from '../utils/auth';
 import { sendAccountApprovedEmail } from '../utils/email';
 import { success, error, forbidden, notFound, addCorsHeaders, unauthorized } from '../utils/response';
 import { validateRequestBody, userApproveSchema, isValidationFailure } from '../utils/validation';
 import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
+import { UserRole } from '../../shared/constants/roles';
 
 async function usersApproveHandlerImpl(
   request: HttpRequest,
@@ -31,8 +32,9 @@ async function usersApproveHandlerImpl(
       return addCorsHeaders(unauthorized(), request.headers.get('origin') || undefined);
     }
 
-    // Check authorization
-    if (!hasRole(currentUser, ['admin', 'consultant'])) {
+    // AUTHORIZATION: Only Admin can approve users
+    if (!canUserManageUsers(currentUser)) {
+      context.warn(`Access denied: ${currentUser.email} (${currentUser.role}) attempted to approve user`);
       return addCorsHeaders(forbidden('Only admins can approve users'), request.headers.get('origin') || undefined);
     }
 

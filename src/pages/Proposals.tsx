@@ -5,9 +5,13 @@ import { useProposals } from '@/hooks/useProposals';
 import { useSiteManagement } from '@/hooks/useSiteManagement';
 import { useProjectManagement } from '@/hooks/useProjectManagement';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useContacts } from '@/hooks/useContacts';
 import { useProposalTemplates } from '@/hooks/useProposalTemplates';
+import { useJobTypes } from '@/hooks/useJobTypes';
 import { AddExternalContactModal } from '@/components/contacts/AddExternalContactModal';
+import { FilterPanel, ProposalFilters } from '@/components/proposals/FilterPanel';
+import { RichTextEditor } from '@/components/RichTextEditor';
 import { Proposal, ProposalStatus, Project, Site, ProjectStage, ProjectState, ExternalContact } from '@/types/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,19 +23,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Plus, FileText, Search, Check, Edit, Trash2, Building2, Download, Copy, RefreshCw, UserPlus } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, FileText, Search, Check, Edit, Trash2, Building2, Download, Copy, RefreshCw, UserPlus, Link, ExternalLink } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 // Status filter options (drafts are managed in a separate section)
 const STATUS_OPTIONS: Array<ProposalStatus | 'All'> = ['All', 'Sent', 'Under Review', 'Accepted', 'Part Acceptance', 'Rejected', 'Expired'];
 
 const Proposals = () => {
   const { user } = useAuth();
+  const { canSeeFinancials } = usePermissions();
   const { proposals, addProposal, updateProposal, updateProposalStatus, deleteProposal, generateProposalNumber, refreshProposals } = useProposals();
   const { sites: sitesData, addSite } = useSiteManagement();
   const { projects: projectsData, addProject, updateProject } = useProjectManagement();
   const { contacts, fetchContacts, createContact, categories, fetchCategories } = useContacts();
   const { templates } = useProposalTemplates();
+  const { activeJobTypes } = useJobTypes();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [draftSearchQuery, setDraftSearchQuery] = useState('');
@@ -44,6 +52,19 @@ const Proposals = () => {
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [nextProposalNumber, setNextProposalNumber] = useState('');
   const [selectedStagesForAcceptance, setSelectedStagesForAcceptance] = useState<string[]>([]);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [isEditingSharePointUrl, setIsEditingSharePointUrl] = useState(false);
+  const [sharePointUrlInput, setSharePointUrlInput] = useState('');
+  const [isSavingSharePointUrl, setIsSavingSharePointUrl] = useState(false);
+  const [filters, setFilters] = useState<ProposalFilters>({
+    proposalNumber: '',
+    buildingName: '',
+    siteName: '',
+    address: '',
+    suburb: '',
+    state: [],
+    postcode: '',
+  });
 
   const [formData, setFormData] = useState({
     contactId: '', // Select from existing contacts
@@ -55,7 +76,10 @@ const Proposals = () => {
     state: '',
     city: '',
     postcode: '',
-    description: '',
+    generalDescription: '', // Rich text general description
+    description: '', // Short summary
+    jobTypeId: '', // Job type ID
+    jobTypeName: '', // Job type name (denormalized)
     estimatedValue: '',
     status: 'Draft' as ProposalStatus,
     notes: '',
@@ -172,11 +196,45 @@ const Proposals = () => {
       );
     }
 
+    // Advanced filters
+    if (filters.proposalNumber.trim()) {
+      const query = filters.proposalNumber.toLowerCase();
+      filtered = filtered.filter(p => p.proposalNumber.toLowerCase().includes(query));
+    }
+
+    if (filters.buildingName.trim() || filters.siteName.trim()) {
+      const buildingQuery = filters.buildingName.toLowerCase();
+      const siteQuery = filters.siteName.toLowerCase();
+      filtered = filtered.filter(p => {
+        const matchesBuilding = !buildingQuery || p.siteName.toLowerCase().includes(buildingQuery);
+        const matchesSite = !siteQuery || p.siteName.toLowerCase().includes(siteQuery);
+        return matchesBuilding && matchesSite;
+      });
+    }
+
+    if (filters.address.trim()) {
+      const query = filters.address.toLowerCase();
+      filtered = filtered.filter(p => p.siteAddress?.toLowerCase().includes(query));
+    }
+
+    if (filters.suburb.trim()) {
+      const query = filters.suburb.toLowerCase();
+      filtered = filtered.filter(p => p.city?.toLowerCase().includes(query));
+    }
+
+    if (filters.state.length > 0) {
+      filtered = filtered.filter(p => p.state && filters.state.includes(p.state));
+    }
+
+    if (filters.postcode.trim()) {
+      filtered = filtered.filter(p => p.postcode === filters.postcode);
+    }
+
     // Sort by created date (newest first)
     return filtered.sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [activeProposals, statusFilter, searchQuery]);
+  }, [activeProposals, statusFilter, searchQuery, filters]);
 
   const filteredDrafts = useMemo(() => {
     if (!draftSearchQuery.trim()) {
@@ -229,7 +287,10 @@ const Proposals = () => {
       state: '',
       city: '',
       postcode: '',
+      generalDescription: '',
       description: '',
+      jobTypeId: '',
+      jobTypeName: '',
       estimatedValue: '',
       status: 'Draft' as ProposalStatus,
       notes: '',
@@ -267,6 +328,16 @@ const Proposals = () => {
       return;
     }
 
+    // Validate job type is selected
+    if (!formData.jobTypeId) {
+      toast({
+        title: "Validation Error",
+        description: "Job type is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // If creating a new site (not using existing), require address fields
     if (!formData.existingSiteBuilding) {
       if (!formData.siteAddress.trim() || !formData.state.trim() || !formData.city.trim() || !formData.postcode.trim()) {
@@ -298,7 +369,10 @@ const Proposals = () => {
       state: formData.state as ProjectState || undefined,
       city: formData.city || undefined,
       postcode: formData.postcode || undefined,
+      generalDescription: formData.generalDescription || undefined,
       description: formData.description,
+      jobTypeId: formData.jobTypeId,
+      jobTypeName: formData.jobTypeName,
       estimatedValue: formData.estimatedValue ? parseFloat(formData.estimatedValue) : undefined,
       notes: formData.notes || undefined,
       status: isDraft ? 'Draft' : 'Sent',
@@ -313,13 +387,26 @@ const Proposals = () => {
   const handleEditProposal = () => {
     if (!selectedProposal) return;
 
+    // Validate job type is selected
+    if (!formData.jobTypeId) {
+      toast({
+        title: "Validation Error",
+        description: "Job type is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
     updateProposal(selectedProposal.id, {
       siteName: formData.siteName,
       siteAddress: formData.siteAddress || undefined,
       state: formData.state as ProjectState || undefined,
       city: formData.city || undefined,
       postcode: formData.postcode || undefined,
+      generalDescription: formData.generalDescription || undefined,
       description: formData.description,
+      jobTypeId: formData.jobTypeId,
+      jobTypeName: formData.jobTypeName,
       estimatedValue: formData.estimatedValue ? parseFloat(formData.estimatedValue) : undefined,
       status: formData.status,
       stages: proposalStages.length > 0 ? proposalStages : undefined,
@@ -347,7 +434,10 @@ const Proposals = () => {
       state: proposal.state || '',
       city: proposal.city || '',
       postcode: proposal.postcode || '',
+      generalDescription: proposal.generalDescription || '',
       description: proposal.description,
+      jobTypeId: proposal.jobTypeId || '',
+      jobTypeName: proposal.jobTypeName || '',
       estimatedValue: proposal.estimatedValue?.toString() || '',
       status: proposal.status,
       notes: proposal.notes || '',
@@ -515,18 +605,118 @@ const Proposals = () => {
     }
   };
 
-  // Calculate stats
+  const handleSaveSharePointUrl = async () => {
+    if (!selectedProposal) return;
+
+    // Basic URL validation
+    const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+    if (sharePointUrlInput.trim() && !urlPattern.test(sharePointUrlInput.trim())) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingSharePointUrl(true);
+    try {
+      // For now, update locally since there's no API endpoint yet
+      // TODO: Replace with actual API call when backend endpoint is ready
+      // await apiRequest(`/proposals/${selectedProposal.id}/sharepoint-url`, {
+      //   method: 'PATCH',
+      //   body: JSON.stringify({ sharePointFolderUrl: sharePointUrlInput.trim() }),
+      // });
+
+      updateProposal(selectedProposal.id, {
+        sharePointFolderUrl: sharePointUrlInput.trim() || undefined,
+      });
+
+      toast({
+        title: "Success",
+        description: "SharePoint folder link saved",
+      });
+
+      setIsEditingSharePointUrl(false);
+
+      // Update the selected proposal in state to reflect the change
+      if (selectedProposal) {
+        setSelectedProposal({
+          ...selectedProposal,
+          sharePointFolderUrl: sharePointUrlInput.trim() || undefined,
+        });
+      }
+    } catch (error) {
+      console.error('Error saving SharePoint URL:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save SharePoint link",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingSharePointUrl(false);
+    }
+  };
+
+  // Calculate stats based on FILTERED proposals (not all proposals)
   const stats = useMemo(() => {
-    const pending = activeProposals.filter(p => ['Sent', 'Under Review'].includes(p.status)).length;
-    const accepted = activeProposals.filter(p => p.status === 'Accepted' || p.status === 'Part Acceptance').length;
-    const totalValue = activeProposals.reduce((sum, p) => {
+    // Use filteredProposals but ignore status filter for stats
+    let dataForStats = activeProposals;
+
+    // Apply same filters as filteredProposals, except status filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      dataForStats = dataForStats.filter(p =>
+        p.proposalNumber.toLowerCase().includes(query) ||
+        p.clientName.toLowerCase().includes(query) ||
+        p.siteName.toLowerCase().includes(query) ||
+        p.description.toLowerCase().includes(query)
+      );
+    }
+
+    if (filters.proposalNumber.trim()) {
+      const query = filters.proposalNumber.toLowerCase();
+      dataForStats = dataForStats.filter(p => p.proposalNumber.toLowerCase().includes(query));
+    }
+
+    if (filters.buildingName.trim() || filters.siteName.trim()) {
+      const buildingQuery = filters.buildingName.toLowerCase();
+      const siteQuery = filters.siteName.toLowerCase();
+      dataForStats = dataForStats.filter(p => {
+        const matchesBuilding = !buildingQuery || p.siteName.toLowerCase().includes(buildingQuery);
+        const matchesSite = !siteQuery || p.siteName.toLowerCase().includes(siteQuery);
+        return matchesBuilding && matchesSite;
+      });
+    }
+
+    if (filters.address.trim()) {
+      const query = filters.address.toLowerCase();
+      dataForStats = dataForStats.filter(p => p.siteAddress?.toLowerCase().includes(query));
+    }
+
+    if (filters.suburb.trim()) {
+      const query = filters.suburb.toLowerCase();
+      dataForStats = dataForStats.filter(p => p.city?.toLowerCase().includes(query));
+    }
+
+    if (filters.state.length > 0) {
+      dataForStats = dataForStats.filter(p => p.state && filters.state.includes(p.state));
+    }
+
+    if (filters.postcode.trim()) {
+      dataForStats = dataForStats.filter(p => p.postcode === filters.postcode);
+    }
+
+    const pending = dataForStats.filter(p => ['Sent', 'Under Review'].includes(p.status)).length;
+    const accepted = dataForStats.filter(p => p.status === 'Accepted' || p.status === 'Part Acceptance').length;
+    const totalValue = dataForStats.reduce((sum, p) => {
       if (p.stages) {
         return sum + p.stages.reduce((stageSum, s) => stageSum + (s.price || 0), 0);
       }
       return sum;
     }, 0);
-    return { total: activeProposals.length, pending, accepted, totalValue };
-  }, [activeProposals]);
+    return { total: dataForStats.length, pending, accepted, totalValue };
+  }, [activeProposals, searchQuery, filters]);
 
   // Get count for each status
   const getStatusCount = (status: ProposalStatus | 'All') => {
@@ -652,12 +842,14 @@ const Proposals = () => {
                 <div className="text-4xl font-bold text-green-600">{stats.accepted}</div>
               </div>
             </div>
-            <div className="rounded-lg border border-border bg-card p-6 hover:shadow-md transition-shadow">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Value</p>
-                <div className="text-3xl font-bold text-primary">${stats.totalValue.toLocaleString()}</div>
+            {canSeeFinancials && (
+              <div className="rounded-lg border border-border bg-card p-6 hover:shadow-md transition-shadow">
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Value</p>
+                  <div className="text-3xl font-bold text-primary">${stats.totalValue.toLocaleString()}</div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Actions Bar */}
@@ -715,6 +907,14 @@ const Proposals = () => {
             </div>
           </div>
 
+          {/* Filter Panel */}
+          <FilterPanel
+            filters={filters}
+            onFilterChange={setFilters}
+            isOpen={isFilterPanelOpen}
+            onToggle={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+          />
+
           {/* Proposals Table */}
           <Card>
             <CardHeader className="pb-3">
@@ -743,7 +943,10 @@ const Proposals = () => {
                         <TableHead className="border-b border-r border-border/30 font-semibold">Client</TableHead>
                         <TableHead className="border-b border-r border-border/30 font-semibold">Site</TableHead>
                         <TableHead className="border-b border-r border-border/30 font-semibold max-w-[200px]">Description</TableHead>
-                        <TableHead className="border-b border-r border-border/30 font-semibold w-28 text-right">Value</TableHead>
+                        {canSeeFinancials && <TableHead className="border-b border-r border-border/30 font-semibold w-28 text-right">Value</TableHead>}
+                        <TableHead className="border-b border-r border-border/30 font-semibold w-12 text-center" title="SharePoint Folder">
+                          <Link className="h-4 w-4 mx-auto" />
+                        </TableHead>
                         <TableHead className="border-b border-r border-border/30 font-semibold w-32">Status</TableHead>
                         <TableHead className="border-b border-r border-border/30 font-semibold w-28">Created</TableHead>
                         {isConsultant && <TableHead className="border-b border-border/30 font-semibold w-28 text-center">Actions</TableHead>}
@@ -785,14 +988,37 @@ const Proposals = () => {
                           <TableCell className="border-r border-border/30 max-w-[200px]">
                             <span className="line-clamp-2 text-sm">{proposal.description}</span>
                           </TableCell>
-                          <TableCell className="border-r border-border/30 text-right font-medium">
-                            {proposal.stages && proposal.stages.some(s => s.price !== undefined) ? (
-                              <span className="text-primary">
-                                ${proposal.stages.reduce((sum, s) => sum + (s.price || 0), 0).toLocaleString()}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
+                          {canSeeFinancials && (
+                            <TableCell className="border-r border-border/30 text-right font-medium">
+                              {proposal.stages && proposal.stages.some(s => s.price !== undefined) ? (
+                                <span className="text-primary">
+                                  ${proposal.stages.reduce((sum, s) => sum + (s.price || 0), 0).toLocaleString()}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          )}
+                          <TableCell className="border-r border-border/30 text-center">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Link
+                                    className={cn(
+                                      "h-4 w-4 inline-block",
+                                      proposal.sharePointFolderUrl
+                                        ? "text-[#7A1C1C]"
+                                        : "text-muted-foreground/50"
+                                    )}
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {proposal.sharePointFolderUrl
+                                    ? "SharePoint folder linked"
+                                    : "No SharePoint folder linked"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </TableCell>
                           <TableCell className="border-r border-border/30">
                             <Badge variant="outline" className={getStatusBadgeClass(proposal.status)}>
@@ -898,7 +1124,10 @@ const Proposals = () => {
                         <TableHead className="border-b border-r border-border/30 font-semibold">Client</TableHead>
                         <TableHead className="border-b border-r border-border/30 font-semibold">Site</TableHead>
                         <TableHead className="border-b border-r border-border/30 font-semibold max-w-[200px]">Description</TableHead>
-                        <TableHead className="border-b border-r border-border/30 font-semibold w-28 text-right">Value</TableHead>
+                        {canSeeFinancials && <TableHead className="border-b border-r border-border/30 font-semibold w-28 text-right">Value</TableHead>}
+                        <TableHead className="border-b border-r border-border/30 font-semibold w-12 text-center" title="SharePoint Folder">
+                          <Link className="h-4 w-4 mx-auto" />
+                        </TableHead>
                         <TableHead className="border-b border-r border-border/30 font-semibold w-28">Created</TableHead>
                         {isConsultant && <TableHead className="border-b border-border/30 font-semibold w-24 text-center">Actions</TableHead>}
                       </TableRow>
@@ -939,14 +1168,37 @@ const Proposals = () => {
                           <TableCell className="border-r border-border/30 max-w-[200px]">
                             <span className="line-clamp-2 text-sm">{proposal.description}</span>
                           </TableCell>
-                          <TableCell className="border-r border-border/30 text-right font-medium">
-                            {proposal.stages && proposal.stages.some(s => s.price !== undefined) ? (
-                              <span className="text-primary">
-                                ${proposal.stages.reduce((sum, s) => sum + (s.price || 0), 0).toLocaleString()}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
+                          {canSeeFinancials && (
+                            <TableCell className="border-r border-border/30 text-right font-medium">
+                              {proposal.stages && proposal.stages.some(s => s.price !== undefined) ? (
+                                <span className="text-primary">
+                                  ${proposal.stages.reduce((sum, s) => sum + (s.price || 0), 0).toLocaleString()}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          )}
+                          <TableCell className="border-r border-border/30 text-center">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Link
+                                    className={cn(
+                                      "h-4 w-4 inline-block",
+                                      proposal.sharePointFolderUrl
+                                        ? "text-[#7A1C1C]"
+                                        : "text-muted-foreground/50"
+                                    )}
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {proposal.sharePointFolderUrl
+                                    ? "SharePoint folder linked"
+                                    : "No SharePoint folder linked"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </TableCell>
                           <TableCell className="border-r border-border/30 text-sm">
                             {new Date(proposal.createdAt).toLocaleDateString()}
@@ -1269,15 +1521,70 @@ const Proposals = () => {
               </div>
             </div>
 
+            {/* General Description - Rich Text (optional) */}
             <div>
-              <Label htmlFor="description">Description *</Label>
+              <Label htmlFor="generalDescription">General Description</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Optional rich text description with formatting
+              </p>
+              <div className="border rounded-md">
+                <RichTextEditor
+                  value={formData.generalDescription}
+                  onChange={(html, text) => {
+                    setFormData({ ...formData, generalDescription: html });
+                  }}
+                  placeholder="Enter detailed description with formatting..."
+                />
+              </div>
+            </div>
+
+            {/* Description - Short Summary (required) */}
+            <div>
+              <Label htmlFor="description">Description (Short Summary) *</Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Describe the scope of work..."
-                rows={4}
+                placeholder="Brief summary of the scope of work..."
+                rows={3}
               />
+            </div>
+
+            {/* Job Type - Dropdown (required) */}
+            <div>
+              <Label htmlFor="jobType">Job Type *</Label>
+              <Select
+                value={formData.jobTypeId}
+                onValueChange={(value) => {
+                  const selectedJobType = activeJobTypes.find(jt => jt.id === value);
+                  setFormData({
+                    ...formData,
+                    jobTypeId: value,
+                    jobTypeName: selectedJobType?.name || '',
+                  });
+                }}
+              >
+                <SelectTrigger id="jobType">
+                  <SelectValue placeholder="Select a job type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeJobTypes.map((jobType) => (
+                    <SelectItem key={jobType.id} value={jobType.id}>
+                      {jobType.name}
+                      {jobType.description && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          - {jobType.description}
+                        </span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formData.jobTypeName && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Selected: {formData.jobTypeName}
+                </p>
+              )}
             </div>
 
             {!isEditModalOpen && templates.length > 0 && (
@@ -1337,13 +1644,13 @@ const Proposals = () => {
             )}
 
             <div>
-              <Label>Proposed Stages</Label>
+              <Label>Items</Label>
               <div className="space-y-3 mt-2">
                 {proposalStages.map((stage, index) => (
                   <div key={index} className="p-4 border rounded-lg bg-card hover:border-primary/50 transition-colors">
                     <div className="flex items-end gap-3">
                       <div className="flex-1">
-                        <Label className="text-sm font-medium text-muted-foreground mb-2 block">Stage Name</Label>
+                        <Label className="text-sm font-medium text-muted-foreground mb-2 block">Item Name</Label>
                         <Input
                           type="text"
                           value={stage.name}
@@ -1405,12 +1712,12 @@ const Proposals = () => {
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Stage
+                  Add Item
                 </Button>
 
                 {proposalStages.length === 0 && (
                   <div className="p-3 border border-dashed rounded-lg bg-muted/30 text-center">
-                    <p className="text-sm text-muted-foreground">No stages added yet. Add stages to break down your proposal into components.</p>
+                    <p className="text-sm text-muted-foreground">No items added yet. Add items to break down your proposal into components.</p>
                   </div>
                 )}
               </div>
@@ -1543,7 +1850,7 @@ const Proposals = () => {
                               {stage.name}
                               {isAlreadyAccepted && <span className="ml-2 text-xs text-green-600">(Already accepted)</span>}
                             </label>
-                            {stage.price !== undefined && (
+                            {canSeeFinancials && stage.price !== undefined && (
                               <span className="text-sm font-medium text-primary ml-2">${stage.price.toFixed(2)}</span>
                             )}
                           </div>
@@ -1554,7 +1861,7 @@ const Proposals = () => {
                   <p className="text-xs text-muted-foreground mt-2">
                     {selectedStagesForAcceptance.length} of {selectedProposal.stages.length - (selectedProposal.acceptedStageNames?.length || 0)} remaining stages selected
                   </p>
-                  {selectedStagesForAcceptance.length > 0 && selectedProposal.stages.some(s => selectedStagesForAcceptance.includes(s.name) && s.price !== undefined) && (
+                  {canSeeFinancials && selectedStagesForAcceptance.length > 0 && selectedProposal.stages.some(s => selectedStagesForAcceptance.includes(s.name) && s.price !== undefined) && (
                     <div className="mt-3 p-2 bg-primary/10 rounded border border-primary/20 flex justify-between items-center">
                       <span className="text-sm font-semibold">Selected Stages Total:</span>
                       <span className="font-bold text-primary">
@@ -1587,7 +1894,15 @@ const Proposals = () => {
       </Dialog>
 
       {/* Detail Modal */}
-      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+      <Dialog open={isDetailModalOpen} onOpenChange={(open) => {
+        setIsDetailModalOpen(open);
+        if (!open) {
+          setIsEditingSharePointUrl(false);
+          setSharePointUrlInput('');
+        } else if (selectedProposal) {
+          setSharePointUrlInput(selectedProposal.sharePointFolderUrl || '');
+        }
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Proposal Details</DialogTitle>
@@ -1639,10 +1954,28 @@ const Proposals = () => {
                 {selectedProposal.state && <p className="text-sm text-muted-foreground">{selectedProposal.state}</p>}
               </div>
 
+              {/* Job Type Display */}
+              {selectedProposal.jobTypeName && (
+                <div>
+                  <Label className="text-sm text-muted-foreground">Job Type</Label>
+                  <p className="mt-2 font-medium">{selectedProposal.jobTypeName}</p>
+                </div>
+              )}
+
+              {/* General Description Display */}
+              {selectedProposal.generalDescription && (
+                <div>
+                  <Label className="text-sm text-muted-foreground">General Description</Label>
+                  <div
+                    className="mt-2 p-3 bg-muted/30 rounded-md border text-sm prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: selectedProposal.generalDescription }}
+                  />
+                </div>
+              )}
 
               <div>
-                <Label className="text-sm text-muted-foreground">Description</Label>
-                <p className="text-sm">{selectedProposal.description}</p>
+                <Label className="text-sm text-muted-foreground">Description (Summary)</Label>
+                <p className="text-sm mt-2">{selectedProposal.description}</p>
               </div>
 
               {selectedProposal.projectCode && (
@@ -1654,7 +1987,7 @@ const Proposals = () => {
 
               {selectedProposal.stages && selectedProposal.stages.length > 0 && (
                 <div>
-                  <Label className="text-sm text-muted-foreground">Stages ({selectedProposal.acceptedStageNames?.length || 0}/{selectedProposal.stages.length} accepted)</Label>
+                  <Label className="text-sm text-muted-foreground">Items ({selectedProposal.acceptedStageNames?.length || 0}/{selectedProposal.stages.length} accepted)</Label>
                   <div className="space-y-2 mt-2 border rounded p-3 bg-muted/30">
                     {selectedProposal.stages.map((stage) => {
                       const isAccepted = selectedProposal.acceptedStageNames?.includes(stage.name);
@@ -1666,14 +1999,14 @@ const Proposals = () => {
                             </span>
                             <span>{stage.name}</span>
                           </div>
-                          {stage.price !== undefined && (
+                          {canSeeFinancials && stage.price !== undefined && (
                             <span className="font-medium text-primary">${stage.price.toFixed(2)}</span>
                           )}
                         </div>
                       );
                     })}
                   </div>
-                  {selectedProposal.stages.some(s => s.price !== undefined) && (
+                  {canSeeFinancials && selectedProposal.stages.some(s => s.price !== undefined) && (
                     <div className="mt-3 p-3 bg-primary/10 rounded border border-primary/20 flex justify-between items-center">
                       <span className="font-semibold">Total:</span>
                       <span className="text-lg font-bold text-primary">
@@ -1683,6 +2016,91 @@ const Proposals = () => {
                   )}
                 </div>
               )}
+
+              {/* SharePoint Folder Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Documents</h3>
+                </div>
+
+                {/* No URL saved state */}
+                {!selectedProposal.sharePointFolderUrl && !isEditingSharePointUrl && (
+                  <div className="rounded-lg border border-dashed border-muted-foreground/25 p-6 text-center">
+                    <p className="text-sm text-muted-foreground mb-3">No proposals folder linked yet</p>
+                    <div className="flex flex-col gap-2 max-w-md mx-auto">
+                      <Input
+                        value={sharePointUrlInput}
+                        onChange={(e) => setSharePointUrlInput(e.target.value)}
+                        placeholder="Paste SharePoint folder URL..."
+                        className="text-sm"
+                      />
+                      <div className="flex gap-2 justify-center">
+                        <Button
+                          size="sm"
+                          onClick={handleSaveSharePointUrl}
+                          disabled={isSavingSharePointUrl || !sharePointUrlInput.trim()}
+                        >
+                          {isSavingSharePointUrl ? 'Saving...' : 'Save Link'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* URL saved state */}
+                {selectedProposal.sharePointFolderUrl && !isEditingSharePointUrl && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => window.open(selectedProposal.sharePointFolderUrl, '_blank')}
+                      className="bg-[#7A1C1C] hover:bg-[#991B1B]"
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Open in SharePoint
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditingSharePointUrl(true);
+                        setSharePointUrlInput(selectedProposal.sharePointFolderUrl || '');
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                )}
+
+                {/* Edit mode */}
+                {isEditingSharePointUrl && (
+                  <div className="flex flex-col gap-2">
+                    <Input
+                      value={sharePointUrlInput}
+                      onChange={(e) => setSharePointUrlInput(e.target.value)}
+                      placeholder="Paste SharePoint folder URL..."
+                      className="text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleSaveSharePointUrl}
+                        disabled={isSavingSharePointUrl}
+                      >
+                        {isSavingSharePointUrl ? 'Saving...' : 'Save'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditingSharePointUrl(false);
+                          setSharePointUrlInput('');
+                        }}
+                        disabled={isSavingSharePointUrl}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {selectedProposal.notes && (
                 <div>

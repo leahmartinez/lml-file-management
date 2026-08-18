@@ -85,11 +85,19 @@ export const useProjectManagement = () => {
         });
 
         let sharepointSummary: SharePointRenameSummary | undefined;
-        try {
-          sharepointSummary = await graphService.migrateProjectFolder(projectCode, newCode);
-        } catch (error: any) {
-          console.warn('SharePoint folder migration failed:', error);
-          sharepointSummary = { error: error?.message || 'SharePoint migration failed' };
+
+        // Skip SharePoint if disabled in environment
+        const sharePointEnabled = import.meta.env.VITE_ENABLE_SHAREPOINT !== 'false';
+        if (sharePointEnabled) {
+          try {
+            sharepointSummary = await graphService.migrateProjectFolder(projectCode, newCode);
+          } catch (error: any) {
+            console.warn('SharePoint folder migration failed:', error);
+            sharepointSummary = { error: error?.message || 'SharePoint migration failed' };
+          }
+        } else {
+          console.log('SharePoint integration disabled - skipping folder migration');
+          sharepointSummary = undefined;
         }
 
         await refetch?.();

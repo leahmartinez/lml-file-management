@@ -115,7 +115,16 @@ export const AssignedWorkTable: React.FC<AssignedWorkTableProps> = (props) => {
                 >
                   <TableCell className="border-r border-border/30 font-medium">{row.projectCode}</TableCell>
                   <TableCell className="border-r border-border/30">{row.building}</TableCell>
-                  <TableCell className="border-r border-border/30">{row.stageName}</TableCell>
+                  <TableCell className="border-r border-border/30">
+                    <div className="flex items-center gap-2">
+                      <span>{row.stageName}</span>
+                      {row.pairedConsultantName && !row.assignedToCurrentUser && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                          {row.pairedConsultantName}'s job
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="border-r border-border/30">
                     <Badge
                       variant={

@@ -8,12 +8,14 @@
  */
 
 import { HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { createProject, createSite, deleteStagesNotIn, getAllProjects, getSiteById, getStagesByProject, updateProject, updateSite, upsertStages } from "../database/tableStorage";
-import { addCorsHeaders, success, unauthorized, error } from "../utils/response";
-import { getAuthenticatedUser } from "../utils/auth";
+import { createProject, createSite, deleteStagesNotIn, getAllProjects, getSiteById, getStagesByProject, updateProject, updateSite, upsertStages, createAlert } from "../database/tableStorage";
+import { addCorsHeaders, success, unauthorized, error, forbidden } from "../utils/response";
+import { getAuthenticatedUser, canUserSetPricing } from "../utils/auth";
 import { validateRequestBody, createProjectSchema, updateProjectSchema, isValidationFailure } from '../utils/validation';
 import { withRateLimit, RATE_LIMITS } from '../utils/rateLimit';
 import { safeParseJsonArray } from '../utils/json';
+import { UserRole } from "../../shared/constants/roles";
+import { getVisibleJobs, getVisibleConsultantEmails } from "../../shared/utils/pairingLogic";
 
 const DEFAULT_STAGE_ORDER: Record<string, number> = {
   Feasibility: 1,
@@ -94,6 +96,65 @@ function mapStageFromEntity(stage: any) {
   };
 }
 
+/**
+ * Create alerts for newly assigned consultants on a stage
+ * Compares old and new consultant lists and creates alerts for new assignments
+ */
+async function createAlertsForNewAssignments(
+  projectCode: string,
+  stageId: string,
+  stageName: string,
+  oldConsultantEmails: string[],
+  newConsultantEmails: string[],
+  context: InvocationContext
+): Promise<void> {
+  // Find newly added consultants (in new but not in old)
+  const newlyAssigned = newConsultantEmails.filter(
+    email => !oldConsultantEmails.includes(email)
+  );
+
+  if (newlyAssigned.length === 0) {
+    return; // No new assignments
+  }
+
+  // Fetch project and site data for the alert message
+  try {
+    const project = await getAllProjects();
+    const projectData = project.find(p => p.projectCode === projectCode);
+
+    if (!projectData) {
+      context.warn(`Project ${projectCode} not found when creating alerts`);
+      return;
+    }
+
+    const siteName = projectData.building || 'Unknown Site';
+    const siteId = projectData.siteId || '';
+
+    // Create an alert for each newly assigned consultant
+    for (const consultantEmail of newlyAssigned) {
+      try {
+        await createAlert({
+          userId: consultantEmail,
+          type: 'STAGE_ASSIGNED',
+          title: 'New stage assigned to you',
+          message: `You have been assigned to ${stageName} at ${siteName} (${projectCode})`,
+          entityType: 'projectStage',
+          entityId: stageId,
+          projectId: projectCode,
+          siteId: siteId,
+        });
+        context.log(`Alert created for ${consultantEmail} - ${stageName} at ${siteName}`);
+      } catch (alertError: any) {
+        // Log error but don't fail the stage update
+        context.error(`Failed to create alert for ${consultantEmail}:`, alertError);
+      }
+    }
+  } catch (err: any) {
+    // Log error but don't fail the stage update
+    context.error('Failed to create alerts for stage assignment:', err);
+  }
+}
+
 async function projectsHandlerImpl(
   request: HttpRequest,
   context: InvocationContext
@@ -109,6 +170,15 @@ async function projectsHandlerImpl(
     }
 
     if (request.method === "POST") {
+      // AUTHORIZATION: Only Admin and Director can create projects
+      if (!canUserSetPricing(user)) {
+        context.warn(`Access denied: ${user.email} (${user.role}) attempted to create project`);
+        return addCorsHeaders(
+          forbidden("Only Admin and Director can create projects"),
+          request.headers.get("origin") || undefined
+        );
+      }
+
       // SECURITY: Validate input using Zod schema
       const validation = await validateRequestBody(request, createProjectSchema);
       if (isValidationFailure(validation)) {
@@ -135,6 +205,7 @@ async function projectsHandlerImpl(
         description: body.description || "",
         projectType: body.projectType,
         customProjectType: body.customProjectType,
+        reportTemplatesFolderUrl: body.reportTemplatesFolderUrl || "",
         createdAt: body.createdAt || new Date().toISOString(),
         createdBy: user.email,
         contactEmails: JSON.stringify(contactEmails),
@@ -178,6 +249,15 @@ async function projectsHandlerImpl(
     }
 
     if (request.method === "PUT") {
+      // AUTHORIZATION: Only Admin and Director can update projects
+      if (!canUserSetPricing(user)) {
+        context.warn(`Access denied: ${user.email} (${user.role}) attempted to update project`);
+        return addCorsHeaders(
+          forbidden("Only Admin and Director can update projects"),
+          request.headers.get("origin") || undefined
+        );
+      }
+
       // SECURITY: Validate input using Zod schema
       const validation = await validateRequestBody(request, updateProjectSchema);
       if (isValidationFailure(validation)) {
@@ -198,6 +278,7 @@ async function projectsHandlerImpl(
       if (body.description !== undefined) updates.description = body.description;
       if (body.projectType !== undefined) updates.projectType = body.projectType;
       if (body.customProjectType !== undefined) updates.customProjectType = body.customProjectType;
+      if (body.reportTemplatesFolderUrl !== undefined) updates.reportTemplatesFolderUrl = body.reportTemplatesFolderUrl;
 
       const contactEmails = body.contacts || body.contactEmails;
       if (contactEmails !== undefined) {
@@ -207,9 +288,38 @@ async function projectsHandlerImpl(
       await updateProject(projectCode, updates);
 
         if (Array.isArray(body.stages) && body.stages.length > 0) {
+          // Fetch existing stages to compare consultant assignments
+          const existingStages = await getStagesByProject(projectCode);
+
           const stageEntities = body.stages.map((stage: any) => mapStageToEntity(projectCode, stage));
           await upsertStages(projectCode, stageEntities);
           await deleteStagesNotIn(projectCode, stageEntities.map(stage => stage.stageId));
+
+          // Create alerts for newly assigned consultants
+          for (const newStage of body.stages) {
+            const stageId = newStage.stageId || newStage.id;
+            const newConsultantEmails = Array.isArray(newStage.consultantEmails)
+              ? newStage.consultantEmails
+              : Array.isArray(newStage.stageConsultantEmails)
+                ? newStage.stageConsultantEmails
+                : [];
+
+            // Find the existing stage to compare
+            const existingStage = existingStages.find(s => s.stageId === stageId || s.rowKey === stageId);
+            const oldConsultantEmails = existingStage
+              ? safeParseJsonArray(existingStage.consultantEmails, [])
+              : [];
+
+            // Create alerts for new assignments
+            await createAlertsForNewAssignments(
+              projectCode,
+              stageId,
+              newStage.name || 'Unknown Stage',
+              oldConsultantEmails,
+              newConsultantEmails,
+              context
+            );
+          }
         }
 
         return addCorsHeaders(success({ projectCode }), request.headers.get("origin") || undefined);
@@ -244,11 +354,32 @@ async function projectsHandlerImpl(
           invoiceStatus: project.invoiceStatus,
           projectType: project.projectType,
           customProjectType: project.customProjectType,
+          reportTemplatesFolderUrl: project.reportTemplatesFolderUrl || "",
         };
       })
     );
 
-    return addCorsHeaders(success(payload), request.headers.get("origin") || undefined);
+    // PAIRING LOGIC: Filter stages based on user role and pairing
+    // Admin, Director, AdminStaff see all projects
+    // LMLConsultant sees their own work + paired consultant work
+    // SubConsultant sees only their own work
+    const userWithPairing = {
+      email: user.email,
+      role: user.role,
+      pairedUserId: user.pairedUserId,
+    };
+
+    // Filter each project's stages based on consultant pairing
+    const filteredPayload = payload.map(project => ({
+      ...project,
+      stages: getVisibleJobs(userWithPairing, project.stages),
+    }));
+
+    // Only return projects that have at least one visible stage
+    // (Admin/Director/AdminStaff see all, consultants see only assigned projects)
+    const visibleProjects = filteredPayload.filter(project => project.stages.length > 0);
+
+    return addCorsHeaders(success(visibleProjects), request.headers.get("origin") || undefined);
   } catch (err: any) {
     context.error("Projects fetch error:", err);
     return addCorsHeaders(error("Failed to fetch projects", 500), request.headers.get("origin") || undefined);

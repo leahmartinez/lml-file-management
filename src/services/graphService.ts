@@ -499,6 +499,25 @@ class GraphService {
   }
 
   /**
+   * Rename any file or folder in place (does not change its parent)
+   */
+  async renameItem(itemId: string, newName: string): Promise<FileMetadata> {
+    try {
+      if (!this.client) throw new Error('Graph client not initialized');
+
+      const response = await this.withRetry(() =>
+        this.client!
+          .api(`/sites/${this.siteId}/drive/items/${itemId}`)
+          .patch({ name: newName })
+      );
+
+      return response as FileMetadata;
+    } catch (error) {
+      throw new Error(`Failed to rename item ${itemId}: ${error}`);
+    }
+  }
+
+  /**
    * Rename a project folder (old project code to new project code)
    * Falls back to creating the new folder if the old one doesn't exist.
    */
